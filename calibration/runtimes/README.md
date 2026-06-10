@@ -10,20 +10,33 @@ Used to refine the heuristic in `scripts/generate_cluster_config.py` (`_CALIBRAT
 | `runs.jsonl` | One JSON object per line — append-only run log |
 | `schema.json` | Field definitions for each record |
 
-## Recording a run
+## Automatic recording
 
-After a sim finishes, copy **`Total simulation time`** from the terminal (not simulated latency).
+Every successful `python -m serving` run appends one line to `runs.jsonl` at the end
+(see `serving/core/runtime_calibration.py`). You should see:
+
+```text
+Recorded runtime calibration to .../calibration/runtimes/runs.jsonl
+```
+
+Disable with:
 
 ```bash
+export LLMSERVINGSIM_RECORD_RUNTIME=0
+```
+
+## Manual recording (optional)
+
+For backfilling old runs or fixing a failed auto-record:
+
+```bash
+cd /app/LLMServingSim   # repo root
 python3 scripts/record_runtime.py \
   --cluster-config 'configs/cluster/generated_8gpu.json' \
   --wall-time '1m 40.547s' \
   --first-log-s 1.0 \
   --instances 8 --gpus 8 --tp-size 1 --pp-size 1 \
-  --model 'meta-llama/Llama-3.1-8B' --hardware RTXPRO6000 \
-  --dtype bfloat16 \
-  --dataset 'workloads/example_trace.jsonl' --num-requests 10 \
-  --notes 'LOAD routing'
+  --notes 'backfill'
 ```
 
 `--wall-time` accepts seconds (`100.5`) or simulator format (`0h 1m 40.547s`).

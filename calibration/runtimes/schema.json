@@ -1,0 +1,25 @@
+{
+  "description": "One JSON object per line in runs.jsonl",
+  "fields": {
+    "recorded_at": "ISO-8601 date or timestamp",
+    "host": "machine label, e.g. nserver15",
+    "cluster_config": "path passed to --cluster-config",
+    "layout": {
+      "instances": "total serving instances",
+      "gpus": "total NPUs",
+      "tp": "tp_size per instance",
+      "pp": "pp_size per instance",
+      "ep": "ep_size per instance",
+      "dp_group": "DP group name or null"
+    },
+    "model": "HF model id",
+    "hardware": "profiler hardware label",
+    "dtype": "serving --dtype",
+    "dataset": "workloads path",
+    "num_requests": "request count in dataset",
+    "wall_time_s": "host wall seconds (from Total simulation time)",
+    "first_log_wall_s": "host wall seconds until first [log-interval] heartbeat, or null",
+    "status": "completed | failed | partial",
+    "notes": "free text"
+  }
+}

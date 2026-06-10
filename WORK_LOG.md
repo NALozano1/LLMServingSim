@@ -76,22 +76,15 @@ cd /app/LLMServingSim
 
 ---
 
-## Runtime calibration (wall clock)
+## Runtime calibration
 
-Use this table to tune `_CALIBRATION` in `scripts/generate_cluster_config.py`.
-Dataset: `workloads/example_trace.jsonl` (10 requests) unless noted.
-Host: nserver15, `servingsim_docker`, `--dtype bfloat16`, `--log-interval 1.0`.
+**Canonical data:** `calibration/runtimes/runs.jsonl` (one JSON record per run). See `calibration/runtimes/README.md`.
 
-| Config | Instances | GPUs | TP | PP | EP | DP | Wall time | First `[1.0s]` log | Notes |
-|--------|-----------|------|----|----|----|----|-----------|-------------------|-------|
-| `single_node_single_instance.json` | 1 | 1 | 1 | 1 | — | — | **~13s** | ~1s | Sim prints `Total simulation time: 0h 0m 13.160s` |
-| `generated_8gpu.json` | 8 | 8 | 1 | 1 | — | — | **~1m 41s** | ~1s | `Total simulation time: 0h 1m 40.547s` |
-| `generated_tp2_pp2.json` | 1 | 4 | 2 | 2 | — | — | *TBD* | *~9–10m est.* | Long PP startup; was ~100% CPU at 9m, no heartbeat yet |
+**Auto-recorded:** every successful `python -m serving` appends to `runs.jsonl` (disable: `LLMSERVINGSIM_RECORD_RUNTIME=0`). Manual backfill: `scripts/record_runtime.py`.
 
-**Where runtime appears:**
-- **Simulator stdout:** `Total simulation time: 0h Xm Ys` at end of every successful run
-- **This file:** calibration table above (manual — update after each run)
-- **Generator:** heuristic only until we plug in calibrated rows
+Use `runs.jsonl` to tune `_CALIBRATION` in `scripts/generate_cluster_config.py`.
+
+**Recorded so far:** single instance (~13s), 8-GPU replicas (~100.5s). `generated_tp2_pp2` — pending.
 
 ---
 

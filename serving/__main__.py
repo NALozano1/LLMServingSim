@@ -25,6 +25,7 @@ from serving.core.config_builder import *
 from serving.core.router import *
 from serving.core.power_model import *
 from serving.core.logger import *
+from serving.core.runtime_calibration import record_simulation_runtime
 import sys as flush
 
 from pyinstrument import Profiler
@@ -431,6 +432,7 @@ def main():
     prompt_th = 0    # Avg Prompt Throguhput per Sec
     gen_th = 0       # Avg Generation Throughput per Sec
     last_log = 0    # last logged time
+    first_log_wall_s = None  # wall seconds until first throughput heartbeat
     FREQ = 1000_000_000 # 1 GHz (1e9 Hz)
     INTERVAL = log_interval*FREQ
     RATIO = FREQ//INTERVAL
@@ -696,6 +698,8 @@ def main():
             # store the prompt
             throughput.append((prompt_th*RATIO, gen_th*RATIO))
             last_log += INTERVAL
+            if first_log_wall_s is None:
+                first_log_wall_s = time() - start_time
             log_time_str = f"[{last_log / FREQ:.1f}s]"
             log_time_len = len(log_time_str)
             log_indent = ' ' * log_time_len + '  '
@@ -946,7 +950,28 @@ def main():
         print(f"Saving each request's information to output file: {output_file}")
         for i in range(num_instances):
             schedulers[i].save_output(output_file, is_append=False if i == 0 else True)
-    
+
+    try:
+        inst0 = instances[0]
+        inst_cfg0 = instance_runtime_configs[0]
+        cal_path = record_simulation_runtime(
+            cluster_config=args.cluster_config,
+            instances=instances,
+            wall_time_s=total_time,
+            first_log_wall_s=first_log_wall_s,
+            model=inst0["model_name"],
+            hardware=inst0["hardware"],
+            dtype=inst_cfg0["dtype"],
+            dataset=dataset,
+            num_requests=req_cnt,
+            request_routing_policy=request_routing_policy,
+            notes=f"output={output_file}" if output_file else "",
+        )
+        if cal_path is not None:
+            print(f"Recorded runtime calibration to {cal_path}")
+    except Exception as exc:
+        print(f"warning: failed to record runtime calibration: {exc}", file=flush.stderr)
+
 
 if __name__ == "__main__": 
     # For simulation time breakdown

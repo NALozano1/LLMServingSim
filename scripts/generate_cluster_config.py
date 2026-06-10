@@ -426,7 +426,9 @@ def estimate_runtime(
     if num_requests != 10:
         notes.append(f"Scaled for --num-requests={num_requests} (calibration used 10).")
 
-    notes.append("Calibrated on nserver15; container CPU load and dataset size dominate variance.")
+    notes.append(
+        "Heuristic constants in _CALIBRATION; ground truth in calibration/runtimes/runs.jsonl"
+    )
 
     total = startup + body
     first_log = min(startup, max(1.0, startup * 0.85))
