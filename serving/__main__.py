@@ -26,6 +26,7 @@ from serving.core.router import *
 from serving.core.power_model import *
 from serving.core.logger import *
 from serving.core.runtime_calibration import record_simulation_runtime
+from serving.core.work_state import WorkStateLogger, batch_to_work_record, trace_path_for
 import sys as flush
 
 from pyinstrument import Profiler
@@ -61,8 +62,27 @@ def _pad_batch_to_max(batch, max_len):
     batch.num_decode += pad              # counted for lm_head / dense shape
 
 
+
+def _log_batch_scheduled(work_logger, current, batch, instance_id, instances, inst2npu_mapping, is_dummy=False):
+    if work_logger is None:
+        return
+    inst = instances[instance_id]
+    start = inst2npu_mapping[instance_id]
+    npu_ids = list(range(start, start + inst["num_npus"]))
+    tpath = trace_path_for(inst["hardware"], inst["model_name"], instance_id, batch.batch_id)
+    work_logger.log_batch_scheduled(
+        current,
+        batch_to_work_record(batch, instance_id, npu_ids, tpath, is_dummy=is_dummy),
+    )
+
 def _runtime_limit(value):
     return float('inf') if value == 0 else value
+
+
+def _repo_relative_path(path):
+    if path is None or os.path.isabs(path):
+        return path
+    return os.path.join("..", path)
 
 
 def _cluster_config_path(path):
@@ -226,6 +246,10 @@ def main():
                         help='KV cache data type: auto (use default profile.csv) or fp8 (use profile_fp8.csv, halves KV cache memory)')
     parser.add_argument('--network-backend', type=str, choices=['analytical', 'ns3'], default='analytical',
                         help='network simulation backend: analytical (fast, default) or ns3 (detailed, WIP)')
+    parser.add_argument('--work-events', type=str, default=None,
+                        help='JSONL path for per-layer work-availability events')
+    parser.add_argument('--work-summary', type=str, default=None,
+                        help='CSV path for periodic per-NPU work summary (requires --work-events)')
 
     args = parser.parse_args()
     
@@ -453,14 +477,14 @@ def main():
     # set first workload file
     workload = get_workload(None, None, event=True)
     # run subprocess
-    args = [binary, "--workload-configuration="+workload, "--system-configuration="+system, "--network-configuration="+network, "--memory-configuration="+memory]
+    astra_cmd = [binary, "--workload-configuration="+workload, "--system-configuration="+system, "--network-configuration="+network, "--memory-configuration="+memory]
     if start_npu_ids != "":
-        args.append("--start-npu-ids="+start_npu_ids)
+        astra_cmd.append("--start-npu-ids="+start_npu_ids)
     if end_npu_ids != "":
-        args.append("--end-npu-ids="+end_npu_ids)
+        astra_cmd.append("--end-npu-ids="+end_npu_ids)
     if network_backend == 'ns3':
-        args.append("--logical-topology-configuration="+astra_sim+"/inputs/logical_topology/logical_8nodes_1D.json")
-    p = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
+        astra_cmd.append("--logical-topology-configuration="+astra_sim+"/inputs/logical_topology/logical_8nodes_1D.json")
+    p = subprocess.Popen(astra_cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
 
     # DP group synchronization: defer trace generation until all members have scheduled
     # dp_groups maps dp_group_name -> list of instance_ids
@@ -478,6 +502,20 @@ def main():
     dp_pending = {dg: {} for dg in dp_groups}  # dp_group -> {instance_id: (new_req, sys)}
     # Pre-generated workloads ready to submit on next "Waiting"
     dp_ready_workloads = {}  # instance_id -> workload_path
+
+    work_logger = None
+    if args.work_events:
+        summary_interval_ns = int(log_interval * FREQ)
+        work_logger = WorkStateLogger(
+            _repo_relative_path(args.work_events),
+            _repo_relative_path(args.work_summary),
+            summary_interval_ns,
+        )
+        inst2npus = {
+            i: list(range(inst2npu_mapping[i], inst2npu_mapping[i] + instances[i]["num_npus"]))
+            for i in range(num_instances)
+        }
+        work_logger.log_sim_start(0, npu2inst_mapping, inst2npus)
 
     # ----------------------------------- Start simulation loop ------------------------------------
     # Starting simulation, one while loop processes one iteration
@@ -497,6 +535,10 @@ def main():
 
         instance_id = npu2inst_mapping[sys]  # get instance id from NPU id
         node_id = inst2node_mapping[instance_id] # get node id from instance id
+
+        if work_logger is not None and out_dict is not None:
+            work_logger.log_iteration_complete(
+                current, out_dict['sys'], out_dict['id'] - 1, instance_id)
 
         # add stanby energy consumption for power modeling
         if power_modeling and sys == inst2npu_mapping[instance_id] and waiting_request[instance_id]:
@@ -595,6 +637,8 @@ def main():
                                        inst_id, inst2npu_mapping[inst_id],
                                        inst_cfg["enable_local_offloading"],
                                        workload_name=dp_workload_name)
+                        _log_batch_scheduled(work_logger, current, batch, inst_id, instances, inst2npu_mapping,
+                                             is_dummy=(len(batch.requests) == 0))
                         if inst_id != instance_id:
                             dp_ready_workloads[inst_id] = get_workload(batch, inst["hardware"], inst_id,
                                                                     workload_name=dp_workload_name)
@@ -657,6 +701,7 @@ def main():
                                            inst_id, inst2npu_mapping[inst_id],
                                            inst_cfg["enable_local_offloading"],
                                            workload_name=dp_workload_name)
+                            _log_batch_scheduled(work_logger, current, batch, inst_id, instances, inst2npu_mapping)
                             if inst_id != instance_id:
                                 dp_ready_workloads[inst_id] = get_workload(batch, inst["hardware"], inst_id,
                                                                         workload_name=dp_workload_name)
@@ -686,6 +731,7 @@ def main():
                     generate_graph(new_req, instance["hardware"], instance["num_npus"], node_id,
                                    instance_id, inst2npu_mapping[instance_id],
                                    inst_cfg["enable_local_offloading"])
+                    _log_batch_scheduled(work_logger, current, new_req, instance_id, instances, inst2npu_mapping)
                     workload = get_workload(new_req, instance["hardware"], instance_id)
                     controller.write_flush(p, workload)
             elif new_req is not None:
@@ -715,6 +761,10 @@ def main():
             )
             prompt_th = 0
             gen_th = 0
+
+            if work_logger is not None:
+                work_logger.log_scheduler_snapshot(
+                    current, schedulers, router, current, inst2npu_mapping, instances)
 
             ######### Per Instance Metrics #########
 
@@ -899,6 +949,9 @@ def main():
     total_latency = current/FREQ
     print_rule()
     print_markup("[sim.heading]▶ Simulation results...[/]\n")
+    if work_logger is not None:
+        work_logger.close()
+
     print_markup(f"Total simulation time: {int(hours)}h {int(minutes)}m {seconds:.3f}s")
     print_rule("[sim.tagline]Throughput Results[/]")
     print_markup(f"Total requests:                                                     {req_cnt}")

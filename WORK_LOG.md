@@ -150,3 +150,4 @@ python3 scripts/generate_cluster_config.py \
 | 2026-06-10 | Created `scripts/generate_cluster_config.py` for TP/PP/EP/DP combinations and large-scale layouts (beyond bundled cluster JSONs) |
 | 2026-06-10 | **8-GPU generated config sim passed** — `outputs/generated_8gpu_run.csv` (~1m 41s) |
 | 2026-06-10 | Runtime estimator added to config generator; calibration table in this log |
+| 2026-06-15 | **dynamic-dvfs branch:** layer-wise work availability — `--work-events` JSONL + `python -m serving.tools.query_work_state --at-ns T` |

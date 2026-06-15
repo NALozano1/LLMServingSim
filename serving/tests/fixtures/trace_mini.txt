@@ -1,0 +1,4 @@
+Layername                      comp_time      input_loc      input_size     weight_loc     weight_size    output_loc     output_size    comm_type      comm_size      misc           
+embedding                      1000           LOCAL:0        1024           LOCAL:0        2048           LOCAL:0        1024           NONE           0              NONE
+attention                      5000           LOCAL:0        1024           LOCAL:0        4096           LOCAL:0        1024           NONE           0              NONE
+o_proj                         2000           LOCAL:0        1024           LOCAL:0        2048           LOCAL:0        1024           ALLREDUCE      1024           NONE
