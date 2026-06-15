@@ -152,3 +152,47 @@ python3 scripts/generate_cluster_config.py \
 | 2026-06-10 | Runtime estimator added to config generator; calibration table in this log |
 | 2026-06-15 | **dynamic-dvfs branch:** layer-wise work availability — `--work-events` JSONL + `python -m serving.tools.query_work_state --at-ns T` |
 | 2026-06-15 | **feat/dvfs-scale:** \`--dvfs-switch-at\` + \`--dvfs-scale\` latency multiplier at iteration boundary (baseline 1.67e9 ns → 2.20e9 ns @ 1.5× after 0.5s) |
+
+---
+
+## Forward segments (layer-boundary control) — Jun 15, 2026
+
+### Goal
+Split each logical forward pass into multiple ASTRA submissions (one per transformer block) so DVFS / hardware alias swaps can fire between layers, not only between batches.
+
+### CLI
+```bash
+python -m serving ... --forward-segments per_block
+```
+- Requires `tp_size=1` (single NPU per instance); rejects DP groups.
+- Default remains monolithic (`--forward-segments off`).
+
+### Files changed (minimal surface)
+| File | Change |
+|------|--------|
+| `serving/core/forward_segments.py` | **NEW** — registry helpers, shape-based workload slug |
+| `serving/core/request.py` | `Batch.layer_cursor`, `num_stages`, `segment_end`, `awaiting_segment_submit` |
+| `serving/core/scheduler.py` | `_enable_segments`, `_segment_continuation`, `on_segment_done` |
+| `serving/core/trace_generator.py` | `_synthesize_trace_stage`, `stage_idx` param, Chakra pad row, trace cache |
+| `serving/core/graph_generator.py` | `stage_idx` + skip regen if `llm.0.et` exists |
+| `serving/core/utils.py` | `get_workload(..., stage_idx)` |
+| `serving/core/work_state.py` | `log_segment_complete` event |
+| `serving/__main__.py` | CLI, segment registry, defer `add_done` until final segment |
+| `serving/tests/test_forward_segments.py` | **NEW** — unit tests (3) |
+
+### Workload naming (shape reuse)
+Segments use `instance{id}_t{total_len}p{num_prefill}_s{stage}` so decode steps with the same token shape reuse traces/graphs across batches.
+
+### Validation
+- [x] Unit tests: `python3 -m unittest serving.tests.test_forward_segments`
+- [x] Baseline (monolithic) smoke: 1 req, ~7s wall time
+- [x] Full `--forward-segments per_block` E2E: 1 req completes (~2m 24s wall; 34 segments × trace/graph gen)
+- [x] **ASTRA partial-graph root cause** — segment ET files SIGSEGV without embed+head bookends; see [`docs/forward_segments_debug.md`](docs/forward_segments_debug.md)
+- [x] **`add_done` batch_id fix** — final segment passes explicit `batch_id` (iteration≠batch when segmented)
+- [x] Full `--forward-segments per_block` E2E after bookend + add_done fixes (~2m 24s wall, 1 req)
+
+### Next steps
+1. Confirm E2E segmented smoke after bookend stubs land in `trace_generator.py`.
+2. Wire `--dvfs-schedule` layer triggers to swap `hardware` alias in `on_segment_done`.
+3. Extend to `tp>1` / DP with per-segment barriers.
+

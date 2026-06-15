@@ -43,6 +43,7 @@ class Scheduler:
         self.inflight = []
         self.done = []
         self.batch_ids = -1
+        self.forward_segments = False
 
         # memory model
         self.memory = MemoryModel(model, instance_id, node_id, num_npus, tp_size, npu_mem, cpu_mem, block_size, fp, enable_prefix_caching, enable_prefix_sharing, prefix_pool, prefix_storage, cxl_mem, ep_size=ep_size, pp_size=pp_size, kv_cache_dtype=kv_cache_dtype)
@@ -61,6 +62,9 @@ class Scheduler:
     def schedule_base(self, current, sys, batch_id=-1):
         # first NPU to process new batch
         if sys == self.start_npu:
+            cont = self._segment_continuation(sys)
+            if cont is not None:
+                return cont
             # nothing to batch return None
             if len(self.request) != 0 and self.request[0].arrival > current:
                 return None
@@ -293,6 +297,7 @@ class Scheduler:
             # batch.log()
             # add scheduled_tokens to batch for debugging
             batch.scheduled_tokens = scheduled_tokens
+            self._enable_segments(batch)
             return batch
         
         # Schedule already batched request
@@ -321,6 +326,9 @@ class Scheduler:
     
     def schedule_with_prefix(self, current, sys, batch_id=-1):
         if sys == self.start_npu:
+            cont = self._segment_continuation(sys)
+            if cont is not None:
+                return cont
             # nothing to batch return None
             if len(self.request) != 0 and self.request[0].arrival > current:
                 return None
@@ -646,19 +654,73 @@ class Scheduler:
                     )
                     return batch
         
+
+    def _enable_segments(self, batch):
+        if not self.forward_segments:
+            return
+        batch.num_stages = self.config['num_hidden_layers'] + 2
+        batch.layer_cursor = 0
+        batch.segment_end = []
+        batch.awaiting_segment_submit = False
+
+    def _segment_continuation(self, sys):
+        if not self.forward_segments:
+            return None
+        for b in self.inflight:
+            if b.awaiting_segment_submit:
+                b.awaiting_segment_submit = False
+                b.fired = [sys]
+                b.segment_end = []
+                b.end = []
+                self.logger.info(
+                    "Continuing batch #%d segment %d on NPU[%d]",
+                    b.batch_id, b.layer_cursor, sys,
+                )
+                return b
+        return None
+
+    def on_segment_done(self, batch_id, sys, finish):
+        batch = None
+        for b in self.inflight:
+            if b.batch_id == batch_id:
+                batch = b
+                break
+        if batch is None:
+            return
+        if sys in batch.segment_end:
+            return
+        batch.segment_end.append(sys)
+        if self.pd_type != "prefill":
+            if self.start_npu not in batch.segment_end or (self.start_npu + self.num_npus - 1) not in batch.segment_end:
+                return
+        else:
+            if self.start_npu not in batch.segment_end or (self.start_npu + self.num_npus * 2 - 1) not in batch.segment_end:
+                return
+        completed = batch.layer_cursor
+        batch.layer_cursor += 1
+        batch.segment_end = []
+        self.logger.info(
+            "Batch #%d finished segment %d / %d",
+            batch.batch_id, completed + 1, batch.num_stages,
+        )
+        if batch.layer_cursor < batch.num_stages:
+            batch.awaiting_segment_submit = True
+            batch.fired = []
+            batch.end = []
+
     # pop inflight, add to done
-    def add_done(self, id, sys, finish):
+    def add_done(self, id, sys, finish, batch_id=None):
         prompt_t = 0
         gen_t = 0
         end_reqs = []
         if len(self.inflight) == 0:
             return prompt_t, gen_t, end_reqs
         batch = None
-        # find batch
-        id -= 1
+        # find batch (monolithic: iteration-1; segmented final: explicit batch_id)
+        lookup_id = batch_id if batch_id is not None else id - 1
         idx = 0
         for i, b in enumerate(self.inflight):
-            if b.batch_id == id:
+            if b.batch_id == lookup_id:
                 batch = b
                 idx = i
         # no batch return

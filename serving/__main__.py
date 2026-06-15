@@ -27,6 +27,8 @@ from serving.core.power_model import *
 from serving.core.logger import *
 from serving.core.runtime_calibration import record_simulation_runtime
 from serving.core.work_state import WorkStateLogger, batch_to_work_record, trace_path_for
+from serving.core.forward_segments import register_astra_segment, pop_astra_segment
+from serving.core.hardware_aliases import resolve_hardware_pair, toggle_hardware
 import sys as flush
 
 from pyinstrument import Profiler
@@ -254,6 +256,12 @@ def main():
                         help='simulated time in seconds to apply DVFS scale to all instances (iteration boundary)')
     parser.add_argument('--dvfs-scale', type=float, default=1.0,
                         help='latency multiplier after --dvfs-switch-at (e.g. 0.75 = 25%% slower compute)')
+    parser.add_argument('--forward-segments', type=str, choices=['off', 'per_block'], default='off',
+                        help='split each forward pass into per-block ASTRA submissions (layer-boundary control)')
+    parser.add_argument('--layer-hardware-alternate', action='store_true',
+                        help='alternate hardware alias between forward segments (requires --forward-segments per_block)')
+    parser.add_argument('--dvfs-hardware-alt', type=str, default=None,
+                        help='second GPU hardware name for layer alternation (default: auto-discover from profiler)')
 
     args = parser.parse_args()
     
@@ -277,6 +285,9 @@ def main():
     network_backend = args.network_backend
     dvfs_switch_at = args.dvfs_switch_at
     dvfs_scale_target = args.dvfs_scale
+    forward_segments = args.forward_segments == "per_block"
+    layer_hardware_alternate = args.layer_hardware_alternate
+    dvfs_hardware_alt = args.dvfs_hardware_alt
     raw_cluster_config = _load_cluster_config_for_overrides(args.cluster_config)
     raw_instances = list(_iter_raw_instances(raw_cluster_config))
     build_enable_local_offloading = args.enable_local_offloading or any(
@@ -511,8 +522,48 @@ def main():
     # Pre-generated workloads ready to submit on next "Waiting"
     dp_ready_workloads = {}  # instance_id -> workload_path
 
+    if forward_segments:
+        if dp_groups:
+            raise ValueError("--forward-segments per_block is not supported with DP groups yet")
+        if any(inst["num_npus"] > 1 for inst in instances):
+            raise ValueError("--forward-segments per_block requires tp_size=1 (single NPU per instance)")
+        for _sched in schedulers:
+            _sched.forward_segments = True
+        logger.info("Forward segments enabled: one ASTRA submission per transformer block")
+    else:
+        for _sched in schedulers:
+            _sched.forward_segments = False
+
+    instance_hw_pairs = {}
+    if layer_hardware_alternate:
+        if not forward_segments:
+            raise ValueError("--layer-hardware-alternate requires --forward-segments per_block")
+        from serving.core.trace_generator import resolve_variant
+        for i, inst in enumerate(instances):
+            variant = resolve_variant(
+                instance_runtime_configs[i]["dtype"],
+                instance_runtime_configs[i]["kv_cache_dtype"],
+                get_config(inst["model_name"]),
+            )
+            pair = resolve_hardware_pair(
+                inst["model_name"], variant, inst["hardware"], dvfs_hardware_alt,
+            )
+            instance_hw_pairs[i] = pair
+            inst["hardware"] = pair[0]
+            if pair[0] == pair[1]:
+                logger.warning(
+                    "Instance %d: only one hardware profile for %s; layer alternation disabled",
+                    i, inst["model_name"],
+                )
+            else:
+                logger.info(
+                    "Instance %d layer hardware alternation: %s <-> %s",
+                    i, pair[0], pair[1],
+                )
+
     dvfs_switch_ns = int(dvfs_switch_at * 1_000_000_000) if dvfs_switch_at is not None else None
     dvfs_applied = dvfs_switch_ns is None
+    segment_registry = {}
 
     work_logger = None
     if args.work_events:
@@ -579,8 +630,42 @@ def main():
             last_end_time[instance_id] = current
             waiting_request[instance_id] = True
 
-        # check request is done
-        prompt_t, gen_t, finished_reqs = schedulers[instance_id].add_done(id, sys, current)
+        # check request is done (or forward-pass segment)
+        seg_info = pop_astra_segment(segment_registry, sys, id) if forward_segments else None
+        if seg_info is not None:
+            seg_batch_id, stage_idx, is_final = seg_info
+            if is_final:
+                prompt_t, gen_t, finished_reqs = schedulers[instance_id].add_done(
+                    id, sys, current, batch_id=seg_batch_id)
+            else:
+                schedulers[instance_id].on_segment_done(seg_batch_id, sys, current)
+                prompt_t, gen_t, finished_reqs = 0, 0, []
+                pair = instance_hw_pairs.get(instance_id)
+                inst = instances[instance_id]
+                if pair and pair[0] != pair[1] and layer_hardware_alternate:
+                    old_hw, new_hw = toggle_hardware(pair, inst["hardware"])
+                    inst["hardware"] = new_hw
+                    logger.info(
+                        "Layer hardware switch instance %d after segment %d: %s -> %s",
+                        instance_id, stage_idx, old_hw, new_hw,
+                    )
+                    if work_logger is not None:
+                        work_logger.log_dvfs_switch(
+                            current, inst.get("dvfs_scale", 1.0), inst.get("dvfs_scale", 1.0),
+                            instance_ids=[instance_id],
+                            old_hardware=old_hw, new_hardware=new_hw,
+                            stage_idx=stage_idx, trigger="layer",
+                        )
+                if work_logger is not None:
+                    batch = next((b for b in schedulers[instance_id].inflight if b.batch_id == seg_batch_id), None)
+                    num_stages = batch.num_stages if batch is not None else 0
+                    work_logger.log_segment_complete(current, seg_batch_id, stage_idx, instance_id, num_stages)
+        elif forward_segments and any(
+            b.num_stages > 0 and b.layer_cursor < b.num_stages for b in schedulers[instance_id].inflight
+        ):
+            prompt_t, gen_t, finished_reqs = 0, 0, []
+        else:
+            prompt_t, gen_t, finished_reqs = schedulers[instance_id].add_done(id, sys, current)
         # add tokens in throughput
         prompt_th += prompt_t
         total_prompt += prompt_t
@@ -743,6 +828,7 @@ def main():
                 else:
                     # Independent instance: generate trace immediately
                     inst_cfg = instance_runtime_configs[instance_id]
+                    stage_idx = new_req.layer_cursor if forward_segments else None
                     generate_trace(new_req, instance["hardware"], instance["tp_size"], instance["pp_size"],
                                    instance["local_ep"], instance["ep_total"],
                                    instance["pd_type"],
@@ -753,16 +839,21 @@ def main():
                                    inst_cfg["enable_attn_offloading"], power_model, pim_models[node_id],
                                    inst_cfg["enable_sub_batch_interleaving"], inst_cfg["fp"],
                                    dtype=inst_cfg["dtype"], kv_cache_dtype=inst_cfg["kv_cache_dtype"],
-                                   enable_block_copy=inst_cfg["enable_block_copy"], dvfs_scale=instance.get("dvfs_scale", 1.0))
+                                   enable_block_copy=inst_cfg["enable_block_copy"], dvfs_scale=instance.get("dvfs_scale", 1.0),
+                                   stage_idx=stage_idx)
                     generate_graph(new_req, instance["hardware"], instance["num_npus"], node_id,
                                    instance_id, inst2npu_mapping[instance_id],
-                                   inst_cfg["enable_local_offloading"])
+                                   inst_cfg["enable_local_offloading"], stage_idx=stage_idx)
                     _log_batch_scheduled(work_logger, current, new_req, instance_id, instances, inst2npu_mapping)
-                    workload = get_workload(new_req, instance["hardware"], instance_id)
+                    if forward_segments:
+                        register_astra_segment(segment_registry, sys, id + 1, new_req.batch_id,
+                                               stage_idx, new_req.num_stages)
+                    workload = get_workload(new_req, instance["hardware"], instance_id, stage_idx=stage_idx)
                     controller.write_flush(p, workload)
             elif new_req is not None:
                 # Non-first NPU: pick up existing batch workload
-                workload = get_workload(new_req, instances[instance_id]["hardware"], instance_id)
+                _stage = new_req.layer_cursor if forward_segments else None
+                workload = get_workload(new_req, instances[instance_id]["hardware"], instance_id, stage_idx=_stage)
                 controller.write_flush(p, workload)
 
         # check time to store throughput (only print on start NPU to avoid transient states)

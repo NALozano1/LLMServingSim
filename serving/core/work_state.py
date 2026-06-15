@@ -136,14 +136,34 @@ class WorkStateLogger:
         self._emit(data)
 
 
-    def log_dvfs_switch(self, ts_ns, old_scale, new_scale, instance_ids=None):
+
+    def log_segment_complete(self, ts_ns, batch_id, stage_idx, instance_id, num_stages):
         self._emit({
+            "ts_ns": ts_ns,
+            "kind": "segment_complete",
+            "batch_id": batch_id,
+            "stage_idx": stage_idx,
+            "instance_id": instance_id,
+            "num_stages": num_stages,
+        })
+
+    def log_dvfs_switch(self, ts_ns, old_scale, new_scale, instance_ids=None,
+                        old_hardware=None, new_hardware=None, stage_idx=None, trigger="layer"):
+        payload = {
             "ts_ns": ts_ns,
             "kind": "dvfs_switch",
             "old_scale": old_scale,
             "new_scale": new_scale,
             "instance_ids": instance_ids if instance_ids is not None else [],
-        })
+            "trigger": trigger,
+        }
+        if old_hardware is not None:
+            payload["old_hardware"] = old_hardware
+        if new_hardware is not None:
+            payload["new_hardware"] = new_hardware
+        if stage_idx is not None:
+            payload["stage_idx"] = stage_idx
+        self._emit(payload)
 
     def log_iteration_complete(self, ts_ns, npu_id, batch_id, instance_id):
         self._emit({"ts_ns": ts_ns, "kind": "iteration_complete",

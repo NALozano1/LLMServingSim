@@ -14,6 +14,13 @@ class Controller():
         out = [""]
         while "Waiting" not in out[-1] and out[-1] != "Checking Non-Exited Systems ...\n":
             line = p.stdout.readline()
+            if line == "":
+                if p.poll() is not None:
+                    raise RuntimeError(
+                        f"ASTRA process exited with code {p.returncode} "
+                        "before printing Waiting"
+                    )
+                continue
             # For debugging
             # print(line, end='')
             out.append(line)
