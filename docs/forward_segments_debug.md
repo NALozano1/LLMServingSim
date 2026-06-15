@@ -90,3 +90,29 @@ docker exec servingsim_docker bash -c 'cd /app/LLMServingSim && python -m servin
 | `Controller.read_wait` EOF guard | implemented |
 | Hot-switch s0/s1/s33 | done |
 | E2E `--forward-segments per_block` (1 req) | done (~2m 24s wall) |
+| Minimal-size bookend stubs (`bc99111` baseline) | done — +0.001% vs mono |
+
+---
+
+## 2026-06-15 — Bookend memory inflation (+0.31% → +0.001%)
+
+### Symptom
+Segmented runs (`--forward-segments per_block`) consistently reported **+0.31%** sim clocks vs monolithic (830,169,131 vs 827,547,677 ns). Trace `comp_time` sums differed by only **132 ns** per forward — not the source.
+
+### Root cause
+Bookend stubs kept **full profiler tensor sizes** (e.g. embedding `weight_size=1,050,673,152`, sampler `input_size=2,565,120`) while using **REMOTE** I/O on non-final segments. ASTRA's analytical memory model charged per-segment INPUT/OUTPUT traffic that monolithic runs pay **once** per forward (~1,135 ns × 2,310 segments ≈ 2.62 ms).
+
+### Fix (`trace_generator.py`, after baseline commit `bc99111`)
+- `_ASTRA_STUB_SIZE = 1` + `size_override` on `_emit_layer` for bookend stubs only.
+- Keep **REMOTE** embed input and **REMOTE** sampler output (required for ASTRA graph topology; LOCAL-only stubs → SIGSEGV).
+- Real prologue/head stages unchanged (full sizes, full latencies).
+
+### Validation (1-req smoke, `bc99111` → fix commit)
+
+| Metric | Monolithic | Segmented (old bookends) | Segmented (minimal bookends) |
+|--------|------------|--------------------------|------------------------------|
+| Sim clocks | 827,547,677 | 830,169,131 (+0.31%) | **827,556,917 (+0.001%)** |
+| TTFT (ns) | 11,008,270 | 11,339,062 (+3.0%) | **11,008,402 (+0.001%)** |
+| E2E latency | 780,620,869 | 783,242,323 (+0.34%) | **780,630,109 (+0.001%)** |
+
+Layer-boundary control (`--layer-hardware-alternate`, segment registry, 2,310 switches) unchanged.

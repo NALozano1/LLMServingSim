@@ -28,3 +28,6 @@ cd LLMServingSim && PYTHONPATH=. python3 -m unittest serving.tests.test_forward_
 
 ## Known issue (resolved 2026-06-15)
 Partial segment Chakra graphs caused ASTRA SIGSEGV; Python appeared hung in `read_wait`. Fixed with embedding/head bookend stubs. Details: [`docs/forward_segments_debug.md`](docs/forward_segments_debug.md).
+
+## Bookend accuracy fix (2026-06-15, commit after `bc99111`)
+Initial bookends used **full tensor sizes** (GB-scale weights, 2.5 MB logits) with REMOTE I/O on every non-final segment, inflating ASTRA memory traffic by ~0.31% vs monolithic. Fix: `size_override=True` on stub layers (`_ASTRA_STUB_SIZE=1`) while preserving REMOTE embed input / REMOTE sampler output topology. Segmented sim clocks now within **+0.001%** of monolithic; layer-boundary control unchanged.

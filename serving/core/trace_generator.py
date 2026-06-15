@@ -911,6 +911,10 @@ def _build_batch_ctx(batch, ctx):
 # Layer emission helpers
 # ======================================================================
 
+_ASTRA_STUB_LATENCY_NS = 1  # Chakra converter skips comp_time==0 nodes
+_ASTRA_STUB_SIZE = 1  # minimal tensor sizes so bookends don't simulate GB-scale mem traffic
+
+
 def _layer_category(perf_db, layer_name):
     """Return which catalog category (dense/per_sequence/attention/moe)
     a canonical layer belongs to for this architecture, or None if the
@@ -924,7 +928,7 @@ def _layer_category(perf_db, layer_name):
 
 def _emit_layer(ctx, bctx, layer_name, lines, power_acc, batch_tag='NONE', layer_num=None,
                 comm_type='NONE', comm_size=0, input_loc='LOCAL', output_loc='LOCAL',
-                latency_override=None):
+                latency_override=None, size_override=False):
     """Emit a single trace layer: lookup latency, compute sizes, format, track power."""
     category = _layer_category(ctx.perf_db, layer_name)
     if category is None:
@@ -951,17 +955,20 @@ def _emit_layer(ctx, bctx, layer_name, lines, power_acc, batch_tag='NONE', layer
     if latency_override is None and ctx.dvfs_scale != 1.0:
         latency_ns = max(1, int(round(latency_ns * ctx.dvfs_scale)))
 
-    # Size calculation uses the same canonical layer names.
-    if layer_name == 'attention':
+  # Size calculation uses the same canonical layer names.
+    if size_override:
+        inp, wt, out = _ASTRA_STUB_SIZE, _ASTRA_STUB_SIZE, _ASTRA_STUB_SIZE
+        wt_loc = 'LOCAL'
+    elif layer_name == 'attention':
         kv_len_for_sizes = bctx.kv_prefill + bctx.n_decode * bctx.kv_decode_mean
         inp, wt, out = calculate_sizes(ctx.model, layer_name, bctx.total_len,
                                        kv_len=kv_len_for_sizes,
                                        parallel=ctx.tp_size, fp=ctx.fp)
+        wt_loc = get_device(ctx.placement, layer_num, layer_name, "weights")
     else:
         inp, wt, out = calculate_sizes(ctx.model, layer_name, bctx.total_len,
                                        parallel=ctx.tp_size, fp=ctx.fp)
-
-    wt_loc = get_device(ctx.placement, layer_num, layer_name, "weights")
+        wt_loc = get_device(ctx.placement, layer_num, layer_name, "weights")
 
     lines.append(formatter(layer_name, str(latency_ns), input_loc, str(inp), wt_loc, str(wt), output_loc, str(out), comm_type, str(comm_size), batch_tag))
 
@@ -1276,8 +1283,6 @@ def _emit_pp_pd_power(ctx, bctx):
 # _synthesize_trace (non-interleaved)
 # ======================================================================
 
-_ASTRA_STUB_LATENCY_NS = 1  # Chakra converter skips comp_time==0 nodes
-
 
 def _emit_astra_embed_stub(ctx, bctx, lines, batch_tag='NONE'):
     """Minimal-cost embedding bookend so partial segment graphs complete in ASTRA."""
@@ -1285,7 +1290,8 @@ def _emit_astra_embed_stub(ctx, bctx, lines, batch_tag='NONE'):
     if not prologue_layers:
         return
     _emit_layer(ctx, bctx, prologue_layers[0], lines, None, batch_tag,
-                input_loc=f'REMOTE:{ctx.node_id}', latency_override=_ASTRA_STUB_LATENCY_NS)
+                input_loc=f'REMOTE:{ctx.node_id}', output_loc='LOCAL',
+                latency_override=_ASTRA_STUB_LATENCY_NS, size_override=True)
 
 
 def _emit_astra_head_stub(ctx, bctx, lines, batch_tag='NONE'):
@@ -1294,7 +1300,8 @@ def _emit_astra_head_stub(ctx, bctx, lines, batch_tag='NONE'):
     for i, layer_name in enumerate(head_layers):
         output_loc = f'REMOTE:{ctx.node_id}' if i == len(head_layers) - 1 else 'LOCAL'
         _emit_layer(ctx, bctx, layer_name, lines, None, batch_tag,
-                    output_loc=output_loc, latency_override=_ASTRA_STUB_LATENCY_NS)
+                    output_loc=output_loc, latency_override=_ASTRA_STUB_LATENCY_NS,
+                    size_override=True)
 
 
 def _layer_lines_to_dic(lines):
