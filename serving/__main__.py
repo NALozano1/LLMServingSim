@@ -250,6 +250,10 @@ def main():
                         help='JSONL path for per-layer work-availability events')
     parser.add_argument('--work-summary', type=str, default=None,
                         help='CSV path for periodic per-NPU work summary (requires --work-events)')
+    parser.add_argument('--dvfs-switch-at', type=float, default=None,
+                        help='simulated time in seconds to apply DVFS scale to all instances (iteration boundary)')
+    parser.add_argument('--dvfs-scale', type=float, default=1.0,
+                        help='latency multiplier after --dvfs-switch-at (e.g. 0.75 = 25%% slower compute)')
 
     args = parser.parse_args()
     
@@ -271,6 +275,8 @@ def main():
     num_req=args.num_reqs
     log_interval=args.log_interval
     network_backend = args.network_backend
+    dvfs_switch_at = args.dvfs_switch_at
+    dvfs_scale_target = args.dvfs_scale
     raw_cluster_config = _load_cluster_config_for_overrides(args.cluster_config)
     raw_instances = list(_iter_raw_instances(raw_cluster_config))
     build_enable_local_offloading = args.enable_local_offloading or any(
@@ -283,6 +289,8 @@ def main():
     num_nodes = cluster["num_nodes"]
     num_instances = cluster["num_instances"]
     instances = cluster["instances"]
+    for _inst in instances:
+        _inst.setdefault("dvfs_scale", 1.0)
     inst2node_mapping = cluster["inst2node_mapping"]
     inst2npu_mapping = cluster["inst2npu_mapping"]
     npu2inst_mapping = cluster["npu2inst_mapping"]
@@ -503,6 +511,9 @@ def main():
     # Pre-generated workloads ready to submit on next "Waiting"
     dp_ready_workloads = {}  # instance_id -> workload_path
 
+    dvfs_switch_ns = int(dvfs_switch_at * 1_000_000_000) if dvfs_switch_at is not None else None
+    dvfs_applied = dvfs_switch_ns is None
+
     work_logger = None
     if args.work_events:
         summary_interval_ns = int(log_interval * FREQ)
@@ -535,6 +546,21 @@ def main():
 
         instance_id = npu2inst_mapping[sys]  # get instance id from NPU id
         node_id = inst2node_mapping[instance_id] # get node id from instance id
+
+        if not dvfs_applied and dvfs_switch_ns is not None and current >= dvfs_switch_ns:
+            old_scale = instances[0].get("dvfs_scale", 1.0)
+            for inst in instances:
+                inst["dvfs_scale"] = dvfs_scale_target
+            dvfs_applied = True
+            logger.info(
+                "DVFS switch at %.3f ms: scale %.4f -> %.4f (applies to subsequent batches)",
+                current / 1e6, old_scale, dvfs_scale_target,
+            )
+            if work_logger is not None:
+                work_logger.log_dvfs_switch(
+                    current, old_scale, dvfs_scale_target,
+                    instance_ids=[i for i in range(num_instances)],
+                )
 
         if work_logger is not None and out_dict is not None:
             work_logger.log_iteration_complete(
@@ -632,7 +658,7 @@ def main():
                                        dtype=inst_cfg["dtype"], kv_cache_dtype=inst_cfg["kv_cache_dtype"],
                                        tp_dim=inst.get("tp_dim"), ep_dim=inst.get("ep_dim"),
                                        dp_sum_total_len=sum_total_len,
-                                       enable_block_copy=inst_cfg["enable_block_copy"])
+                                       enable_block_copy=inst_cfg["enable_block_copy"], dvfs_scale=inst.get("dvfs_scale", 1.0))
                         generate_graph(batch, inst["hardware"], inst["num_npus"], nid,
                                        inst_id, inst2npu_mapping[inst_id],
                                        inst_cfg["enable_local_offloading"],
@@ -696,7 +722,7 @@ def main():
                                            dtype=inst_cfg["dtype"], kv_cache_dtype=inst_cfg["kv_cache_dtype"],
                                            tp_dim=inst.get("tp_dim"), ep_dim=inst.get("ep_dim"),
                                            dp_sum_total_len=sum_total_len,
-                                           enable_block_copy=inst_cfg["enable_block_copy"])
+                                           enable_block_copy=inst_cfg["enable_block_copy"], dvfs_scale=inst.get("dvfs_scale", 1.0))
                             generate_graph(batch, inst["hardware"], inst["num_npus"], nid,
                                            inst_id, inst2npu_mapping[inst_id],
                                            inst_cfg["enable_local_offloading"],
@@ -727,7 +753,7 @@ def main():
                                    inst_cfg["enable_attn_offloading"], power_model, pim_models[node_id],
                                    inst_cfg["enable_sub_batch_interleaving"], inst_cfg["fp"],
                                    dtype=inst_cfg["dtype"], kv_cache_dtype=inst_cfg["kv_cache_dtype"],
-                                   enable_block_copy=inst_cfg["enable_block_copy"])
+                                   enable_block_copy=inst_cfg["enable_block_copy"], dvfs_scale=instance.get("dvfs_scale", 1.0))
                     generate_graph(new_req, instance["hardware"], instance["num_npus"], node_id,
                                    instance_id, inst2npu_mapping[instance_id],
                                    inst_cfg["enable_local_offloading"])

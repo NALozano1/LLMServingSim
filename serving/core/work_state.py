@@ -135,6 +135,16 @@ class WorkStateLogger:
         data["kind"] = "batch_scheduled"
         self._emit(data)
 
+
+    def log_dvfs_switch(self, ts_ns, old_scale, new_scale, instance_ids=None):
+        self._emit({
+            "ts_ns": ts_ns,
+            "kind": "dvfs_switch",
+            "old_scale": old_scale,
+            "new_scale": new_scale,
+            "instance_ids": instance_ids if instance_ids is not None else [],
+        })
+
     def log_iteration_complete(self, ts_ns, npu_id, batch_id, instance_id):
         self._emit({"ts_ns": ts_ns, "kind": "iteration_complete",
                     "npu_id": npu_id, "instance_id": instance_id, "batch_id": batch_id})
