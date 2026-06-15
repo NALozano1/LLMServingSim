@@ -215,6 +215,25 @@ Baseline validation commit: **`bc99111`**. Bookend accuracy fix: **`6ad0f42`**.
 
 Root cause: bookend stubs simulated GB-scale REMOTE memory per segment. Fix: `_ASTRA_STUB_SIZE=1` on stubs only; REMOTE topology preserved. Details: [`docs/forward_segments_debug.md`](docs/forward_segments_debug.md).
 
+**Pushed upstream:** `91e19f0..87d775e` on `origin/feat/dvfs-scale`.
+
+### Design notes (Jun 2026 follow-up)
+
+**Repo heterogeneity vs layer-wise spike**
+- LLMServingSim heterogeneity is **per-instance** in cluster config (different `hardware` per instance, P/D disaggregation, CXL/PIM placement). Router load-balances across instances.
+- **Not supported:** per-NPU / per-TP-rank hardware inside one instance (`tp4` + swap only `gpu[0]`). All ranks in a TP group share one `hardware` string and one trace.
+- `--forward-segments per_block` and `--layer-hardware-alternate` require **`tp_size=1`**; hardware swap is **whole-instance** after each segment.
+
+**Power model + segmented execution** ([`serving/core/power_model.py`](serving/core/power_model.py))
+- Active NPU energy is charged at **trace generation** (`_layer_latency_for_power` × `active_power`), per transformer block via `PowerAccumulator` — not from ASTRA sim clocks.
+- Segmented path: one `generate_trace(..., stage_idx)` per segment; prologue + 32 blocks + head energy should match monolithic totals for same hardware. Bookend stubs add **no** power (`power_acc=None`).
+- `--layer-hardware-alternate`: next segment uses new `instance["hardware"]` for both profiler latencies and `power.npu[hardware]` — needs matching `power:` entries per alias.
+- Gaps: `dvfs_scale` not applied in `_layer_latency_for_power`; standby uses sim iteration timing (minor extra boundaries with segments).
+
+**V100 profiling plan (pending)**
+- Model: **`meta-llama/Llama-3.1-8B` only**, `fp16` (not bf16 on V100).
+- Jobs: `V100` tp1 baseline, `V100_1200MHz` tp1 (DVFS alt), optional `V100` tp2 monolithic validation. Layer-wise alt = toggle between clock profiles on same silicon.
+
 ### Next steps
 1. Wire `--dvfs-schedule` JSON layer triggers (not just blind alternation).
 2. Real profiler aliases per GPU/frequency (replace seeded A6000).
