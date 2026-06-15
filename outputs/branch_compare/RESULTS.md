@@ -150,3 +150,26 @@ docker exec servingsim_docker bash -c 'cd /app/LLMServingSim && python -m servin
 - **A6000 is synthetic:** seeded copy of RTXPRO6000 profiler CSVs with 1.25× `time_us`. Real measured A6000 data would change the alternation delta.
 - **Wall time >> sim time for segmented runs** because each of 34 segments regenerates traces/graphs; this is a known dev-mode cost, not simulated serving latency.
 - Legacy run `outputs/segment_layer_hw.csv` / `outputs/layer_hw_events.jsonl` (Jun 15 earlier) matches the new `feat_seg_alternate_*` pattern (9,382 event lines, 2,310 switches).
+
+---
+
+## 7. Bookend accuracy fix (`6ad0f42`, baseline `bc99111`)
+
+### Problem
+Segmented runs had **+0.31%** sim clocks vs monolithic despite only **+132 ns** extra `comp_time` in traces. Bookend stubs used full tensor sizes (GB weights, 2.5 MB logits) with REMOTE I/O on every non-final segment; ASTRA charged duplicate memory traffic (~1,135 ns × 2,310 segments).
+
+### Fix
+`_ASTRA_STUB_SIZE=1` + `size_override` on bookend stub layers only. REMOTE embed input / REMOTE sampler output topology preserved (LOCAL-only stubs → ASTRA SIGSEGV).
+
+### Results (1-req smoke, after `6ad0f42`)
+
+| Metric | Monolithic | Seg old (`bc99111`) | Seg fixed (`6ad0f42`) |
+|--------|------------|---------------------|------------------------|
+| Sim clocks (ns) | 827,547,677 | 830,169,131 (+0.31%) | **827,556,917 (+0.001%)** |
+| TTFT (ns) | 11,008,270 | 11,339,062 (+3.0%) | **11,008,402 (+0.001%)** |
+| E2E latency (ns) | 780,620,869 | 783,242,323 (+0.34%) | **780,630,109 (+0.001%)** |
+| Seg + RTXPRO6000↔A6000 | — | 927,735,608 | **925,123,394** |
+
+**Artifacts:** `feat_mono_1req_v2.csv`, `feat_seg_1req_v2.csv`, `feat_seg_alternate_1req_v2.csv`
+
+Layer-boundary control unchanged: 34 segments/forward, `--layer-hardware-alternate` still fires 2,310 switches.

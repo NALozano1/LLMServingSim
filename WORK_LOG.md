@@ -206,7 +206,7 @@ Baseline validation commit: **`bc99111`**
 
 ### Bookend accuracy fix (Jun 15, 2026)
 
-Commit **`bc99111`** snapshots validation docs before fix. Minimal-size bookends commit: see `git log -1` on `feat/dvfs-scale`.
+Baseline validation commit: **`bc99111`**. Bookend accuracy fix: **`6ad0f42`**.
 
 | Scenario (1-req) | Sim clocks (ns) | vs mono |
 |------------------|-----------------|---------|
