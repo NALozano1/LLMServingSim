@@ -191,8 +191,22 @@ Segments use `instance{id}_t{total_len}p{num_prefill}_s{stage}` so decode steps 
 - [x] **`add_done` batch_id fix** — final segment passes explicit `batch_id` (iteration≠batch when segmented)
 - [x] Full `--forward-segments per_block` E2E after bookend + add_done fixes (~2m 24s wall, 1 req)
 
+### Branch comparison + layer-hardware-alternate (Jun 15, 2026)
+
+Full results: [`outputs/branch_compare/RESULTS.md`](outputs/branch_compare/RESULTS.md)
+
+| Scenario (1-req) | Sim clocks (ns) | vs mono | Notes |
+|------------------|-----------------|---------|-------|
+| `main` mono | 827,547,677 | — | CSV identical to feat |
+| `feat` mono | 827,547,677 | 0% | unchanged default path |
+| `feat` seg (`per_block`) | 830,169,131 | +0.31% | bookend stub overhead |
+| `feat` seg + `--layer-hardware-alternate` (same device) | 830,169,131 | +0.31% | 0 `dvfs_switch` events; flag gated off |
+| `feat` seg + RTXPRO6000↔A6000 | 927,735,608 | +12.1% | 2,310 switches; A6000 seeded @ 1.25× |
+
+Same-device alt run: hide `profiler/perf/A6000` + v0 seed aliases → `resolve_hardware_pair` returns `(RTXPRO6000, RTXPRO6000)` → warning *"layer alternation disabled"*.
+
 ### Next steps
-1. Confirm E2E segmented smoke after bookend stubs land in `trace_generator.py`.
-2. Wire `--dvfs-schedule` layer triggers to swap `hardware` alias in `on_segment_done`.
+1. Wire `--dvfs-schedule` JSON layer triggers (not just blind alternation).
+2. Real profiler aliases per GPU/frequency (replace seeded A6000).
 3. Extend to `tp>1` / DP with per-segment barriers.
 
