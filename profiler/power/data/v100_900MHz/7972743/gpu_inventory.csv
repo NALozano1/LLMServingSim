@@ -1,0 +1,3 @@
+# node=htc-g048 nodelist=htc-g048 slurm_job_id=7972743 gpu_freq_mhz=900
+index, uuid, name, pci.bus_id, driver_version, serial, clocks.current.graphics [MHz], clocks.max.graphics [MHz], power.limit [W]
+0, GPU-591cc95e-8b3f-9790-136a-99d7089e99db, Tesla V100-SXM2-32GB-LS, 00000000:8A:00.0, 580.65.06, 0324518188924, 135 MHz, 1440 MHz, 163.00 W

@@ -1,0 +1,3 @@
+=== GPU + server power capture matrix ===
+IDLE_SEC=120  TIME=00:15:00
+V100 DVFS freqs: default + 700-1300 step 200

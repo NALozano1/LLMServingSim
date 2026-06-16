@@ -1,0 +1,8 @@
+=== ARC power capture ===
+OUT_DIR=/data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/profiler/power/data/h100_default/7972726
+GPU_TYPE=h100  GPU_FREQ_MHZ=<default>
+IDLE_SEC=120  INTERVAL_MS=1000
+GPU 0: NVIDIA H100 PCIe (UUID: GPU-4923e812-40f3-876a-fc71-f1fead7eba71)
+metadata: /data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/profiler/power/data/h100_default/7972726/metadata.json
+Power loggers started (gpu pid=2415241, server pid=2415242). Idling 120s ...
+=== Done. Outputs: /data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/profiler/power/data/h100_default/7972726 ===

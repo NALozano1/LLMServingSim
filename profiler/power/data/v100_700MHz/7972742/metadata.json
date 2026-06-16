@@ -1,0 +1,30 @@
+{
+  "captured_at": "2026-06-16T11:26:48.262908+00:00",
+  "hostname": "htc-g048",
+  "slurm_nodelist": "htc-g048",
+  "slurm_job_id": "7972742",
+  "slurm_job_name": "llmsim_pwr_v100_700MHz",
+  "slurm_partition": "interactive",
+  "slurm_gres": "",
+  "cuda_visible_devices": "0",
+  "gpu_freq_mhz": 700,
+  "gpu_freq_label": "700MHz",
+  "ipmitool_dcmi_available": false,
+  "gpus": [
+    {
+      "index": "0",
+      "uuid": "GPU-591cc95e-8b3f-9790-136a-99d7089e99db",
+      "name": "Tesla V100-SXM2-32GB-LS",
+      "pci_bus_id": "00000000:8A:00.0",
+      "driver_version": "580.65.06",
+      "serial": "0324518188924",
+      "clocks_current_graphics_mhz": "135 MHz",
+      "clocks_max_graphics_mhz": "1440 MHz",
+      "power_limit_w": "163.00 W"
+    }
+  ],
+  "idle_sec": 120,
+  "finished_at": "2026-06-16T11:28:49.119775+00:00",
+  "gpu_power_samples": 114,
+  "server_power_samples": 119
+}

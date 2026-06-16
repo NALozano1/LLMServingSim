@@ -1,0 +1,16 @@
+=== ARC power capture ===
+OUT_DIR=/data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/profiler/power/data/v100_700MHz/7972815
+GPU_TYPE=v100  GPU_FREQ_MHZ=700
+IDLE_SEC=120  INTERVAL_MS=1000
+GPU 0: Tesla V100-SXM2-32GB-LS (UUID: GPU-95f7a37a-c153-1a09-3568-bb2e926f40c5)
+metadata: /data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/profiler/power/data/v100_700MHz/7972815/metadata.json
+[dvfs] sync lock visible GPU(s) to 700 MHz ...
+[gpu_freq] locked GPUs to 700 MHz via /usr/local/sbin/nvidia-smi-clocks ok=True
+[dvfs] waiting 0.020s for clocks to settle ...
+index, clocks.current.graphics [MHz], clocks.max.graphics [MHz]
+0, 135 MHz, 1440 MHz
+Power loggers started (gpu pid=39895, server pid=39896). Idling 120s ...
+=== Done. Outputs: /data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/profiler/power/data/v100_700MHz/7972815 ===
+[dvfs] sync restore default GPU clocks ...
+[gpu_freq] reset clocks via /usr/local/sbin/nvidia-smi-clocks ok=True
+[dvfs] waiting 0.020s for clocks to settle ...

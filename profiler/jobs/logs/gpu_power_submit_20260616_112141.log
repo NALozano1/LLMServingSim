@@ -1,0 +1,21 @@
+=== GPU + server power capture matrix ===
+IDLE_SEC=120  TIME=00:15:00
+V100 DVFS freqs: default + 900-1530 step 200
+SUBMIT a100 default (parallel)
+  job 7972725  a100  freq=default  partition=short
+7972725
+SUBMIT h100 default (parallel)
+  job 7972726  h100  freq=default  partition=short
+7972726
+SUBMIT l40s default (parallel)
+  job 7972727  l40s  freq=default  partition=short
+7972727
+SUBMIT v100 default + DVFS chain
+  job 7972728  v100  freq=default  partition=interactive
+  job 7972729  v100  freq=900  partition=interactive
+  job 7972730  v100  freq=1100  partition=interactive
+  job 7972731  v100  freq=1300  partition=interactive
+  job 7972732  v100  freq=1500  partition=interactive
+=== Power capture submitted. Last job: 7972732 ===
+Manifest: /data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/profiler/jobs/checkpoints/gpu_power_capture_jobs.tsv
+Outputs:  /data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/profiler/power/data/

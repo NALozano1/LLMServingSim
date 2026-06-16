@@ -1,0 +1,30 @@
+{
+  "captured_at": "2026-06-16T12:21:51.688701+00:00",
+  "hostname": "htc-g053",
+  "slurm_nodelist": "htc-g053",
+  "slurm_job_id": "7972812",
+  "slurm_job_name": "llmsim_pwr_h100_default",
+  "slurm_partition": "short",
+  "slurm_gres": "",
+  "cuda_visible_devices": "0",
+  "gpu_freq_mhz": null,
+  "gpu_freq_label": "default",
+  "ipmitool_dcmi_available": false,
+  "gpus": [
+    {
+      "index": "0",
+      "uuid": "GPU-10dadb64-b99c-d79d-f6d0-b9d53048c8f4",
+      "name": "NVIDIA H100 PCIe",
+      "pci_bus_id": "00000000:CA:00.0",
+      "driver_version": "580.65.06",
+      "serial": "1650423013338",
+      "clocks_current_graphics_mhz": "1200 MHz",
+      "clocks_max_graphics_mhz": "1755 MHz",
+      "power_limit_w": "310.00 W"
+    }
+  ],
+  "idle_sec": 120,
+  "finished_at": "2026-06-16T12:23:52.045391+00:00",
+  "gpu_power_samples": 112,
+  "server_power_samples": 118
+}
