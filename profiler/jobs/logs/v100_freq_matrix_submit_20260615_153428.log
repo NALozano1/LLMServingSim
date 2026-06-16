@@ -1,0 +1,32 @@
+=== V100 freq-sweep profiler matrix (one job per model × MHz) ===
+FREQS (4): 900 1100 1300 1500 MHz  (step=200)
+MODELS (6): meta-llama/Llama-3.1-8B microsoft/Phi-mini-MoE-instruct Qwen/Qwen3-30B-A3B-Instruct-2507 mistralai/Mixtral-8x7B-v0.1 Qwen/Qwen3-32B meta-llama/Llama-3.1-70B
+TP_DEGREES=1,2,4  SKIP_COMPLETE=1
+REQUIRE_BASELINE_COMPLETE=0  BASELINE_DEPEND_JID=<none>
+SUBMIT meta-llama/Llama-3.1-8B @ 900MHz -> V100_900MHz
+SUBMIT meta-llama/Llama-3.1-8B @ 1100MHz -> V100_1100MHz
+SUBMIT meta-llama/Llama-3.1-8B @ 1300MHz -> V100_1300MHz
+SUBMIT meta-llama/Llama-3.1-8B @ 1500MHz -> V100_1500MHz
+SUBMIT microsoft/Phi-mini-MoE-instruct @ 900MHz -> V100_900MHz
+SUBMIT microsoft/Phi-mini-MoE-instruct @ 1100MHz -> V100_1100MHz
+SUBMIT microsoft/Phi-mini-MoE-instruct @ 1300MHz -> V100_1300MHz
+SUBMIT microsoft/Phi-mini-MoE-instruct @ 1500MHz -> V100_1500MHz
+SUBMIT Qwen/Qwen3-30B-A3B-Instruct-2507 @ 900MHz -> V100_900MHz
+SUBMIT Qwen/Qwen3-30B-A3B-Instruct-2507 @ 1100MHz -> V100_1100MHz
+SUBMIT Qwen/Qwen3-30B-A3B-Instruct-2507 @ 1300MHz -> V100_1300MHz
+SUBMIT Qwen/Qwen3-30B-A3B-Instruct-2507 @ 1500MHz -> V100_1500MHz
+SUBMIT mistralai/Mixtral-8x7B-v0.1 @ 900MHz -> V100_900MHz
+SUBMIT mistralai/Mixtral-8x7B-v0.1 @ 1100MHz -> V100_1100MHz
+SUBMIT mistralai/Mixtral-8x7B-v0.1 @ 1300MHz -> V100_1300MHz
+SUBMIT mistralai/Mixtral-8x7B-v0.1 @ 1500MHz -> V100_1500MHz
+SUBMIT Qwen/Qwen3-32B @ 900MHz -> V100_900MHz
+SUBMIT Qwen/Qwen3-32B @ 1100MHz -> V100_1100MHz
+SUBMIT Qwen/Qwen3-32B @ 1300MHz -> V100_1300MHz
+SUBMIT Qwen/Qwen3-32B @ 1500MHz -> V100_1500MHz
+SUBMIT meta-llama/Llama-3.1-70B @ 900MHz -> V100_900MHz
+SUBMIT meta-llama/Llama-3.1-70B @ 1100MHz -> V100_1100MHz
+SUBMIT meta-llama/Llama-3.1-70B @ 1300MHz -> V100_1300MHz
+SUBMIT meta-llama/Llama-3.1-70B @ 1500MHz -> V100_1500MHz
+=== Freq matrix done: submitted=24 skipped=0 ===
+Manifest: /data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/profiler/jobs/checkpoints/v100_freq_matrix_jobs.tsv
+Submit log: /data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/profiler/jobs/logs/v100_freq_matrix_submit_20260615_153428.log

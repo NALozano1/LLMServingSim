@@ -1,0 +1,12 @@
+=== V100 baseline profiler matrix (one job per model, default clocks) ===
+MODELS (1): Qwen/Qwen3-30B-A3B-Instruct-2507
+HARDWARE=V100  TP_DEGREES=1,2,4  SKIP_COMPLETE=1
+TIME=06:00:00  SCHEDULE_FREQ_MATRIX=1
+SUBMIT Qwen/Qwen3-30B-A3B-Instruct-2507 (default clocks -> V100)
+  job 7969155  MODEL=Qwen/Qwen3-30B-A3B-Instruct-2507  HARDWARE=V100  GPU_FREQ_MHZ=default
+  perf  /data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/profiler/perf/V100/Qwen/Qwen3-30B-A3B-Instruct-2507/
+=== Baseline done: submitted=1 skipped=0 ===
+Manifest: /data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/profiler/jobs/checkpoints/v100_matrix_jobs.tsv
+Submit log: /data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/profiler/jobs/logs/v100_matrix_submit_20260615_212314.log
+Last job: 7969155  watch: squeue -M htc -j 7969155
+Scheduling freq matrix after baseline job 7969155 ...

@@ -1,0 +1,13 @@
+=== V100 profiler matrix (one job per model) ===
+MODELS (6): meta-llama/Llama-3.1-8B microsoft/Phi-mini-MoE-instruct Qwen/Qwen3-30B-A3B-Instruct-2507 mistralai/Mixtral-8x7B-v0.1 Qwen/Qwen3-32B meta-llama/Llama-3.1-70B
+TP_DEGREES=1,2,4  SKIP_COMPLETE=1  FORCE=0
+TIME=03:00:00  CONTINUE_ON_ERROR=1
+SUBMIT meta-llama/Llama-3.1-8B -> /data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/profiler/jobs/rendered/llmsim_prof_v100_meta-llama_Llama-31-8B.sbatch
+SUBMIT microsoft/Phi-mini-MoE-instruct -> /data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/profiler/jobs/rendered/llmsim_prof_v100_microsoft_Phi-mini-MoE-instruct.sbatch
+SUBMIT Qwen/Qwen3-30B-A3B-Instruct-2507 -> /data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/profiler/jobs/rendered/llmsim_prof_v100_Qwen_Qwen3-30B-A3B-Instruct-2507.sbatch
+SUBMIT mistralai/Mixtral-8x7B-v0.1 -> /data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/profiler/jobs/rendered/llmsim_prof_v100_mistralai_Mixtral-8x7B-v01.sbatch
+SUBMIT Qwen/Qwen3-32B -> /data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/profiler/jobs/rendered/llmsim_prof_v100_Qwen_Qwen3-32B.sbatch
+SUBMIT meta-llama/Llama-3.1-70B -> /data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/profiler/jobs/rendered/llmsim_prof_v100_meta-llama_Llama-31-70B.sbatch
+=== Done: submitted=6 skipped=0 ===
+Manifest: /data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/profiler/jobs/checkpoints/v100_matrix_jobs.tsv
+Submit log: /data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/profiler/jobs/logs/v100_matrix_submit_20260615_152728.log

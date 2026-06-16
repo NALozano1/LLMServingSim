@@ -1,0 +1,75 @@
+=== LLMServingSim profiler (ARC / engs-glass) ===
+REPO_ROOT=/data/engs-glass/engs2950/DVFS-MoE/LLMServingSim
+MODEL=Qwen/Qwen3-30B-A3B-Instruct-2507  HARDWARE=V100  TP_DEGREES=1,4  DTYPE=float16
+FULL_PROFILE=0  SKIP_SKEW=<unset>  VERBOSITY=--verbose
+VLLM_IMAGE=docker://vllm/vllm-openai:v0.19.0
+HF_CACHE_ROOT=/data/engs-glass/engs2950/infra/hf_cache
+SCRATCH=/data/engs-glass/engs2950/.llmsim/7966792
+CUDA_VISIBLE_DEVICES=0
+GPU 0: Tesla V100-SXM2-32GB-LS (UUID: GPU-95f7a37a-c153-1a09-3568-bb2e926f40c5)
+[15:59:29] INFO     Model config:                                               
+                    /data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/configs/mod
+                    el/Qwen/Qwen3-32B.json (model_type=qwen3 →                  
+                    architecture=qwen3)                                         
+           DEBUG    Model config fields: ['architectures', 'attention_bias',    
+                    'attention_dropout', 'bos_token_id', 'eos_token_id',        
+                    'head_dim', 'hidden_act', 'hidden_size',                    
+                    'initializer_range', 'intermediate_size',                   
+                    'max_position_embeddings', 'max_window_layers',             
+                    'model_type', 'num_attention_heads', 'num_hidden_layers',   
+                    'num_key_value_heads', 'rms_norm_eps', 'rope_scaling',      
+                    'rope_theta', 'sliding_window', 'tie_word_embeddings',      
+                    'torch_dtype', 'transformers_version', 'use_cache',         
+                    'use_sliding_window', 'vocab_size']                         
+──────────────── Profiling Qwen/Qwen3-32B on RTXPRO6000 (qwen3) ────────────────
+           INFO     Variant: fp16                                               
+           INFO     TP degrees: [1, 2]                                          
+           INFO     Output root:                                                
+                    /data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/profiler/pe
+                    rf/RTXPRO6000/Qwen/Qwen3-32B/fp16                           
+           INFO     → TP=1  booting vLLM engine                                 
+           DEBUG    model config written to                                     
+                    /data/engs-glass/engs2950/.llmsim/7966792/t/profiler_model_d
+                    xn_th_q/config.json                                         
+INFO 06-15 15:59:29 [utils.py:233] non-default args: {'skip_tokenizer_init': True, 'load_format': 'dummy', 'dtype': 'float16', 'block_size': 16, 'enable_prefix_caching': False, 'max_num_batched_tokens': 2304, 'max_num_seqs': 256, 'disable_log_stats': True, 'hf_overrides': {'num_hidden_layers': 1, 'intermediate_size': 25600, 'num_attention_heads': 64, 'num_key_value_heads': 8, 'vocab_size': 151936}, 'enforce_eager': True, 'worker_extension_cls': 'profiler.core.hooks.extension.Extension', 'generation_config': 'vllm', 'model': '/data/engs-glass/engs2950/.llmsim/7966792/t/profiler_model_dxn_th_q'}
+INFO 06-15 15:59:59 [model.py:549] Resolved architecture: Qwen3ForCausalLM
+WARNING 06-15 15:59:59 [model.py:2016] Casting torch.bfloat16 to torch.float16.
+INFO 06-15 15:59:59 [model.py:1678] Using max model len 40960
+INFO 06-15 15:59:59 [scheduler.py:238] Chunked prefill is enabled with max_num_batched_tokens=2304.
+INFO 06-15 15:59:59 [vllm.py:790] Asynchronous scheduling is enabled.
+WARNING 06-15 15:59:59 [vllm.py:848] Enforce eager set, disabling torch.compile and CUDAGraphs. This is equivalent to setting -cc.mode=none -cc.cudagraph_mode=none
+WARNING 06-15 15:59:59 [vllm.py:859] Inductor compilation was disabled by user settings, optimizations settings that are only active during inductor compilation will be ignored.
+INFO 06-15 15:59:59 [vllm.py:1025] Cudagraph is disabled under eager mode
+INFO 06-15 15:59:59 [compilation.py:290] Enabled custom fusions: norm_quant, act_quant
+(EngineCore pid=2544341) INFO 06-15 15:59:59 [core.py:105] Initializing a V1 LLM engine (v0.19.0) with config: model='/data/engs-glass/engs2950/.llmsim/7966792/t/profiler_model_dxn_th_q', speculative_config=None, tokenizer='/data/engs-glass/engs2950/.llmsim/7966792/t/profiler_model_dxn_th_q', skip_tokenizer_init=True, tokenizer_mode=auto, revision=None, tokenizer_revision=None, trust_remote_code=False, dtype=torch.float16, max_seq_len=40960, download_dir=None, load_format=dummy, tensor_parallel_size=1, pipeline_parallel_size=1, data_parallel_size=1, decode_context_parallel_size=1, dcp_comm_backend=ag_rs, disable_custom_all_reduce=False, quantization=None, enforce_eager=True, enable_return_routed_experts=False, kv_cache_dtype=auto, device_config=cuda, structured_outputs_config=StructuredOutputsConfig(backend='auto', disable_any_whitespace=False, disable_additional_properties=False, reasoning_parser='', reasoning_parser_plugin='', enable_in_reasoning=False), observability_config=ObservabilityConfig(show_hidden_metrics_for_version=None, otlp_traces_endpoint=None, collect_detailed_traces=None, kv_cache_metrics=False, kv_cache_metrics_sample=0.01, cudagraph_metrics=False, enable_layerwise_nvtx_tracing=False, enable_mfu_metrics=False, enable_mm_processor_stats=False, enable_logging_iteration_details=False), seed=0, served_model_name=/data/engs-glass/engs2950/.llmsim/7966792/t/profiler_model_dxn_th_q, enable_prefix_caching=False, enable_chunked_prefill=True, pooler_config=None, compilation_config={'mode': <CompilationMode.NONE: 0>, 'debug_dump_path': None, 'cache_dir': '', 'compile_cache_save_format': 'binary', 'backend': 'inductor', 'custom_ops': ['all'], 'splitting_ops': [], 'compile_mm_encoder': False, 'cudagraph_mm_encoder': False, 'encoder_cudagraph_token_budgets': [], 'encoder_cudagraph_max_images_per_batch': 0, 'compile_sizes': [], 'compile_ranges_endpoints': [2304], 'inductor_compile_config': {'enable_auto_functionalized_v2': False, 'size_asserts': False, 'alignment_asserts': False, 'scalar_asserts': False, 'combo_kernels': True, 'benchmark_combo_kernel': True}, 'inductor_passes': {}, 'cudagraph_mode': <CUDAGraphMode.NONE: 0>, 'cudagraph_num_of_warmups': 0, 'cudagraph_capture_sizes': [], 'cudagraph_copy_inputs': False, 'cudagraph_specialize_lora': True, 'use_inductor_graph_partition': False, 'pass_config': {'fuse_norm_quant': True, 'fuse_act_quant': True, 'fuse_attn_quant': False, 'enable_sp': False, 'fuse_gemm_comms': False, 'fuse_allreduce_rms': False}, 'max_cudagraph_capture_size': 0, 'dynamic_shapes_config': {'type': <DynamicShapesType.BACKED: 'backed'>, 'evaluate_guards': False, 'assume_32_bit_indexing': False}, 'local_cache_dir': None, 'fast_moe_cold_start': True, 'static_all_moe_layers': []}
+(EngineCore pid=2544341) INFO 06-15 16:00:00 [worker_base.py:269] Injected <class 'profiler.core.hooks.extension.Extension'> into <class 'vllm.v1.worker.gpu_worker.Worker'> for extended collective_rpc calls ['fire']
+(EngineCore pid=2544341) INFO 06-15 16:00:00 [parallel_state.py:1400] world_size=1 rank=0 local_rank=0 distributed_init_method=tcp://10.137.21.48:53979 backend=nccl
+(EngineCore pid=2544341) INFO 06-15 16:00:00 [parallel_state.py:1716] rank 0 in world size 1 is assigned as DP rank 0, PP rank 0, PCP rank 0, TP rank 0, EP rank N/A, EPLB rank N/A
+(EngineCore pid=2544341) INFO 06-15 16:00:02 [gpu_model_runner.py:4735] Starting to load model /data/engs-glass/engs2950/.llmsim/7966792/t/profiler_model_dxn_th_q...
+(EngineCore pid=2544341) ERROR 06-15 16:00:04 [fa_utils.py:145] Cannot use FA version 2 is not supported due to FA2 is only supported on devices with compute capability >= 8
+(EngineCore pid=2544341) INFO 06-15 16:00:10 [cuda.py:334] Using TRITON_ATTN attention backend out of potential backends: ['TRITON_ATTN', 'FLEX_ATTENTION'].
+(EngineCore pid=2544341) INFO 06-15 16:00:11 [gpu_model_runner.py:4820] Model loading took 3.82 GiB memory and 8.275495 seconds
+(EngineCore pid=2544341) INFO 06-15 16:00:37 [gpu_worker.py:436] Available KV cache memory: 24.03 GiB
+(EngineCore pid=2544341) INFO 06-15 16:00:37 [kv_cache_utils.py:1319] GPU KV cache size: 6,298,960 tokens
+(EngineCore pid=2544341) INFO 06-15 16:00:37 [kv_cache_utils.py:1324] Maximum concurrency for 40,960 tokens per request: 153.78x
+(EngineCore pid=2544341) INFO 06-15 16:00:39 [core.py:283] init engine (profile, create kv cache, warmup model) took 28.14 seconds
+(EngineCore pid=2544341) WARNING 06-15 16:00:40 [vllm.py:848] Enforce eager set, disabling torch.compile and CUDAGraphs. This is equivalent to setting -cc.mode=none -cc.cudagraph_mode=none
+(EngineCore pid=2544341) WARNING 06-15 16:00:40 [vllm.py:859] Inductor compilation was disabled by user settings, optimizations settings that are only active during inductor compilation will be ignored.
+(EngineCore pid=2544341) INFO 06-15 16:00:40 [vllm.py:1025] Cudagraph is disabled under eager mode
+[16:00:40] INFO     ✓ TP=1  booting vLLM engine (71.2s)                         
+           INFO     TP=1 limits: num_cache_tokens=6298960 max_model_len=40960   
+                    max_num_batched_tokens=2048 max_num_seqs=256                
+TP=1  dense ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 152/152 0:01:19 • 0:00:00
+[16:02:00] DEBUG    wrote 1520 rows →                                           
+                    /data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/profiler/pe
+                    rf/RTXPRO6000/Qwen/Qwen3-32B/fp16/tp1/dense.csv             
+           INFO     ✓ dense →                                                   
+                    /data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/profiler/pe
+                    rf/RTXPRO6000/Qwen/Qwen3-32B/fp16/tp1/dense.csv             
+TP=1  per_sequence ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 40/40 0:00:39 • 0:00:00
+[16:02:39] DEBUG    wrote 80 rows →                                             
+                    /data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/profiler/pe
+                    rf/RTXPRO6000/Qwen/Qwen3-32B/fp16/tp1/per_sequence.csv      
+           INFO     ✓ per_sequence →                                            
+                    /data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/profiler/pe
+                    rf/RTXPRO6000/Qwen/Qwen3-32B/fp16/tp1/per_sequence.csv      

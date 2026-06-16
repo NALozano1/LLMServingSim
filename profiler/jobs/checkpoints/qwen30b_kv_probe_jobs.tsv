@@ -1,0 +1,2 @@
+submitted_at	job_id	model	kv_steps	step_timeout_sec	status
+2026-06-16T10:42:36Z	7972506	Qwen/Qwen3-30B-A3B-Instruct-2507	256 512 1024 2048 4096 8192	7200	submitted

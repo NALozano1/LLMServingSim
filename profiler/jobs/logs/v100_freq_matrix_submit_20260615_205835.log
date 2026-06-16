@@ -1,0 +1,25 @@
+=== V100 freq-sweep profiler matrix (one job per model × MHz) ===
+FREQS (4): 700 900 1100 1300 MHz  (step=200)
+MODELS (1): meta-llama/Llama-3.1-8B
+TP_DEGREES=1  SKIP_COMPLETE=1
+REQUIRE_BASELINE_COMPLETE=0  BASELINE_DEPEND_JID=  job 7968333  MODEL=meta-llama/Llama-3.1-8B  HARDWARE=V100  GPU_FREQ_MHZ=default
+  perf  /data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/profiler/perf/V100/meta-llama/Llama-3.1-8B/
+7968333
+SUBMIT meta-llama/Llama-3.1-8B @ 700MHz -> V100_700MHz
+  job   MODEL=meta-llama/Llama-3.1-8B  HARDWARE=V100_700MHz  GPU_FREQ_MHZ=700
+  perf  /data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/profiler/perf/V100_700MHz/meta-llama/Llama-3.1-8B/
+SUBMIT meta-llama/Llama-3.1-8B @ 900MHz -> V100_900MHz
+  job   MODEL=meta-llama/Llama-3.1-8B  HARDWARE=V100_900MHz  GPU_FREQ_MHZ=900
+  perf  /data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/profiler/perf/V100_900MHz/meta-llama/Llama-3.1-8B/
+SUBMIT meta-llama/Llama-3.1-8B @ 1100MHz -> V100_1100MHz
+  job   MODEL=meta-llama/Llama-3.1-8B  HARDWARE=V100_1100MHz  GPU_FREQ_MHZ=1100
+  perf  /data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/profiler/perf/V100_1100MHz/meta-llama/Llama-3.1-8B/
+SUBMIT meta-llama/Llama-3.1-8B @ 1300MHz -> V100_1300MHz
+  job   MODEL=meta-llama/Llama-3.1-8B  HARDWARE=V100_1300MHz  GPU_FREQ_MHZ=1300
+  perf  /data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/profiler/perf/V100_1300MHz/meta-llama/Llama-3.1-8B/
+=== Freq matrix done: submitted=4 skipped=0 ===
+Manifest: /data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/profiler/jobs/checkpoints/v100_freq_matrix_jobs.tsv
+Submit log: /data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/profiler/jobs/logs/v100_freq_matrix_submit_20260615_205835.log
+Last job:   job   MODEL=meta-llama/Llama-3.1-8B  HARDWARE=V100_1300MHz  GPU_FREQ_MHZ=1300
+  perf  /data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/profiler/perf/V100_1300MHz/meta-llama/Llama-3.1-8B/  watch: squeue -M htc -j   job   MODEL=meta-llama/Llama-3.1-8B  HARDWARE=V100_1300MHz  GPU_FREQ_MHZ=1300
+  perf  /data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/profiler/perf/V100_1300MHz/meta-llama/Llama-3.1-8B/

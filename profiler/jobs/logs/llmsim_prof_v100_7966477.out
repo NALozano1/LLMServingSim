@@ -1,0 +1,31 @@
+=== LLMServingSim profiler (ARC) ===
+REPO_ROOT=/data/engs-glass/engs2950/DVFS-MoE/LLMServingSim
+MODEL=Qwen/Qwen3-30B-A3B-Instruct-2507  HARDWARE=V100  TP_DEGREES=1,4  DTYPE=float16
+FULL_PROFILE=0  SKIP_SKEW=<unset>  VERBOSITY=--verbose
+VLLM_IMAGE=docker://vllm/vllm-openai:v0.19.0
+HF_CACHE_ROOT=/data/engs-glass/engs2950/LLM-Energy/infra/llm_test
+CACHE_ROOT=/data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/profiler/jobs/cache/7966477
+CUDA_VISIBLE_DEVICES=0
+GPU 0: Tesla V100-SXM2-32GB-LS (UUID: GPU-95f7a37a-c153-1a09-3568-bb2e926f40c5)
+[15:38:50] INFO     Model config: /workspace/configs/model/Qwen/Qwen3-32B.json  
+                    (model_type=qwen3 → architecture=qwen3)                     
+           DEBUG    Model config fields: ['architectures', 'attention_bias',    
+                    'attention_dropout', 'bos_token_id', 'eos_token_id',        
+                    'head_dim', 'hidden_act', 'hidden_size',                    
+                    'initializer_range', 'intermediate_size',                   
+                    'max_position_embeddings', 'max_window_layers',             
+                    'model_type', 'num_attention_heads', 'num_hidden_layers',   
+                    'num_key_value_heads', 'rms_norm_eps', 'rope_scaling',      
+                    'rope_theta', 'sliding_window', 'tie_word_embeddings',      
+                    'torch_dtype', 'transformers_version', 'use_cache',         
+                    'use_sliding_window', 'vocab_size']                         
+──────────────── Profiling Qwen/Qwen3-32B on RTXPRO6000 (qwen3) ────────────────
+           INFO     Variant: fp16                                               
+           INFO     TP degrees: [1, 2]                                          
+           INFO     Output root:                                                
+                    /workspace/profiler/perf/RTXPRO6000/Qwen/Qwen3-32B/fp16     
+           INFO     → TP=1  booting vLLM engine                                 
+           DEBUG    model config written to                                     
+                    /tmp/profiler_model_pjxpulv7/config.json                    
+INFO 06-15 15:38:50 [utils.py:233] non-default args: {'skip_tokenizer_init': True, 'load_format': 'dummy', 'dtype': 'float16', 'block_size': 16, 'enable_prefix_caching': False, 'max_num_batched_tokens': 2304, 'max_num_seqs': 256, 'disable_log_stats': True, 'hf_overrides': {'num_hidden_layers': 1, 'intermediate_size': 25600, 'num_attention_heads': 64, 'num_key_value_heads': 8, 'vocab_size': 151936}, 'enforce_eager': True, 'worker_extension_cls': 'profiler.core.hooks.extension.Extension', 'generation_config': 'vllm', 'model': '/tmp/profiler_model_pjxpulv7'}
+WARNING 06-15 15:38:50 [envs.py:1744] Unknown vLLM environment variable detected: VLLM_IMAGE

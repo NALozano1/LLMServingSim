@@ -1,0 +1,5 @@
+=== V100 freq-sweep profiler matrix (one job per model × MHz) ===
+FREQS (4): 900 1100 1300 1500 MHz  (step=200)
+MODELS (6): meta-llama/Llama-3.1-8B microsoft/Phi-mini-MoE-instruct Qwen/Qwen3-30B-A3B-Instruct-2507 mistralai/Mixtral-8x7B-v0.1 Qwen/Qwen3-32B meta-llama/Llama-3.1-70B
+TP_DEGREES=1,2,4  SKIP_COMPLETE=1
+REQUIRE_BASELINE_COMPLETE=1  BASELINE_DEPEND_JID=<none>

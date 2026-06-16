@@ -1,0 +1,36 @@
+=== Cancelling running llmsim profiler jobs ===
+  scancel 7968333
+=== Submit Qwen3-30B-A3B V100 baseline tp1,2,4 + freq tp1 (700-1400 step 200) ===
+=== V100 baseline profiler matrix (one job per model, default clocks) ===
+MODELS (1): Qwen/Qwen3-30B-A3B-Instruct-2507
+HARDWARE=V100  TP_DEGREES=1,2,4  SKIP_COMPLETE=1
+TIME=06:00:00  SCHEDULE_FREQ_MATRIX=1
+SUBMIT Qwen/Qwen3-30B-A3B-Instruct-2507 (default clocks -> V100)
+  job 7969155  MODEL=Qwen/Qwen3-30B-A3B-Instruct-2507  HARDWARE=V100  GPU_FREQ_MHZ=default
+  perf  /data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/profiler/perf/V100/Qwen/Qwen3-30B-A3B-Instruct-2507/
+=== Baseline done: submitted=1 skipped=0 ===
+Manifest: /data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/profiler/jobs/checkpoints/v100_matrix_jobs.tsv
+Submit log: /data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/profiler/jobs/logs/v100_matrix_submit_20260615_212314.log
+Last job: 7969155  watch: squeue -M htc -j 7969155
+Scheduling freq matrix after baseline job 7969155 ...
+=== V100 freq-sweep profiler matrix (one job per model × MHz) ===
+FREQS (4): 700 900 1100 1300 MHz  (step=200)
+MODELS (1): Qwen/Qwen3-30B-A3B-Instruct-2507
+TP_DEGREES=1  SKIP_COMPLETE=1
+REQUIRE_BASELINE_COMPLETE=0  BASELINE_DEPEND_JID=7969155
+SUBMIT Qwen/Qwen3-30B-A3B-Instruct-2507 @ 700MHz -> V100_700MHz
+  job 7969156  MODEL=Qwen/Qwen3-30B-A3B-Instruct-2507  HARDWARE=V100_700MHz  GPU_FREQ_MHZ=700
+  perf  /data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/profiler/perf/V100_700MHz/Qwen/Qwen3-30B-A3B-Instruct-2507/
+SUBMIT Qwen/Qwen3-30B-A3B-Instruct-2507 @ 900MHz -> V100_900MHz
+  job 7969157  MODEL=Qwen/Qwen3-30B-A3B-Instruct-2507  HARDWARE=V100_900MHz  GPU_FREQ_MHZ=900
+  perf  /data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/profiler/perf/V100_900MHz/Qwen/Qwen3-30B-A3B-Instruct-2507/
+SUBMIT Qwen/Qwen3-30B-A3B-Instruct-2507 @ 1100MHz -> V100_1100MHz
+  job 7969158  MODEL=Qwen/Qwen3-30B-A3B-Instruct-2507  HARDWARE=V100_1100MHz  GPU_FREQ_MHZ=1100
+  perf  /data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/profiler/perf/V100_1100MHz/Qwen/Qwen3-30B-A3B-Instruct-2507/
+SUBMIT Qwen/Qwen3-30B-A3B-Instruct-2507 @ 1300MHz -> V100_1300MHz
+  job 7969159  MODEL=Qwen/Qwen3-30B-A3B-Instruct-2507  HARDWARE=V100_1300MHz  GPU_FREQ_MHZ=1300
+  perf  /data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/profiler/perf/V100_1300MHz/Qwen/Qwen3-30B-A3B-Instruct-2507/
+=== Freq matrix done: submitted=4 skipped=0 ===
+Manifest: /data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/profiler/jobs/checkpoints/v100_freq_matrix_jobs.tsv
+Submit log: /data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/profiler/jobs/logs/v100_freq_matrix_submit_20260615_212314.log
+Last job: 7969159  watch: squeue -M htc -j 7969159

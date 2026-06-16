@@ -1,0 +1,10 @@
+=== LLMServingSim profiler (ARC / engs-glass) ===
+REPO_ROOT=/data/engs-glass/engs2950/DVFS-MoE/LLMServingSim
+MODEL=Qwen/Qwen3-30B-A3B-Instruct-2507  HARDWARE=V100  TP_DEGREES=1,4  DTYPE=float16
+FULL_PROFILE=0  SKIP_SKEW=<unset>  VERBOSITY=--verbose
+VLLM_IMAGE=docker://vllm/vllm-openai:v0.19.0
+HF_CACHE_ROOT=/data/engs-glass/engs2950/infra/hf_cache
+WORK_ROOT=/data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/profiler/jobs/work/7966518
+HOST_HOME=/data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/profiler/jobs/work/7966518/home  TMPDIR=/data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/profiler/jobs/work/7966518/tmp
+CUDA_VISIBLE_DEVICES=0
+GPU 0: Tesla V100-SXM2-32GB-LS (UUID: GPU-0a0c2e7f-eb50-b028-e175-9462914cb76a)

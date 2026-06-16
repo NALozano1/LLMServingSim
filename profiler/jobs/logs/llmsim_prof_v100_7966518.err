@@ -1,0 +1,7 @@
+WARN: HF_TOKEN is unset — gated models may fail tokenizer/config download.
+INFO:    Using cached SIF image
+WARNING: Environment variable TMPDIR already has value [/tmp], will not forward new value [/data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/profiler/jobs/work/7966518/tmp] from parent process environment
+WARNING: Environment variable PIP_CACHE_DIR already has value [/root/.cache/pip], will not forward new value [/data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/profiler/jobs/work/7966518/pip] from parent process environment
+INFO:    Terminating squashfuse_ll after timeout
+INFO:    Timeouts can be caused by a running background process
+FATAL:   container creation failed: mount hook function failure: mount /data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/profiler/jobs/work/7966518/xdg->/root/.cache error: while mounting /data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/profiler/jobs/work/7966518/xdg: destination /root/.cache doesn't exist in container

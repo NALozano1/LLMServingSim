@@ -1,0 +1,504 @@
+=== LLMServingSim profiler (ARC) ===
+REPO_ROOT=/data/engs-glass/engs2950/DVFS-MoE/LLMServingSim
+MODEL=Qwen/Qwen3-30B-A3B-Instruct-2507  HARDWARE=V100  TP_DEGREES=1,4  DTYPE=float16
+FULL_PROFILE=0  SKIP_SKEW=<unset>
+VLLM_IMAGE=docker://vllm/vllm-openai:v0.19.0
+HF_CACHE_ROOT=/data/engs-glass/engs2950/LLM-Energy/infra/llm_test
+CUDA_VISIBLE_DEVICES=0
+GPU 0: Tesla V100-SXM2-32GB-LS (UUID: GPU-95f7a37a-c153-1a09-3568-bb2e926f40c5)
+[15:15:24] INFO     Model config: /workspace/configs/model/Qwen/Qwen3-32B.json  
+                    (model_type=qwen3 → architecture=qwen3)                     
+──────────────── Profiling Qwen/Qwen3-32B on RTXPRO6000 (qwen3) ────────────────
+           INFO     Variant: fp16                                               
+           INFO     TP degrees: [1, 2]                                          
+           INFO     Output root:                                                
+                    /workspace/profiler/perf/RTXPRO6000/Qwen/Qwen3-32B/fp16     
+           INFO     → TP=1  booting vLLM engine                                 
+[15:16:08] ERROR    Captured vLLM stdio before failure:                         
+                    ERROR 06-15 15:15:51  Error during atomic write. Original   
+                    file                                                        
+                    '/home/engs2950/.cache/vllm/modelinfos/vllm-model_executor-m
+                    odels-qwen3-Qwen3ForCausalLM.json' not modified             
+                    ERROR 06-15 15:15:51  Traceback (most recent call last):    
+                    ERROR 06-15 15:15:51    File                                
+                    "/usr/local/lib/python3.12/dist-packages/vllm/model_executor
+                    /model_loader/weight_utils.py", line 146, in atomic_writer  
+                    ERROR 06-15 15:15:51      with os.fdopen(temp_fd, mode=mode,
+                    encoding=encoding) as temp_file:                            
+                    ERROR 06-15 15:15:51                                        
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^            
+                    ERROR 06-15 15:15:51  OSError: [Errno 122] Disk quota       
+                    exceeded                                                    
+                    ERROR 06-15 15:15:51  Error saving model info cache.        
+                    ERROR 06-15 15:15:51  Traceback (most recent call last):    
+                    ERROR 06-15 15:15:51    File                                
+                    "/usr/local/lib/python3.12/dist-packages/vllm/model_executor
+                    /models/registry.py", line 811, in _save_modelinfo_to_cache 
+                    ERROR 06-15 15:15:51      with atomic_writer(modelinfo_path,
+                    encoding="utf-8") as f:                                     
+                    ERROR 06-15 15:15:51                                        
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^             
+                    ERROR 06-15 15:15:51    File                                
+                    "/usr/lib/python3.12/contextlib.py", line 144, in __exit__  
+                    ERROR 06-15 15:15:51      next(self.gen)                    
+                    ERROR 06-15 15:15:51    File                                
+                    "/usr/local/lib/python3.12/dist-packages/vllm/model_executor
+                    /model_loader/weight_utils.py", line 146, in atomic_writer  
+                    ERROR 06-15 15:15:51      with os.fdopen(temp_fd, mode=mode,
+                    encoding=encoding) as temp_file:                            
+                    ERROR 06-15 15:15:51                                        
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^            
+                    ERROR 06-15 15:15:51  OSError: [Errno 122] Disk quota       
+                    exceeded                                                    
+                    (EngineCore pid=2501389) ERROR 06-15 15:15:57  Cannot use FA
+                    version 2 is not supported due to FA2 is only supported on  
+                    devices with compute capability >= 8                        
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08  EngineCore   
+                    failed to start.                                            
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08  Traceback    
+                    (most recent call last):                                    
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08    File       
+                    "/usr/local/lib/python3.12/dist-packages/vllm/v1/engine/core
+                    .py", line 1082, in run_engine_core                         
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08               
+                    engine_core = EngineCoreProc(*args, engine_index=dp_rank,   
+                    **kwargs)                                                   
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08               
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^       
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08    File       
+                    "/usr/local/lib/python3.12/dist-packages/vllm/tracing/otel.p
+                    y", line 178, in sync_wrapper                               
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08      return   
+                    func(*args, **kwargs)                                       
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08               
+                    ^^^^^^^^^^^^^^^^^^^^^                                       
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08    File       
+                    "/usr/local/lib/python3.12/dist-packages/vllm/v1/engine/core
+                    .py", line 848, in __init__                                 
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08               
+                    super().__init__(                                           
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08    File       
+                    "/usr/local/lib/python3.12/dist-packages/vllm/v1/engine/core
+                    .py", line 124, in __init__                                 
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08               
+                    kv_cache_config = self._initialize_kv_caches(vllm_config)   
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08               
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^                     
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08    File       
+                    "/usr/local/lib/python3.12/dist-packages/vllm/tracing/otel.p
+                    y", line 178, in sync_wrapper                               
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08      return   
+                    func(*args, **kwargs)                                       
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08               
+                    ^^^^^^^^^^^^^^^^^^^^^                                       
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08    File       
+                    "/usr/local/lib/python3.12/dist-packages/vllm/v1/engine/core
+                    .py", line 247, in _initialize_kv_caches                    
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08               
+                    available_gpu_memory =                                      
+                    self.model_executor.determine_available_memory()            
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08               
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^            
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08    File       
+                    "/usr/local/lib/python3.12/dist-packages/vllm/v1/executor/ab
+                    stract.py", line 136, in determine_available_memory         
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08      return   
+                    self.collective_rpc("determine_available_memory")           
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08               
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^           
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08    File       
+                    "/usr/local/lib/python3.12/dist-packages/vllm/v1/executor/un
+                    iproc_executor.py", line 80, in collective_rpc              
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08      result = 
+                    run_method(self.driver_worker, method, args, kwargs)        
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08               
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^        
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08    File       
+                    "/usr/local/lib/python3.12/dist-packages/vllm/v1/serial_util
+                    s.py", line 510, in run_method                              
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08      return   
+                    func(*args, **kwargs)                                       
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08               
+                    ^^^^^^^^^^^^^^^^^^^^^                                       
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08    File       
+                    "/usr/local/lib/python3.12/dist-packages/torch/utils/_contex
+                    tlib.py", line 124, in decorate_context                     
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08      return   
+                    func(*args, **kwargs)                                       
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08               
+                    ^^^^^^^^^^^^^^^^^^^^^                                       
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08    File       
+                    "/usr/local/lib/python3.12/dist-packages/vllm/v1/worker/gpu_
+                    worker.py", line 370, in determine_available_memory         
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08               
+                    self.model_runner.profile_run()                             
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08    File       
+                    "/usr/local/lib/python3.12/dist-packages/vllm/v1/worker/gpu_
+                    model_runner.py", line 5789, in profile_run                 
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08      output = 
+                    self._dummy_sampler_run(last_hidden_states)                 
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08               
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^                 
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08    File       
+                    "/usr/local/lib/python3.12/dist-packages/torch/utils/_contex
+                    tlib.py", line 124, in decorate_context                     
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08      return   
+                    func(*args, **kwargs)                                       
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08               
+                    ^^^^^^^^^^^^^^^^^^^^^                                       
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08    File       
+                    "/usr/local/lib/python3.12/dist-packages/vllm/v1/worker/gpu_
+                    model_runner.py", line 5596, in _dummy_sampler_run          
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08               
+                    sampler_output = self.sampler(                              
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08               
+                    ^^^^^^^^^^^^^                                               
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08    File       
+                    "/usr/local/lib/python3.12/dist-packages/torch/nn/modules/mo
+                    dule.py", line 1776, in _wrapped_call_impl                  
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08      return   
+                    self._call_impl(*args, **kwargs)                            
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08               
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^                            
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08    File       
+                    "/usr/local/lib/python3.12/dist-packages/torch/nn/modules/mo
+                    dule.py", line 1787, in _call_impl                          
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08      return   
+                    forward_call(*args, **kwargs)                               
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08               
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^                               
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08    File       
+                    "/usr/local/lib/python3.12/dist-packages/vllm/v1/sample/samp
+                    ler.py", line 96, in forward                                
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08      sampled, 
+                    processed_logprobs = self.sample(logits, sampling_metadata) 
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08               
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^                      
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08    File       
+                    "/usr/local/lib/python3.12/dist-packages/vllm/v1/sample/samp
+                    ler.py", line 187, in sample                                
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08               
+                    random_sampled, processed_logprobs = self.topk_topp_sampler(
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08               
+                    ^^^^^^^^^^^^^^^^^^^^^^^                                     
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08    File       
+                    "/usr/local/lib/python3.12/dist-packages/torch/nn/modules/mo
+                    dule.py", line 1776, in _wrapped_call_impl                  
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08      return   
+                    self._call_impl(*args, **kwargs)                            
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08               
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^                            
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08    File       
+                    "/usr/local/lib/python3.12/dist-packages/torch/nn/modules/mo
+                    dule.py", line 1787, in _call_impl                          
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08      return   
+                    forward_call(*args, **kwargs)                               
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08               
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^                               
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08    File       
+                    "/usr/local/lib/python3.12/dist-packages/vllm/v1/sample/ops/
+                    topk_topp_sampler.py", line 106, in forward_native          
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08      logits = 
+                    apply_top_k_top_p(logits, k, p)                             
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08               
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^                             
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08    File       
+                    "/usr/local/lib/python3.12/dist-packages/vllm/v1/sample/ops/
+                    topk_topp_sampler.py", line 252, in apply_top_k_top_p       
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08      return   
+                    apply_top_k_top_p_triton(logits, k, p)                      
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08               
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^                      
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08    File       
+                    "/usr/local/lib/python3.12/dist-packages/vllm/v1/sample/ops/
+                    topk_topp_triton.py", line 1035, in apply_top_k_top_p_triton
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08               
+                    _topk_topp_kernel[(NUM_PROGRAMS,)](                         
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08    File       
+                    "/usr/local/lib/python3.12/dist-packages/triton/runtime/jit.
+                    py", line 370, in <lambda>                                  
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08      return   
+                    lambda *args, **kwargs: self.run(grid=grid, warmup=False,   
+                    *args, **kwargs)                                            
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08               
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^          
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08    File       
+                    "/usr/local/lib/python3.12/dist-packages/triton/runtime/jit.
+                    py", line 700, in run                                       
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08      device = 
+                    driver.active.get_current_device()                          
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08               
+                    ^^^^^^^^^^^^^                                               
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08    File       
+                    "/usr/local/lib/python3.12/dist-packages/triton/runtime/driv
+                    er.py", line 28, in active                                  
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08               
+                    self._active = self.default                                 
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08               
+                    ^^^^^^^^^^^^                                                
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08    File       
+                    "/usr/local/lib/python3.12/dist-packages/triton/runtime/driv
+                    er.py", line 22, in default                                 
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08               
+                    self._default = _create_driver()                            
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08               
+                    ^^^^^^^^^^^^^^^^                                            
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08    File       
+                    "/usr/local/lib/python3.12/dist-packages/triton/runtime/driv
+                    er.py", line 10, in _create_driver                          
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08      return   
+                    active_drivers[0]()                                         
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08               
+                    ^^^^^^^^^^^^^^^^^^^                                         
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08    File       
+                    "/usr/local/lib/python3.12/dist-packages/triton/backends/nvi
+                    dia/driver.py", line 720, in __init__                       
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08               
+                    self.utils = CudaUtils()  # TODO: make static               
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08               
+                    ^^^^^^^^^^^                                                 
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08    File       
+                    "/usr/local/lib/python3.12/dist-packages/triton/backends/nvi
+                    dia/driver.py", line 62, in __init__                        
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08      mod =    
+                    compile_module_from_src(                                    
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08               
+                    ^^^^^^^^^^^^^^^^^^^^^^^^                                    
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08    File       
+                    "/usr/local/lib/python3.12/dist-packages/triton/runtime/buil
+                    d.py", line 95, in compile_module_from_src                  
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08               
+                    cache_path = cache.put(f.read(), f"{name}{suffix}",         
+                    binary=True)                                                
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08               
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^         
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08    File       
+                    "/usr/local/lib/python3.12/dist-packages/triton/runtime/cach
+                    e.py", line 112, in put                                     
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08               
+                    os.makedirs(temp_dir, exist_ok=True)                        
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08    File       
+                    "<frozen os>", line 225, in makedirs                        
+                    (EngineCore pid=2501389) ERROR 06-15 15:16:08  OSError:     
+                    [Errno 122] Disk quota exceeded:                            
+                    '/home/engs2950/.triton/cache/77NNNEUZ3IJOQFHAPQOAH2TMPI6XDV
+                    GAVLSETB3SUTUUIDAWX3OA/tmp.pid_2501389_6231b6c4-b48f-4695-9b
+                    99-500b9459b914'                                            
+                    (EngineCore pid=2501389) Process EngineCore:                
+                    (EngineCore pid=2501389) Traceback (most recent call last): 
+                    (EngineCore pid=2501389)   File                             
+                    "/usr/lib/python3.12/multiprocessing/process.py", line 314, 
+                    in _bootstrap                                               
+                    (EngineCore pid=2501389)     self.run()                     
+                    (EngineCore pid=2501389)   File                             
+                    "/usr/lib/python3.12/multiprocessing/process.py", line 108, 
+                    in run                                                      
+                    (EngineCore pid=2501389)     self._target(*self._args,      
+                    **self._kwargs)                                             
+                    (EngineCore pid=2501389)   File                             
+                    "/usr/local/lib/python3.12/dist-packages/vllm/v1/engine/core
+                    .py", line 1112, in run_engine_core                         
+                    (EngineCore pid=2501389)     raise e                        
+                    (EngineCore pid=2501389)   File                             
+                    "/usr/local/lib/python3.12/dist-packages/vllm/v1/engine/core
+                    .py", line 1082, in run_engine_core                         
+                    (EngineCore pid=2501389)     engine_core =                  
+                    EngineCoreProc(*args, engine_index=dp_rank, **kwargs)       
+                    (EngineCore pid=2501389)                                    
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^       
+                    (EngineCore pid=2501389)   File                             
+                    "/usr/local/lib/python3.12/dist-packages/vllm/tracing/otel.p
+                    y", line 178, in sync_wrapper                               
+                    (EngineCore pid=2501389)     return func(*args, **kwargs)   
+                    (EngineCore pid=2501389)            ^^^^^^^^^^^^^^^^^^^^^   
+                    (EngineCore pid=2501389)   File                             
+                    "/usr/local/lib/python3.12/dist-packages/vllm/v1/engine/core
+                    .py", line 848, in __init__                                 
+                    (EngineCore pid=2501389)     super().__init__(              
+                    (EngineCore pid=2501389)   File                             
+                    "/usr/local/lib/python3.12/dist-packages/vllm/v1/engine/core
+                    .py", line 124, in __init__                                 
+                    (EngineCore pid=2501389)     kv_cache_config =              
+                    self._initialize_kv_caches(vllm_config)                     
+                    (EngineCore pid=2501389)                                    
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^                     
+                    (EngineCore pid=2501389)   File                             
+                    "/usr/local/lib/python3.12/dist-packages/vllm/tracing/otel.p
+                    y", line 178, in sync_wrapper                               
+                    (EngineCore pid=2501389)     return func(*args, **kwargs)   
+                    (EngineCore pid=2501389)            ^^^^^^^^^^^^^^^^^^^^^   
+                    (EngineCore pid=2501389)   File                             
+                    "/usr/local/lib/python3.12/dist-packages/vllm/v1/engine/core
+                    .py", line 247, in _initialize_kv_caches                    
+                    (EngineCore pid=2501389)     available_gpu_memory =         
+                    self.model_executor.determine_available_memory()            
+                    (EngineCore pid=2501389)                                    
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^            
+                    (EngineCore pid=2501389)   File                             
+                    "/usr/local/lib/python3.12/dist-packages/vllm/v1/executor/ab
+                    stract.py", line 136, in determine_available_memory         
+                    (EngineCore pid=2501389)     return                         
+                    self.collective_rpc("determine_available_memory")           
+                    (EngineCore pid=2501389)                                    
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^           
+                    (EngineCore pid=2501389)   File                             
+                    "/usr/local/lib/python3.12/dist-packages/vllm/v1/executor/un
+                    iproc_executor.py", line 80, in collective_rpc              
+                    (EngineCore pid=2501389)     result =                       
+                    run_method(self.driver_worker, method, args, kwargs)        
+                    (EngineCore pid=2501389)                                    
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^        
+                    (EngineCore pid=2501389)   File                             
+                    "/usr/local/lib/python3.12/dist-packages/vllm/v1/serial_util
+                    s.py", line 510, in run_method                              
+                    (EngineCore pid=2501389)     return func(*args, **kwargs)   
+                    (EngineCore pid=2501389)            ^^^^^^^^^^^^^^^^^^^^^   
+                    (EngineCore pid=2501389)   File                             
+                    "/usr/local/lib/python3.12/dist-packages/torch/utils/_contex
+                    tlib.py", line 124, in decorate_context                     
+                    (EngineCore pid=2501389)     return func(*args, **kwargs)   
+                    (EngineCore pid=2501389)            ^^^^^^^^^^^^^^^^^^^^^   
+                    (EngineCore pid=2501389)   File                             
+                    "/usr/local/lib/python3.12/dist-packages/vllm/v1/worker/gpu_
+                    worker.py", line 370, in determine_available_memory         
+                    (EngineCore pid=2501389)     self.model_runner.profile_run()
+                    (EngineCore pid=2501389)   File                             
+                    "/usr/local/lib/python3.12/dist-packages/vllm/v1/worker/gpu_
+                    model_runner.py", line 5789, in profile_run                 
+                    (EngineCore pid=2501389)     output =                       
+                    self._dummy_sampler_run(last_hidden_states)                 
+                    (EngineCore pid=2501389)                                    
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^                 
+                    (EngineCore pid=2501389)   File                             
+                    "/usr/local/lib/python3.12/dist-packages/torch/utils/_contex
+                    tlib.py", line 124, in decorate_context                     
+                    (EngineCore pid=2501389)     return func(*args, **kwargs)   
+                    (EngineCore pid=2501389)            ^^^^^^^^^^^^^^^^^^^^^   
+                    (EngineCore pid=2501389)   File                             
+                    "/usr/local/lib/python3.12/dist-packages/vllm/v1/worker/gpu_
+                    model_runner.py", line 5596, in _dummy_sampler_run          
+                    (EngineCore pid=2501389)     sampler_output = self.sampler( 
+                    (EngineCore pid=2501389)                      ^^^^^^^^^^^^^ 
+                    (EngineCore pid=2501389)   File                             
+                    "/usr/local/lib/python3.12/dist-packages/torch/nn/modules/mo
+                    dule.py", line 1776, in _wrapped_call_impl                  
+                    (EngineCore pid=2501389)     return self._call_impl(*args,  
+                    **kwargs)                                                   
+                    (EngineCore pid=2501389)                                    
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^                            
+                    (EngineCore pid=2501389)   File                             
+                    "/usr/local/lib/python3.12/dist-packages/torch/nn/modules/mo
+                    dule.py", line 1787, in _call_impl                          
+                    (EngineCore pid=2501389)     return forward_call(*args,     
+                    **kwargs)                                                   
+                    (EngineCore pid=2501389)                                    
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^                               
+                    (EngineCore pid=2501389)   File                             
+                    "/usr/local/lib/python3.12/dist-packages/vllm/v1/sample/samp
+                    ler.py", line 96, in forward                                
+                    (EngineCore pid=2501389)     sampled, processed_logprobs =  
+                    self.sample(logits, sampling_metadata)                      
+                    (EngineCore pid=2501389)                                    
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^                      
+                    (EngineCore pid=2501389)   File                             
+                    "/usr/local/lib/python3.12/dist-packages/vllm/v1/sample/samp
+                    ler.py", line 187, in sample                                
+                    (EngineCore pid=2501389)     random_sampled,                
+                    processed_logprobs = self.topk_topp_sampler(                
+                    (EngineCore pid=2501389)                                    
+                    ^^^^^^^^^^^^^^^^^^^^^^^                                     
+                    (EngineCore pid=2501389)   File                             
+                    "/usr/local/lib/python3.12/dist-packages/torch/nn/modules/mo
+                    dule.py", line 1776, in _wrapped_call_impl                  
+                    (EngineCore pid=2501389)     return self._call_impl(*args,  
+                    **kwargs)                                                   
+                    (EngineCore pid=2501389)                                    
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^                            
+                    (EngineCore pid=2501389)   File                             
+                    "/usr/local/lib/python3.12/dist-packages/torch/nn/modules/mo
+                    dule.py", line 1787, in _call_impl                          
+                    (EngineCore pid=2501389)     return forward_call(*args,     
+                    **kwargs)                                                   
+                    (EngineCore pid=2501389)                                    
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^                               
+                    (EngineCore pid=2501389)   File                             
+                    "/usr/local/lib/python3.12/dist-packages/vllm/v1/sample/ops/
+                    topk_topp_sampler.py", line 106, in forward_native          
+                    (EngineCore pid=2501389)     logits =                       
+                    apply_top_k_top_p(logits, k, p)                             
+                    (EngineCore pid=2501389)                                    
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^                             
+                    (EngineCore pid=2501389)   File                             
+                    "/usr/local/lib/python3.12/dist-packages/vllm/v1/sample/ops/
+                    topk_topp_sampler.py", line 252, in apply_top_k_top_p       
+                    (EngineCore pid=2501389)     return                         
+                    apply_top_k_top_p_triton(logits, k, p)                      
+                    (EngineCore pid=2501389)                                    
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^                      
+                    (EngineCore pid=2501389)   File                             
+                    "/usr/local/lib/python3.12/dist-packages/vllm/v1/sample/ops/
+                    topk_topp_triton.py", line 1035, in apply_top_k_top_p_triton
+                    (EngineCore pid=2501389)                                    
+                    _topk_topp_kernel[(NUM_PROGRAMS,)](                         
+                    (EngineCore pid=2501389)   File                             
+                    "/usr/local/lib/python3.12/dist-packages/triton/runtime/jit.
+                    py", line 370, in <lambda>                                  
+                    (EngineCore pid=2501389)     return lambda *args, **kwargs: 
+                    self.run(grid=grid, warmup=False, *args, **kwargs)          
+                    (EngineCore pid=2501389)                                    
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^          
+                    (EngineCore pid=2501389)   File                             
+                    "/usr/local/lib/python3.12/dist-packages/triton/runtime/jit.
+                    py", line 700, in run                                       
+                    (EngineCore pid=2501389)     device =                       
+                    driver.active.get_current_device()                          
+                    (EngineCore pid=2501389)              ^^^^^^^^^^^^^         
+                    (EngineCore pid=2501389)   File                             
+                    "/usr/local/lib/python3.12/dist-packages/triton/runtime/driv
+                    er.py", line 28, in active                                  
+                    (EngineCore pid=2501389)     self._active = self.default    
+                    (EngineCore pid=2501389)                    ^^^^^^^^^^^^    
+                    (EngineCore pid=2501389)   File                             
+                    "/usr/local/lib/python3.12/dist-packages/triton/runtime/driv
+                    er.py", line 22, in default                                 
+                    (EngineCore pid=2501389)     self._default =                
+                    _create_driver()                                            
+                    (EngineCore pid=2501389)                                    
+                    ^^^^^^^^^^^^^^^^                                            
+                    (EngineCore pid=2501389)   File                             
+                    "/usr/local/lib/python3.12/dist-packages/triton/runtime/driv
+                    er.py", line 10, in _create_driver                          
+                    (EngineCore pid=2501389)     return active_drivers[0]()     
+                    (EngineCore pid=2501389)            ^^^^^^^^^^^^^^^^^^^     
+                    (EngineCore pid=2501389)   File                             
+                    "/usr/local/lib/python3.12/dist-packages/triton/backends/nvi
+                    dia/driver.py", line 720, in __init__                       
+                    (EngineCore pid=2501389)     self.utils = CudaUtils()  #    
+                    TODO: make static                                           
+                    (EngineCore pid=2501389)                  ^^^^^^^^^^^       
+                    (EngineCore pid=2501389)   File                             
+                    "/usr/local/lib/python3.12/dist-packages/triton/backends/nvi
+                    dia/driver.py", line 62, in __init__                        
+                    (EngineCore pid=2501389)     mod = compile_module_from_src( 
+                    (EngineCore pid=2501389)           ^^^^^^^^^^^^^^^^^^^^^^^^ 
+                    (EngineCore pid=2501389)   File                             
+                    "/usr/local/lib/python3.12/dist-packages/triton/runtime/buil
+                    d.py", line 95, in compile_module_from_src                  
+                    (EngineCore pid=2501389)     cache_path =                   
+                    cache.put(f.read(), f"{name}{suffix}", binary=True)         
+                    (EngineCore pid=2501389)                                    
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^         
+                    (EngineCore pid=2501389)   File                             
+                    "/usr/local/lib/python3.12/dist-packages/triton/runtime/cach
+                    e.py", line 112, in put                                     
+                    (EngineCore pid=2501389)     os.makedirs(temp_dir,          
+                    exist_ok=True)                                              
+                    (EngineCore pid=2501389)   File "<frozen os>", line 225, in 
+                    makedirs                                                    
+                    (EngineCore pid=2501389) OSError: [Errno 122] Disk quota    
+                    exceeded:                                                   
+                    '/home/engs2950/.triton/cache/77NNNEUZ3IJOQFHAPQOAH2TMPI6XDV
+                    GAVLSETB3SUTUUIDAWX3OA/tmp.pid_2501389_6231b6c4-b48f-4695-9b
+                    99-500b9459b914'                                            
+                                                                                
+[15:16:09] ERROR    ✗ TP=1  booting vLLM engine (failed after 44.9s)            

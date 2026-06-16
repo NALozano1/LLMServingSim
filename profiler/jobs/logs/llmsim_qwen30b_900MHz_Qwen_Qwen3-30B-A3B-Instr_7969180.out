@@ -1,0 +1,123 @@
+=== LLMServingSim profiler (ARC / engs-glass) ===
+REPO_ROOT=/data/engs-glass/engs2950/DVFS-MoE/LLMServingSim
+MODEL=Qwen/Qwen3-30B-A3B-Instruct-2507  HARDWARE=V100_900MHz  TP_DEGREES=1  DTYPE=float16
+GPU_FREQ_MHZ=900
+FULL_PROFILE=0  SKIP_SKEW=1  VERBOSITY=--verbose
+VLLM_IMAGE=docker://vllm/vllm-openai:v0.19.0
+HF_CACHE_ROOT=/data/engs-glass/engs2950/infra/hf_cache
+SCRATCH=/data/engs-glass/engs2950/.llmsim/7969180
+CUDA_VISIBLE_DEVICES=0
+GPU 0: Tesla V100-SXM2-32GB-LS (UUID: GPU-b7495a45-2973-9022-4838-6508bd43b4d3)
+[dvfs] sync lock visible GPU(s) to 900 MHz ...
+[gpu_freq] locked GPUs to 900 MHz via /usr/local/sbin/nvidia-smi-clocks ok=True
+[dvfs] waiting 0.020s for clocks to settle ...
+index, clocks.current.graphics [MHz], clocks.max.graphics [MHz]
+0, 900 MHz, 1440 MHz
+[23:51:32] INFO     Model config:                                               
+                    /data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/configs/mod
+                    el/Qwen/Qwen3-30B-A3B-Instruct-2507.json                    
+                    (model_type=qwen3_moe → architecture=qwen3_moe)             
+           DEBUG    Model config fields: ['architectures', 'attention_bias',    
+                    'attention_dropout', 'bos_token_id', 'decoder_sparse_step', 
+                    'eos_token_id', 'head_dim', 'hidden_act', 'hidden_size',    
+                    'initializer_range', 'intermediate_size',                   
+                    'max_position_embeddings', 'max_window_layers',             
+                    'mlp_only_layers', 'model_type', 'moe_intermediate_size',   
+                    'norm_topk_prob', 'num_attention_heads', 'num_experts',     
+                    'num_experts_per_tok', 'num_hidden_layers',                 
+                    'num_key_value_heads', 'output_router_logits',              
+                    'rms_norm_eps', 'rope_scaling', 'rope_theta',               
+                    'router_aux_loss_coef', 'sliding_window',                   
+                    'tie_word_embeddings', 'torch_dtype',                       
+                    'transformers_version', 'use_cache', 'use_sliding_window',  
+                    'vocab_size']                                               
+──── Profiling Qwen/Qwen3-30B-A3B-Instruct-2507 on V100_900MHz (qwen3_moe) ─────
+           INFO     Variant: fp16                                               
+           INFO     TP degrees: [1]                                             
+           INFO     Output root:                                                
+                    /data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/profiler/pe
+                    rf/V100_900MHz/Qwen/Qwen3-30B-A3B-Instruct-2507/fp16        
+           INFO     → TP=1  booting vLLM engine                                 
+           DEBUG    model config written to                                     
+                    /data/engs-glass/engs2950/.llmsim/7969180/t/profiler_model_2
+                    8bi1xtv/config.json                                         
+INFO 06-15 23:51:32 [utils.py:233] non-default args: {'skip_tokenizer_init': True, 'load_format': 'dummy', 'dtype': 'float16', 'block_size': 16, 'enable_prefix_caching': False, 'max_num_batched_tokens': 288, 'max_num_seqs': 32, 'disable_log_stats': True, 'hf_overrides': {'num_hidden_layers': 1, 'intermediate_size': 6144, 'num_attention_heads': 32, 'num_key_value_heads': 4, 'vocab_size': 151936}, 'enforce_eager': True, 'worker_extension_cls': 'profiler.core.hooks.extension.Extension', 'generation_config': 'vllm', 'model': '/data/engs-glass/engs2950/.llmsim/7969180/t/profiler_model_28bi1xtv'}
+INFO 06-15 23:52:01 [model.py:549] Resolved architecture: Qwen3MoeForCausalLM
+WARNING 06-15 23:52:01 [model.py:2016] Casting torch.bfloat16 to torch.float16.
+INFO 06-15 23:52:01 [model.py:1678] Using max model len 262144
+INFO 06-15 23:52:01 [scheduler.py:238] Chunked prefill is enabled with max_num_batched_tokens=288.
+INFO 06-15 23:52:01 [vllm.py:790] Asynchronous scheduling is enabled.
+WARNING 06-15 23:52:01 [vllm.py:848] Enforce eager set, disabling torch.compile and CUDAGraphs. This is equivalent to setting -cc.mode=none -cc.cudagraph_mode=none
+WARNING 06-15 23:52:01 [vllm.py:859] Inductor compilation was disabled by user settings, optimizations settings that are only active during inductor compilation will be ignored.
+INFO 06-15 23:52:01 [vllm.py:1025] Cudagraph is disabled under eager mode
+INFO 06-15 23:52:01 [compilation.py:290] Enabled custom fusions: norm_quant, act_quant
+(EngineCore pid=3731520) INFO 06-15 23:52:01 [core.py:105] Initializing a V1 LLM engine (v0.19.0) with config: model='/data/engs-glass/engs2950/.llmsim/7969180/t/profiler_model_28bi1xtv', speculative_config=None, tokenizer='/data/engs-glass/engs2950/.llmsim/7969180/t/profiler_model_28bi1xtv', skip_tokenizer_init=True, tokenizer_mode=auto, revision=None, tokenizer_revision=None, trust_remote_code=False, dtype=torch.float16, max_seq_len=262144, download_dir=None, load_format=dummy, tensor_parallel_size=1, pipeline_parallel_size=1, data_parallel_size=1, decode_context_parallel_size=1, dcp_comm_backend=ag_rs, disable_custom_all_reduce=False, quantization=None, enforce_eager=True, enable_return_routed_experts=False, kv_cache_dtype=auto, device_config=cuda, structured_outputs_config=StructuredOutputsConfig(backend='auto', disable_any_whitespace=False, disable_additional_properties=False, reasoning_parser='', reasoning_parser_plugin='', enable_in_reasoning=False), observability_config=ObservabilityConfig(show_hidden_metrics_for_version=None, otlp_traces_endpoint=None, collect_detailed_traces=None, kv_cache_metrics=False, kv_cache_metrics_sample=0.01, cudagraph_metrics=False, enable_layerwise_nvtx_tracing=False, enable_mfu_metrics=False, enable_mm_processor_stats=False, enable_logging_iteration_details=False), seed=0, served_model_name=/data/engs-glass/engs2950/.llmsim/7969180/t/profiler_model_28bi1xtv, enable_prefix_caching=False, enable_chunked_prefill=True, pooler_config=None, compilation_config={'mode': <CompilationMode.NONE: 0>, 'debug_dump_path': None, 'cache_dir': '', 'compile_cache_save_format': 'binary', 'backend': 'inductor', 'custom_ops': ['all'], 'splitting_ops': [], 'compile_mm_encoder': False, 'cudagraph_mm_encoder': False, 'encoder_cudagraph_token_budgets': [], 'encoder_cudagraph_max_images_per_batch': 0, 'compile_sizes': [], 'compile_ranges_endpoints': [288], 'inductor_compile_config': {'enable_auto_functionalized_v2': False, 'size_asserts': False, 'alignment_asserts': False, 'scalar_asserts': False, 'combo_kernels': True, 'benchmark_combo_kernel': True}, 'inductor_passes': {}, 'cudagraph_mode': <CUDAGraphMode.NONE: 0>, 'cudagraph_num_of_warmups': 0, 'cudagraph_capture_sizes': [], 'cudagraph_copy_inputs': False, 'cudagraph_specialize_lora': True, 'use_inductor_graph_partition': False, 'pass_config': {'fuse_norm_quant': True, 'fuse_act_quant': True, 'fuse_attn_quant': False, 'enable_sp': False, 'fuse_gemm_comms': False, 'fuse_allreduce_rms': False}, 'max_cudagraph_capture_size': 0, 'dynamic_shapes_config': {'type': <DynamicShapesType.BACKED: 'backed'>, 'evaluate_guards': False, 'assume_32_bit_indexing': False}, 'local_cache_dir': None, 'fast_moe_cold_start': True, 'static_all_moe_layers': []}
+(EngineCore pid=3731520) INFO 06-15 23:52:01 [worker_base.py:269] Injected <class 'profiler.core.hooks.extension.Extension'> into <class 'vllm.v1.worker.gpu_worker.Worker'> for extended collective_rpc calls ['fire']
+(EngineCore pid=3731520) INFO 06-15 23:52:02 [parallel_state.py:1400] world_size=1 rank=0 local_rank=0 distributed_init_method=tcp://10.137.21.48:33577 backend=nccl
+(EngineCore pid=3731520) INFO 06-15 23:52:02 [parallel_state.py:1716] rank 0 in world size 1 is assigned as DP rank 0, PP rank 0, PCP rank 0, TP rank 0, EP rank 0, EPLB rank N/A
+(EngineCore pid=3731520) INFO 06-15 23:52:03 [gpu_model_runner.py:4735] Starting to load model /data/engs-glass/engs2950/.llmsim/7969180/t/profiler_model_28bi1xtv...
+(EngineCore pid=3731520) ERROR 06-15 23:52:05 [fa_utils.py:145] Cannot use FA version 2 is not supported due to FA2 is only supported on devices with compute capability >= 8
+(EngineCore pid=3731520) INFO 06-15 23:52:09 [cuda.py:334] Using TRITON_ATTN attention backend out of potential backends: ['TRITON_ATTN', 'FLEX_ATTENTION'].
+(EngineCore pid=3731520) INFO 06-15 23:52:09 [unquantized.py:186] Using TRITON backend for Unquantized MoE
+(EngineCore pid=3731520) INFO 06-15 23:52:10 [gpu_model_runner.py:4820] Model loading took 2.38 GiB memory and 5.389509 seconds
+(EngineCore pid=3731520) WARNING 06-15 23:52:11 [fused_moe.py:1090] Using default MoE config. Performance might be sub-optimal! Config file not found at /usr/local/lib/python3.12/dist-packages/vllm/model_executor/layers/fused_moe/configs/E=128,N=768,device_name=Tesla_V100-SXM2-32GB-LS.json
+(EngineCore pid=3731520) INFO 06-15 23:52:39 [gpu_worker.py:436] Available KV cache memory: 25.43 GiB
+(EngineCore pid=3731520) INFO 06-15 23:52:39 [kv_cache_utils.py:1319] GPU KV cache size: 13,333,648 tokens
+(EngineCore pid=3731520) INFO 06-15 23:52:39 [kv_cache_utils.py:1324] Maximum concurrency for 262,144 tokens per request: 50.86x
+(EngineCore pid=3731520) INFO 06-15 23:52:44 [core.py:283] init engine (profile, create kv cache, warmup model) took 34.84 seconds
+(EngineCore pid=3731520) WARNING 06-15 23:52:46 [vllm.py:848] Enforce eager set, disabling torch.compile and CUDAGraphs. This is equivalent to setting -cc.mode=none -cc.cudagraph_mode=none
+(EngineCore pid=3731520) WARNING 06-15 23:52:46 [vllm.py:859] Inductor compilation was disabled by user settings, optimizations settings that are only active during inductor compilation will be ignored.
+(EngineCore pid=3731520) INFO 06-15 23:52:46 [vllm.py:1025] Cudagraph is disabled under eager mode
+[23:52:46] INFO     ✓ TP=1  booting vLLM engine (74.3s)                         
+[23:52:47] INFO     TP=1 limits: num_cache_tokens=13333648 max_model_len=262144 
+                    max_num_batched_tokens=256 max_num_seqs=32 num_experts=128  
+                    top_k=8                                                     
+           INFO     dense resume: 280 prior rows preloaded, 40 prior shot keys  
+                    recognized                                                  
+           INFO     dense: skipping 40 already-measured shots, firing 0 new     
+           DEBUG    wrote 280 rows →                                            
+                    /data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/profiler/pe
+                    rf/V100_900MHz/Qwen/Qwen3-30B-A3B-Instruct-2507/fp16/tp1/den
+                    se.csv                                                      
+           INFO     dense: nothing to do (all shots already measured)           
+           INFO     per_sequence resume: 40 prior rows preloaded, 20 prior shot 
+                    keys recognized                                             
+           INFO     per_sequence: skipping 20 already-measured shots, firing 0  
+                    new                                                         
+           DEBUG    wrote 40 rows →                                             
+                    /data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/profiler/pe
+                    rf/V100_900MHz/Qwen/Qwen3-30B-A3B-Instruct-2507/fp16/tp1/per
+                    _sequence.csv                                               
+           INFO     per_sequence: nothing to do (all shots already measured)    
+           INFO     attention resume: 810 prior rows preloaded, 810 prior shot  
+                    keys recognized                                             
+           INFO     attention: skipping 810 already-measured shots, firing 0 new
+           DEBUG    wrote 810 rows →                                            
+                    /data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/profiler/pe
+                    rf/V100_900MHz/Qwen/Qwen3-30B-A3B-Instruct-2507/fp16/tp1/att
+                    ention.csv                                                  
+           INFO     attention: nothing to do (all shots already measured)       
+           INFO     moe resume: 35 prior rows preloaded, 35 prior shot keys     
+                    recognized                                                  
+           INFO     moe: skipping 35 already-measured shots, firing 0 new       
+           DEBUG    wrote 35 rows →                                             
+                    /data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/profiler/pe
+                    rf/V100_900MHz/Qwen/Qwen3-30B-A3B-Instruct-2507/fp16/tp1/moe
+                    .csv                                                        
+           INFO     moe: nothing to do (all shots already measured)             
+(EngineCore pid=3731520) INFO 06-15 23:52:47 [core.py:1210] Shutdown initiated (timeout=0)
+(EngineCore pid=3731520) INFO 06-15 23:52:47 [core.py:1233] Shutdown complete
+           INFO     → replicating tp_stable layers across TP folders            
+           INFO     ✓ replicating tp_stable layers across TP folders (0.0s)     
+[23:52:49] DEBUG    wrote meta.yaml →                                           
+                    /data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/profiler/pe
+                    rf/V100_900MHz/Qwen/Qwen3-30B-A3B-Instruct-2507/fp16/meta.ya
+                    ml                                                          
+───────────────────────────────────── Done ─────────────────────────────────────
+           INFO     Results written to:                                         
+                    /data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/profiler/pe
+                    rf/V100_900MHz/Qwen/Qwen3-30B-A3B-Instruct-2507/fp16        
+=== Done. Outputs under: /data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/profiler/perf/V100_900MHz/Qwen/Qwen3-30B-A3B-Instruct-2507/fp16/ ===
+[dvfs] sync restore default GPU clocks ...
+[gpu_freq] reset clocks via /usr/local/sbin/nvidia-smi-clocks ok=True
+[dvfs] waiting 0.020s for clocks to settle ...

@@ -7,6 +7,12 @@
 #
 #     ./profiler/profile.sh
 #
+# Or pass explicit args (Slurm / automation):
+#     ./profiler/profile_cli.sh --model ... --hardware V100 --tp 1,4
+#
+# Environment variables MODEL / HARDWARE / TP_DEGREES / … override the
+# defaults below when set before running profile.sh.
+#
 # The profiler auto-resolves the architecture from the model config's
 # ``model_type`` field — you don't specify it here. Make sure the
 # matching architecture yaml exists under ``profiler/models/``
@@ -24,11 +30,11 @@ set -euo pipefail
 # The profiler reads model_type from that config to pick an
 # architecture yaml under profiler/models/.
 # MODEL="meta-llama/Llama-3.1-8B"
-MODEL="Qwen/Qwen3-32B"
+MODEL="${MODEL:-Qwen/Qwen3-32B}"
 
 # GPU identifier used as an output folder name under ``perf/``.
 # Free-form — pick something meaningful for your hardware.
-HARDWARE="RTXPRO6000"
+HARDWARE="${HARDWARE:-RTXPRO6000}"
 
 # =============================================================================
 # EDIT THESE (OPTIONAL — uncomment and adjust as needed)
@@ -36,7 +42,7 @@ HARDWARE="RTXPRO6000"
 
 # --- TP sweep ---------------------------------------------------------------
 # Comma-separated list; must include 1.
-TP_DEGREES="1,2"
+TP_DEGREES="${TP_DEGREES:-1,2}"
 
 # --- Engine kwargs ----------------------------------------------------------
 # DTYPE is normally inferred from the model config's ``torch_dtype``
@@ -45,27 +51,27 @@ TP_DEGREES="1,2"
 # KV_CACHE_DTYPE defaults to "auto" which inherits DTYPE.
 # DTYPE="bfloat16"                 # bfloat16 / float16 / float32 / fp8
 # KV_CACHE_DTYPE="fp8"             # auto / fp8 / fp16 / bf16
-MAX_NUM_BATCHED_TOKENS=2048      # vLLM's --max-num-batched-tokens
-MAX_NUM_SEQS=256                 # vLLM's --max-num-seqs
+MAX_NUM_BATCHED_TOKENS="${MAX_NUM_BATCHED_TOKENS:-2048}"      # vLLM's --max-num-batched-tokens
+MAX_NUM_SEQS="${MAX_NUM_SEQS:-256}"                 # vLLM's --max-num-seqs
 
 # --- Attention grid ---------------------------------------------------------
 # Upper bound for kv_prefill / kv_decode axes. The grid grows
 # geometrically from 512 up to min(this, max_model_len).
-ATTENTION_MAX_KV=16384
+ATTENTION_MAX_KV="${ATTENTION_MAX_KV:-16384}"
 # Geometric factor for the prefill_chunk axis (grows from 16 up to
 # MAX_NUM_BATCHED_TOKENS). 2.0 is doubling; lower for denser sampling
 # on the quadratic-cost regime at the cost of longer profile time.
-ATTENTION_CHUNK_FACTOR=2.0
+ATTENTION_CHUNK_FACTOR="${ATTENTION_CHUNK_FACTOR:-2.0}"
 # Geometric factor for kv_prefill / kv_decode axes. 2.0 is doubling;
 # lower for denser long-context coverage.
-ATTENTION_KV_FACTOR=2.0
+ATTENTION_KV_FACTOR="${ATTENTION_KV_FACTOR:-2.0}"
 
 # --- Measurement averaging --------------------------------------------------
 # Timed forwards per shot (averaged by vLLM's layerwise_profile via
 # its invocations count). A single sample can swing 15-25% on large
 # GEMMs due to DVFS / boost-clock jitter; N=3 (default) cuts that to
 # ~5% at ~3x profile time.
-MEASUREMENT_ITERATIONS=3
+MEASUREMENT_ITERATIONS="${MEASUREMENT_ITERATIONS:-3}"
 
 # --- Skew profiling ---------------------------------------------------------
 # After the uniform attention grid, also profile heterogeneous
@@ -78,10 +84,10 @@ MEASUREMENT_ITERATIONS=3
 # doubling. Crank higher (e.g. 4.0 on kvs / kp) to coarsen axes
 # you don't care about and cut profile time. Lower for denser
 # sampling where more accuracy is needed.
-SKEW_N_FACTOR=2.0
-SKEW_PC_FACTOR=2.0
-SKEW_KP_FACTOR=2.0
-SKEW_KVS_FACTOR=2.0
+SKEW_N_FACTOR="${SKEW_N_FACTOR:-2.0}"
+SKEW_PC_FACTOR="${SKEW_PC_FACTOR:-2.0}"
+SKEW_KP_FACTOR="${SKEW_KP_FACTOR:-2.0}"
+SKEW_KVS_FACTOR="${SKEW_KVS_FACTOR:-2.0}"
 
 # --- Resume vs force -------------------------------------------------------
 # Default: resume. Existing CSVs are preloaded and only shots whose

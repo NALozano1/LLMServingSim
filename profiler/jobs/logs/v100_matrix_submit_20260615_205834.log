@@ -1,0 +1,18 @@
+=== V100 baseline profiler matrix (one job per model, default clocks) ===
+MODELS (1): meta-llama/Llama-3.1-8B
+HARDWARE=V100  TP_DEGREES=1,2  SKIP_COMPLETE=1
+TIME=02:00:00  SCHEDULE_FREQ_MATRIX=1
+SUBMIT meta-llama/Llama-3.1-8B (default clocks -> V100)
+  job 7968333  MODEL=meta-llama/Llama-3.1-8B  HARDWARE=V100  GPU_FREQ_MHZ=default
+  perf  /data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/profiler/perf/V100/meta-llama/Llama-3.1-8B/
+=== Baseline done: submitted=1 skipped=0 ===
+Manifest: /data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/profiler/jobs/checkpoints/v100_matrix_jobs.tsv
+Submit log: /data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/profiler/jobs/logs/v100_matrix_submit_20260615_205834.log
+Last job:   job 7968333  MODEL=meta-llama/Llama-3.1-8B  HARDWARE=V100  GPU_FREQ_MHZ=default
+  perf  /data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/profiler/perf/V100/meta-llama/Llama-3.1-8B/
+7968333  watch: squeue -M htc -j   job 7968333  MODEL=meta-llama/Llama-3.1-8B  HARDWARE=V100  GPU_FREQ_MHZ=default
+  perf  /data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/profiler/perf/V100/meta-llama/Llama-3.1-8B/
+7968333
+Scheduling freq matrix after baseline job   job 7968333  MODEL=meta-llama/Llama-3.1-8B  HARDWARE=V100  GPU_FREQ_MHZ=default
+  perf  /data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/profiler/perf/V100/meta-llama/Llama-3.1-8B/
+7968333 ...

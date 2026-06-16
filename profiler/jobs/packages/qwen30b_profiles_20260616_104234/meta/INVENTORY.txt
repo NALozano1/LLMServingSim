@@ -1,0 +1,33 @@
+Qwen3-30B-A3B-Instruct-2507 profiler bundle
+============================================================
+
+RTXPRO6000  (RTXPRO6000/Qwen3-30B-A3B-Instruct-2507/bf16)
+  meta.yaml: yes
+  tp1: attention.csv, dense.csv, moe.csv, per_sequence.csv, skew.csv, skew_fit.csv
+  tp2: attention.csv, dense.csv, per_sequence.csv, skew.csv, skew_fit.csv
+
+V100  (V100/Qwen/Qwen3-30B-A3B-Instruct-2507/fp16)
+  meta.yaml: yes
+  tp1: attention.csv, dense.csv, moe.csv, per_sequence.csv
+  tp2: attention.csv, dense.csv, per_sequence.csv
+  tp4: attention.csv, dense.csv, per_sequence.csv
+
+V100_1100MHz  (V100_1100MHz/Qwen/Qwen3-30B-A3B-Instruct-2507/fp16)
+  meta.yaml: yes
+  tp1: attention.csv, dense.csv, moe.csv, per_sequence.csv
+
+V100_1300MHz  (V100_1300MHz/Qwen/Qwen3-30B-A3B-Instruct-2507/fp16)
+  meta.yaml: yes
+  tp1: attention.csv, dense.csv, moe.csv, per_sequence.csv
+
+V100_1400MHz  (V100_1400MHz/Qwen/Qwen3-30B-A3B-Instruct-2507/fp16)
+  meta.yaml: yes
+  tp1: attention.csv, dense.csv, moe.csv, per_sequence.csv
+
+V100_700MHz  (V100_700MHz/Qwen/Qwen3-30B-A3B-Instruct-2507/fp16)
+  meta.yaml: yes
+  tp1: attention.csv, dense.csv, moe.csv, per_sequence.csv
+
+V100_900MHz  (V100_900MHz/Qwen/Qwen3-30B-A3B-Instruct-2507/fp16)
+  meta.yaml: yes
+  tp1: attention.csv, dense.csv, moe.csv, per_sequence.csv

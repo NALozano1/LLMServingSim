@@ -1,0 +1,23 @@
+WARN: HF_TOKEN is unset — gated models may fail tokenizer/config download.
+INFO:    Using cached SIF image
+WARNING: Overriding HOME environment variable with APPTAINERENV_HOME is not permitted
+/usr/local/lib/python3.12/dist-packages/transformers/utils/hub.py:110: FutureWarning: Using `TRANSFORMERS_CACHE` is deprecated and will be removed in v5 of Transformers. Use `HF_HOME` instead.
+  warnings.warn(
+(EngineCore pid=2554740) Exception in thread Thread-1 (_report_usage_worker):
+(EngineCore pid=2554740) Traceback (most recent call last):
+(EngineCore pid=2554740)   File "/usr/lib/python3.12/threading.py", line 1075, in _bootstrap_inner
+(EngineCore pid=2554740)     self.run()
+(EngineCore pid=2554740)   File "/usr/lib/python3.12/threading.py", line 1012, in run
+(EngineCore pid=2554740)     self._target(*self._args, **self._kwargs)
+(EngineCore pid=2554740)   File "/usr/local/lib/python3.12/dist-packages/vllm/usage/usage_lib.py", line 174, in _report_usage_worker
+(EngineCore pid=2554740)     self._report_usage_once(model_architecture, usage_context, extra_kvs)
+(EngineCore pid=2554740)   File "/usr/local/lib/python3.12/dist-packages/vllm/usage/usage_lib.py", line 247, in _report_usage_once
+(EngineCore pid=2554740)     self._write_to_file(data)
+(EngineCore pid=2554740)   File "/usr/local/lib/python3.12/dist-packages/vllm/usage/usage_lib.py", line 278, in _write_to_file
+(EngineCore pid=2554740)     with open(_USAGE_STATS_JSON_PATH, "a") as f:
+(EngineCore pid=2554740)          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=2554740) OSError: [Errno 122] Disk quota exceeded
+(EngineCore pid=2554740) /usr/local/lib/python3.12/dist-packages/torch/profiler/profiler.py:217: UserWarning: Warning: Profiler clears events at the end of each cycle.Only events from the current cycle will be reported.To keep events across cycles, set acc_events=True.
+(EngineCore pid=2554740)   _warn_once(
+[rank0]:[W615 16:52:26.778023502 collection.cpp:665] Warning: <built-in method _disable_profiler of pybind11_builtins.pybind11_detail_function_record_v1_system_libstdcpp_gxx_abi_1xxx_use_cxx11_abi_1 object at 0x14bd72817ef0> (function operator())
+slurmstepd: error: *** JOB 7966819 ON htc-g048 CANCELLED AT 2026-06-15T18:45:29 ***

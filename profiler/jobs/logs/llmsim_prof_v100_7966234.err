@@ -1,0 +1,104 @@
+WARN: HF_TOKEN is unset — gated models may fail tokenizer/config download.
+INFO:    Converting OCI blobs to SIF format
+INFO:    Starting build...
+Copying blob sha256:fcd6c6fabdd2a24aa634a92721c48ec83d37991a9aa45619f34e47ab4fa4ee9c
+Copying blob sha256:f29b1d4013a93a17a4d4acbb760170b608e6707e85419f0e1a2973233f1c0080
+Copying blob sha256:66587c81b81a58d07e40c48d900a1517516bbf58c4378c687d89d645824f5e5f
+Copying blob sha256:59a4bcbddda3c45ff4949d35d2321b6eca9eaff7daae2334c99226bb19f60c3a
+Copying blob sha256:6e8af4fd0a071982e528b634ba99dec2474c21147f99748be708f36e10e3f4c2
+Copying blob sha256:340d44d2921c44112afe4f535a1a3bcfdc4eed5093388d098937942f7f883739
+Copying blob sha256:1a9aa4effe5b3918f341fc0c2d98197c6e1bfa56f0f206816e1237a521d22593
+Copying blob sha256:d0539acee495dc17ec5abfd5ab130fc1c23f443c480dbc1690a717fecbfbc2b9
+Copying blob sha256:2e6d518716fd63b8ac0a4103b440e357ea7e7b8c920fdc3f5e4ab9e7a34fd5bf
+Copying blob sha256:a211d6c359b827c85107c4fa9905796a652efb92b1830d6b7eb3a9087c472aac
+Copying blob sha256:8d008e4b6e7429ef4b5e5c8dec42f09a35d5f0e1114b5e97b58298335c16e707
+Copying blob sha256:2bc56e821f705f3129721e562ccbb9609221f316b0284f3169513a93fd45d4fe
+Copying blob sha256:a68d813f09e9bfcb17c93ff0f227e368fdc1d03cb7b71eaf124f8f810c9de4de
+Copying blob sha256:0069d4ec089441a72d4ea3f01ded90c75350583ae2a62c6502207e94292f2f77
+Copying blob sha256:2acbc7b0050ee1dc425e4f1a4ffbe27d5f707b65a88bb20b988476a4ef9fb6a6
+Copying blob sha256:009a8d9f796c32265df5807384b32dca9e9cea53127d2027c8281f1752d3eb48
+Copying blob sha256:3cc2867d73f88f1ae7ccdd60a26f5230286278f23cf8190bcb1f382d3a5dbb02
+Copying blob sha256:16d401917e676b483adf27b82ad0802a5120a030860dbe8376772d751aebf65c
+Copying blob sha256:2001a2421bf109dd4200bada00818bcb83e1d0a7a72ef23c0c716f70216676db
+Copying blob sha256:6cf91611f13db13018b04a5970019ac9dd9efd9adf70dc251bcc77aa134bdc2b
+Copying blob sha256:909a6da1b5c88cb957f1d383eff1566c60dedaf39979e8ee2fc55b9476d614ef
+Copying blob sha256:095cccf708b2dbba27444073bee741270d17f93d7e74249f8bbf86b2923e085f
+Copying blob sha256:9d81856a1f8a0ef9d4232597af7f01a576100de6fd6701d66f4b05d26ea58cdb
+Copying blob sha256:6a20f53ec01b5a452f642eb63a638ffd036f407283cb07fb4979364916e0f8bd
+Copying blob sha256:8a9c2106248d755940e6a7bcfca0a2a5418dee373fb0ba39cd383bebbebdeacd
+Copying blob sha256:89019e268b31c7462fab42dd9a38315ec14551c17e8040c2b9ff32f213a7cefe
+Copying blob sha256:d3f429fd0a6f7ee798a76071650f49f3954c6def65a0a871ddc24fd9d7797204
+Copying config sha256:eef20c617dc296ade386187367b9dfa9ead05429e48fd6d07286918d08991d92
+Writing manifest to image destination
+2026/06/15 15:03:16  info unpack layer: sha256:66587c81b81a58d07e40c48d900a1517516bbf58c4378c687d89d645824f5e5f
+2026/06/15 15:03:17  info unpack layer: sha256:f29b1d4013a93a17a4d4acbb760170b608e6707e85419f0e1a2973233f1c0080
+2026/06/15 15:03:17  info unpack layer: sha256:340d44d2921c44112afe4f535a1a3bcfdc4eed5093388d098937942f7f883739
+2026/06/15 15:03:20  info unpack layer: sha256:59a4bcbddda3c45ff4949d35d2321b6eca9eaff7daae2334c99226bb19f60c3a
+2026/06/15 15:03:20  info unpack layer: sha256:6e8af4fd0a071982e528b634ba99dec2474c21147f99748be708f36e10e3f4c2
+2026/06/15 15:03:20  info unpack layer: sha256:fcd6c6fabdd2a24aa634a92721c48ec83d37991a9aa45619f34e47ab4fa4ee9c
+2026/06/15 15:03:20  info unpack layer: sha256:1a9aa4effe5b3918f341fc0c2d98197c6e1bfa56f0f206816e1237a521d22593
+2026/06/15 15:03:20  info unpack layer: sha256:d0539acee495dc17ec5abfd5ab130fc1c23f443c480dbc1690a717fecbfbc2b9
+2026/06/15 15:03:22  warn rootless{usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-ptp-helper} ignoring (usually) harmless EPERM on setxattr "security.capability"
+2026/06/15 15:03:28  info unpack layer: sha256:2e6d518716fd63b8ac0a4103b440e357ea7e7b8c920fdc3f5e4ab9e7a34fd5bf
+2026/06/15 15:03:53  info unpack layer: sha256:a211d6c359b827c85107c4fa9905796a652efb92b1830d6b7eb3a9087c472aac
+2026/06/15 15:03:54  info unpack layer: sha256:8d008e4b6e7429ef4b5e5c8dec42f09a35d5f0e1114b5e97b58298335c16e707
+2026/06/15 15:03:54  info unpack layer: sha256:2bc56e821f705f3129721e562ccbb9609221f316b0284f3169513a93fd45d4fe
+2026/06/15 15:03:54  info unpack layer: sha256:a68d813f09e9bfcb17c93ff0f227e368fdc1d03cb7b71eaf124f8f810c9de4de
+2026/06/15 15:06:03  info unpack layer: sha256:0069d4ec089441a72d4ea3f01ded90c75350583ae2a62c6502207e94292f2f77
+2026/06/15 15:06:46  info unpack layer: sha256:2acbc7b0050ee1dc425e4f1a4ffbe27d5f707b65a88bb20b988476a4ef9fb6a6
+2026/06/15 15:06:46  info unpack layer: sha256:009a8d9f796c32265df5807384b32dca9e9cea53127d2027c8281f1752d3eb48
+2026/06/15 15:06:46  info unpack layer: sha256:3cc2867d73f88f1ae7ccdd60a26f5230286278f23cf8190bcb1f382d3a5dbb02
+2026/06/15 15:06:46  info unpack layer: sha256:16d401917e676b483adf27b82ad0802a5120a030860dbe8376772d751aebf65c
+2026/06/15 15:06:50  info unpack layer: sha256:2001a2421bf109dd4200bada00818bcb83e1d0a7a72ef23c0c716f70216676db
+2026/06/15 15:06:50  info unpack layer: sha256:6cf91611f13db13018b04a5970019ac9dd9efd9adf70dc251bcc77aa134bdc2b
+2026/06/15 15:07:02  info unpack layer: sha256:909a6da1b5c88cb957f1d383eff1566c60dedaf39979e8ee2fc55b9476d614ef
+2026/06/15 15:07:02  info unpack layer: sha256:095cccf708b2dbba27444073bee741270d17f93d7e74249f8bbf86b2923e085f
+2026/06/15 15:07:02  info unpack layer: sha256:9d81856a1f8a0ef9d4232597af7f01a576100de6fd6701d66f4b05d26ea58cdb
+2026/06/15 15:07:03  info unpack layer: sha256:6a20f53ec01b5a452f642eb63a638ffd036f407283cb07fb4979364916e0f8bd
+2026/06/15 15:07:03  info unpack layer: sha256:8a9c2106248d755940e6a7bcfca0a2a5418dee373fb0ba39cd383bebbebdeacd
+2026/06/15 15:07:03  info unpack layer: sha256:89019e268b31c7462fab42dd9a38315ec14551c17e8040c2b9ff32f213a7cefe
+2026/06/15 15:07:03  info unpack layer: sha256:d3f429fd0a6f7ee798a76071650f49f3954c6def65a0a871ddc24fd9d7797204
+INFO:    Creating SIF file...
+/usr/local/lib/python3.12/dist-packages/transformers/utils/hub.py:110: FutureWarning: Using `TRANSFORMERS_CACHE` is deprecated and will be removed in v5 of Transformers. Use `HF_HOME` instead.
+  warnings.warn(
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/workspace/profiler/__main__.py", line 435, in <module>
+    sys.exit(main())
+             ^^^^^^
+  File "/workspace/profiler/__main__.py", line 419, in main
+    run_full(arch_path, profile_args, ns.out_root)
+  File "/workspace/profiler/core/runner.py", line 172, in run_full
+    llm, engine_kwargs, tmpdir = spin_up(args, tp)
+                                 ^^^^^^^^^^^^^^^^^
+  File "/workspace/profiler/core/engine.py", line 242, in spin_up
+    llm = LLM(**kwargs)
+          ^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/dist-packages/vllm/entrypoints/llm.py", line 382, in __init__
+    self.llm_engine = LLMEngine.from_engine_args(
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/dist-packages/vllm/v1/engine/llm_engine.py", line 177, in from_engine_args
+    return cls(
+           ^^^^
+  File "/usr/local/lib/python3.12/dist-packages/vllm/v1/engine/llm_engine.py", line 111, in __init__
+    self.engine_core = EngineCoreClient.make_client(
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/dist-packages/vllm/v1/engine/core_client.py", line 101, in make_client
+    return SyncMPClient(vllm_config, executor_class, log_stats)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/dist-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/dist-packages/vllm/v1/engine/core_client.py", line 710, in __init__
+    super().__init__(
+  File "/usr/local/lib/python3.12/dist-packages/vllm/v1/engine/core_client.py", line 535, in __init__
+    with launch_core_engines(
+         ^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/contextlib.py", line 144, in __exit__
+    next(self.gen)
+  File "/usr/local/lib/python3.12/dist-packages/vllm/v1/engine/utils.py", line 998, in launch_core_engines
+    wait_for_engine_startup(
+  File "/usr/local/lib/python3.12/dist-packages/vllm/v1/engine/utils.py", line 1057, in wait_for_engine_startup
+    raise RuntimeError(
+RuntimeError: Engine core initialization failed. See root cause above. Failed core proc(s): {}

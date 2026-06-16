@@ -1,0 +1,5 @@
+=== V100 freq-sweep profiler matrix (one job per model × MHz) ===
+FREQS (4): 700 900 1100 1300 MHz  (step=200)
+MODELS (1): meta-llama/Llama-3.1-8B
+TP_DEGREES=1  SKIP_COMPLETE=1
+REQUIRE_BASELINE_COMPLETE=0  BASELINE_DEPEND_JID=7968333

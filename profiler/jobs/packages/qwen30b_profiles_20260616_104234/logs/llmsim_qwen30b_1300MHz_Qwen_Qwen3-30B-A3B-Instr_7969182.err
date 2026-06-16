@@ -1,0 +1,4 @@
+INFO:    Using cached SIF image
+WARNING: Overriding HOME environment variable with APPTAINERENV_HOME is not permitted
+/usr/local/lib/python3.12/dist-packages/transformers/utils/hub.py:110: FutureWarning: Using `TRANSFORMERS_CACHE` is deprecated and will be removed in v5 of Transformers. Use `HF_HOME` instead.
+  warnings.warn(

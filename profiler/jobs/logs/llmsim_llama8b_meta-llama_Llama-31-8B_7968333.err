@@ -1,0 +1,9 @@
+WARN: HF_TOKEN is unset — gated models may fail tokenizer/config download.
+INFO:    Using cached SIF image
+WARNING: Overriding HOME environment variable with APPTAINERENV_HOME is not permitted
+/usr/local/lib/python3.12/dist-packages/transformers/utils/hub.py:110: FutureWarning: Using `TRANSFORMERS_CACHE` is deprecated and will be removed in v5 of Transformers. Use `HF_HOME` instead.
+  warnings.warn(
+(EngineCore pid=2926264) /usr/local/lib/python3.12/dist-packages/torch/profiler/profiler.py:217: UserWarning: Warning: Profiler clears events at the end of each cycle.Only events from the current cycle will be reported.To keep events across cycles, set acc_events=True.
+(EngineCore pid=2926264)   _warn_once(
+[rank0]:[W615 22:11:57.291418654 collection.cpp:665] Warning: <built-in function mkdir> (function operator())
+slurmstepd: error: *** JOB 7968333 ON htc-g048 CANCELLED AT 2026-06-15T22:23:07 ***
