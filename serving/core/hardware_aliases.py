@@ -5,12 +5,16 @@ from __future__ import annotations
 import csv
 import logging
 import os
+import re
 import shutil
 from typing import List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
 _TIME_US_COLS = {"time_us", "latency_us"}
+_V100_MHZ_RE = re.compile(r"^V100(?:_(?P<mhz>\d+)MHz)?$")
+# Stock V100 profile tag (no _MHz suffix) sits between 900 and 1100 MHz bundles.
+_V100_BASE_MHZ = 1000
 
 
 def _profiler_perf_root() -> str:
@@ -50,6 +54,28 @@ def discover_hardware_for_model(model: str, variant: str = "bf16") -> List[str]:
         if os.path.isdir(os.path.join(root, hw, model, variant)):
             found.append(hw)
     return found
+
+
+def _v100_mhz_key(hardware: str) -> Optional[int]:
+    match = _V100_MHZ_RE.match(hardware)
+    if not match:
+        return None
+    mhz = match.group("mhz")
+    return int(mhz) if mhz else _V100_BASE_MHZ
+
+
+def _v100_dvfs_pair(discovered: List[str], primary: str) -> Optional[Tuple[str, str]]:
+    """Pick the farthest clock profile for layer-wise V100 DVFS alternation."""
+    v100s = [hw for hw in discovered if _v100_mhz_key(hw) is not None]
+    if len(v100s) < 2:
+        return None
+    if primary not in v100s:
+        ordered = sorted(v100s, key=_v100_mhz_key)
+        return ordered[0], ordered[-1]
+    primary_mhz = _v100_mhz_key(primary)
+    others = [hw for hw in v100s if hw != primary]
+    farthest = max(others, key=lambda hw: abs(_v100_mhz_key(hw) - primary_mhz))
+    return primary, farthest
 
 
 def _discover_v0_hardware_for_model(model: str) -> List[str]:
@@ -135,6 +161,9 @@ def resolve_hardware_pair(
             return primary, alt
 
     discovered = discover_hardware_for_model(model, variant)
+    v100_pair = _v100_dvfs_pair(discovered, primary)
+    if v100_pair is not None:
+        return v100_pair
     if primary in discovered:
         others = [h for h in discovered if h != primary]
         if others:
