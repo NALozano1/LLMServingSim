@@ -14,16 +14,16 @@
 
 Prior study on same workload (pre-speedup branch): mono ~15.3 s, seg ~347 s (~23×).
 
-### ShareGPT baseline (pre-P0, for reference)
+### ShareGPT N=10 (measured on P0.2)
 
-From `outputs/branch_compare/timing_study_sharegpt/`:
+| Mode | Wall (s) | Sim clocks (ns) | vs original seg |
+|------|---------:|----------------:|------------------:|
+| Mono | 77.2 | 10,269,946,516 | — |
+| Seg (original, pre-P0) | 1774 | 10,270,053,172 | 1.0× |
+| Seg (P0.2) | **17.8** | 10,144,740,432 | **99.7×** |
 
-| N | Mono | Seg (original) | Ratio |
-|--:|-----:|---------------:|------:|
-| 10 | 77.7 s | 1774 s | 22.8× |
-| 100 | 111.3 s | 2551 s | 22.9× |
+Per-request latencies match mono/original-seg within ~1–2% (sim correctness OK). Seg host wall is now **below mono** because decode-heavy runs reuse cached traces/graphs while mono still pays full trace+Chakra per forward.
 
-Extrapolating the 7.4× host speedup on example_trace → ShareGPT seg N=10 might drop from ~1774 s to ~240 s (not yet measured).
 
 ## Findings
 
