@@ -7,12 +7,15 @@ from .logger import get_logger
 logger = get_logger("GraphGenerator")
 
 
-def _cached_graph_is_fresh(repo_root, file_name, output_name):
-    """True when Chakra output exists and is at least as new as the trace source."""
+def _cached_graph_is_fresh(repo_root, file_name, output_name, stage_idx=None):
+    """True when a cached Chakra graph can be reused for this workload."""
     trace_path = os.path.join(repo_root, "inputs", "trace", f"{file_name}.txt")
     et_path = os.path.join(repo_root, "inputs", "workload", output_name, "llm.0.et")
     if not os.path.isfile(et_path) or not os.path.isfile(trace_path):
         return False
+    if stage_idx is not None:
+        from .segment_trace_cache import segment_trace_meta_path
+        return os.path.isfile(segment_trace_meta_path(trace_path))
     return os.path.getmtime(et_path) >= os.path.getmtime(trace_path)
 
 
@@ -34,7 +37,7 @@ def generate_graph(batch, hardware, num_npus, node_id=0, instance_id=0, npu_offs
     # For DP groups, all instances write .et files to a shared workload folder
     output_name = workload_name if workload_name else file_name
 
-    if not event and _cached_graph_is_fresh(cwd, file_name, output_name):
+    if not event and _cached_graph_is_fresh(cwd, file_name, output_name, stage_idx=stage_idx):
         logger.info("Reusing cached graph inputs/workload/%s/llm.0.et", output_name)
         os.chdir(cwd)
         return

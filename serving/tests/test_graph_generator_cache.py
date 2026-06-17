@@ -27,6 +27,13 @@ class TestGraphGeneratorCache(unittest.TestCase):
                 _cached_graph_is_fresh("/repo", "HW/model/slug", "HW/model/slug")
             )
 
+    def test_segment_cache_uses_meta_sidecar(self):
+        with unittest.mock.patch("os.path.isfile") as isfile:
+            isfile.side_effect = lambda p: p.endswith("llm.0.et") or p.endswith(".txt") or p.endswith(".meta")
+            self.assertTrue(
+                _cached_graph_is_fresh("/repo", "HW/model/slug", "HW/model/slug", stage_idx=0)
+            )
+
     def test_generate_graph_skips_chakra_when_cache_fresh(self):
         batch = MagicMock()
         batch.model = "meta-llama/Llama-3.1-8B"

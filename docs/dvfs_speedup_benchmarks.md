@@ -1,0 +1,46 @@
+# DVFS speedup benchmarks (P0)
+
+**Branch:** `feat/dvfs-speedup`  
+**Dataset:** `workloads/example_trace.jsonl`, N=10, Llama-8B bf16  
+**Harness:** `scripts/run_dvfs_speedup_benchmark.sh`
+
+## Results (example_trace, N=10)
+
+| Tier | Commit | Seg wall (s) | vs baseline | Mono wall (s) | Seg/mono |
+|------|--------|-------------:|------------:|--------------:|---------:|
+| Baseline (pre-P0) | `8243f59` | **346.9** | 1.0× | — | — |
+| P0.1 Chakra skip (mtime) | `8e22147` | **344.8** | 1.01× | — | — |
+| P0.2 + trace skip | `5c6e282` | **47.1** | **7.4×** | 14.5 | **3.3×** |
+
+Prior study on same workload (pre-speedup branch): mono ~15.3 s, seg ~347 s (~23×).
+
+### ShareGPT baseline (pre-P0, for reference)
+
+From `outputs/branch_compare/timing_study_sharegpt/`:
+
+| N | Mono | Seg (original) | Ratio |
+|--:|-----:|---------------:|------:|
+| 10 | 77.7 s | 1774 s | 22.8× |
+| 100 | 111.3 s | 2551 s | 22.9× |
+
+Extrapolating the 7.4× host speedup on example_trace → ShareGPT seg N=10 might drop from ~1774 s to ~240 s (not yet measured).
+
+## Findings
+
+1. **P0.2 (trace skip) is the big win** — skipping `_synthesize_trace_stage` + bookends stops trace rewrites, which unlocks shape reuse within a run.
+2. **P0.1 alone (mtime ET vs trace) barely helped** because `generate_trace` always rewrote the trace file, bumping mtime past `llm.0.et` on every segment hit. Chakra skip only becomes effective once trace synthesis is skipped.
+3. **P0.1 fix:** segment Chakra skip now keys off the `.meta` sidecar (same as trace cache), not trace mtime.
+4. **Sim clocks:** P0.2 seg `1663438891` ns vs baseline `1665096395` ns (~0.1% lower). Worth monitoring; may be benign ordering noise.
+
+## Reproduce
+
+```bash
+# example_trace N=10 (≈13 min total)
+bash scripts/run_dvfs_speedup_benchmark.sh
+
+# ShareGPT N=10 (longer)
+NUM_REQS=10 DATASET=workloads/sharegpt-llama-3.1-8b-300-sps10.jsonl \
+  bash scripts/run_dvfs_speedup_benchmark.sh
+```
+
+Outputs: `outputs/branch_compare/dvfs_speedup/{baseline,p0_1_chakra,p0_2_full}/`
