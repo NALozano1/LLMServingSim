@@ -1579,6 +1579,12 @@ def generate_trace(batch, hardware, tp_size, pp_size, local_ep, ep_total, pd_typ
         output_path = f"inputs/trace/{hardware}/{batch.model}/instance{instance_id}_batch{batch.batch_id}.txt"
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
+    if stage_idx is not None:
+        from .segment_trace_cache import segment_trace_is_fresh, write_segment_trace_meta
+        if segment_trace_is_fresh(output_path, dvfs_scale):
+            logger.info("Reusing cached segment trace %s", output_path)
+            return
+
     # make trace — accept either the Mistral-style ``num_local_experts``
     # key or the HF/Qwen3 ``num_experts`` key so both family's configs
     # resolve to a live GateRouter.
@@ -1680,6 +1686,9 @@ def generate_trace(batch, hardware, tp_size, pp_size, local_ep, ep_total, pd_typ
                 f.write(formatter(new_string, *result[i][1:]))
             else:
                 f.write(formatter(' '.join(result[i]),'','','','','','','','','',''))
+    if stage_idx is not None:
+        from .segment_trace_cache import write_segment_trace_meta
+        write_segment_trace_meta(output_path, dvfs_scale)
     return
 
 
