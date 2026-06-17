@@ -24,6 +24,7 @@ jitter; averaging cuts that noise floor dramatically.
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 from profiler.core.hooks.batch import Shot, assemble_scheduler_output
@@ -32,6 +33,7 @@ from profiler.core.hooks.moe_hook import (
     force_moe_routing,
     single_moe_layer,
 )
+from profiler.core.hooks.layer_barrier import InPlaceLayerBarrier
 from profiler.core.hooks.timings import extract_samples
 
 
@@ -49,6 +51,7 @@ class Extension:
         slice_: dict[str, dict[str, Any]],
         kind: str,
         iterations: int = 3,
+        barrier_dir: str | None = None,
     ) -> list[dict[str, Any]]:
         """Run one profiling shot and return per-layer timings.
 
@@ -62,6 +65,9 @@ class Extension:
                 ``"moe"``. Used to decide whether to forge MoE routing.
             iterations: Number of timed forward passes (averaged via
                 the hook's invocation count). Default 3.
+            barrier_dir: When set, install in-place layer-boundary
+                barriers; worker blocks after each decoder layer until
+                the host writes ``ack.json`` (DVFS applied on host).
 
         Returns:
             List of ``TimingSample`` as plain dicts (pickled back to host).
@@ -113,12 +119,30 @@ class Extension:
         # single-sample measurements don't mitigate.
         from vllm.profiler.layerwise_profile import layerwise_profile
 
-        with force_moe_routing(route):
-            with layerwise_profile() as hook:
-                for _ in range(iterations):
-                    measured_out = self.model_runner.execute_model(_fresh_batch())
-                    if measured_out is None:
-                        self.model_runner.sample_tokens(None)
+        layer_barrier: InPlaceLayerBarrier | None = None
+        if barrier_dir:
+            shot_id = Path(barrier_dir).name
+            layer_barrier = InPlaceLayerBarrier(
+                barrier_dir,
+                shot_id=shot_id,
+            )
+            n_layers = layer_barrier.install(self.model_runner.get_model())
+            if n_layers == 0:
+                layer_barrier.remove()
+                layer_barrier = None
+
+        try:
+            with force_moe_routing(route):
+                with layerwise_profile() as hook:
+                    for _ in range(iterations):
+                        measured_out = self.model_runner.execute_model(
+                            _fresh_batch()
+                        )
+                        if measured_out is None:
+                            self.model_runner.sample_tokens(None)
+        finally:
+            if layer_barrier is not None:
+                layer_barrier.remove()
 
         stats = hook.results.convert_stats_to_dict()
         summary = stats["summary_stats"]

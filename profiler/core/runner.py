@@ -12,6 +12,7 @@ replication — is shared.
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Any
 
@@ -22,6 +23,15 @@ from profiler.core.categories import (
     categories_for,
 )
 from profiler.core.config import Architecture, ProfileArgs, load_architecture
+from profiler.core.dvfs_barrier import (
+    DvfsBarrierPoller,
+    dvfs_host_poller_enabled,
+    dvfs_layer_pause_enabled,
+    gpu_freq_settle_sec,
+    make_shot_barrier_dir,
+    parse_freq_schedule,
+    restore_gpu_freq,
+)
 from profiler.core.engine import probe_limits, spin_down, spin_up
 from profiler.core.hooks.timings import TimingSample
 from profiler.core.writer import (
@@ -51,6 +61,21 @@ def _variant_root(out_root: Path, args: ProfileArgs) -> Path:
     else:
         model_subpath = args.model
     return out_root / args.hardware / model_subpath / args.effective_variant
+
+
+# ---------------------------------------------------------------------------
+# DVFS layer pause helpers
+# ---------------------------------------------------------------------------
+
+def _shot_key_str(category: Category, shot) -> str:
+    return f"{category.name}_{'_'.join(str(x) for x in category.shot_key(shot))}"
+
+
+def _dvfs_max_shots() -> int | None:
+    raw = os.environ.get("DVFS_LAYER_PAUSE_MAX_SHOTS", "").strip()
+    if not raw:
+        return None
+    return max(1, int(raw))
 
 
 # ---------------------------------------------------------------------------
@@ -116,14 +141,60 @@ def _fire_one_category(
         log.info("%s: nothing to do (all shots already measured)", category.label)
         return
 
+    dvfs_pause = dvfs_layer_pause_enabled()
+    freq_meta_dir = out_dir / "gpu_freq"
+    markers_path = out_dir / "dvfs_markers.jsonl"
+    max_dvfs_shots = _dvfs_max_shots()
+    if dvfs_pause:
+        log.info(
+            "%s: DVFS layer pause enabled (schedule=%s settle=%.2fs host_poller=%s)",
+            category.label,
+            parse_freq_schedule(),
+            gpu_freq_settle_sec(),
+            dvfs_host_poller_enabled(),
+        )
+        if max_dvfs_shots is not None:
+            shots = shots[:max_dvfs_shots]
+            log.info(
+                "%s: DVFS_LAYER_PAUSE_MAX_SHOTS=%d",
+                category.label,
+                max_dvfs_shots,
+            )
+
     label = f"TP={tp}  {category.label}"
     with log.progress(label, total=len(shots)) as bar:
         for shot in shots:
-            raw = llm.collective_rpc(
-                "fire",
-                args=(shot.as_dict(), catalog_slice, category.name,
-                      args.measurement_iterations),
+            barrier_dir: Path | None = None
+            poller: DvfsBarrierPoller | None = None
+            fire_args: tuple[Any, ...] = (
+                shot.as_dict(),
+                catalog_slice,
+                category.name,
+                args.measurement_iterations,
             )
+
+            if dvfs_pause:
+                shot_key = _shot_key_str(category, shot)
+                barrier_dir = make_shot_barrier_dir(out_dir, shot_key)
+                if not dvfs_host_poller_enabled():
+                    poller = DvfsBarrierPoller(
+                        barrier_dir=barrier_dir,
+                        markers_path=markers_path,
+                        freq_meta_dir=freq_meta_dir,
+                        freq_schedule=parse_freq_schedule(),
+                        settle_sec=gpu_freq_settle_sec(),
+                    )
+                    poller.start()
+                fire_args = (*fire_args, str(barrier_dir))
+
+            try:
+                raw = llm.collective_rpc("fire", args=fire_args)
+            finally:
+                if poller is not None:
+                    poller.stop()
+                    for err in poller.errors:
+                        log.warning("DVFS poller: %s", err)
+
             # collective_rpc returns one result per worker (one per
             # TP rank). The timings are identical across ranks; take
             # rank 0's.
@@ -138,6 +209,11 @@ def _fire_one_category(
             for point in category.extract_points(shot, timings, arch, tp):
                 sink.coalesce(point)
             bar.advance(1)
+
+    if dvfs_pause and not dvfs_host_poller_enabled():
+        restore_result = restore_gpu_freq(freq_meta_dir)
+        if not restore_result.get("ok"):
+            log.warning("DVFS restore failed: %s", restore_result)
 
     sink.flush()
     log.success("%s → %s", category.label, sink.path)
