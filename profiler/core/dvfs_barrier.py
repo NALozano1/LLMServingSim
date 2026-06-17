@@ -48,6 +48,20 @@ def dvfs_host_poller_enabled() -> bool:
     )
 
 
+def dvfs_pause_only_enabled() -> bool:
+    """Pause at layer boundaries but do not change GPU frequency."""
+    return os.environ.get("DVFS_PAUSE_ONLY", "").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    )
+
+
+def pause_only_delay_sec() -> float:
+    return float(os.environ.get("PAUSE_ONLY_DELAY_SEC", "0.05"))
+
+
 def parse_freq_schedule() -> list[int]:
     raw = os.environ.get("DVFS_FREQ_SCHEDULE", "700,900,1100,1300")
     out: list[int] = []
@@ -187,29 +201,41 @@ class DvfsBarrierPoller:
                 continue
 
             pause_start = time.time()
-            target_mhz = self._next_freq()
-            apply_result = apply_gpu_freq_mhz(target_mhz, self.freq_meta_dir)
-            if not apply_result.get("ok"):
-                self._errors.append(
-                    f"freq apply {target_mhz} MHz failed: {apply_result}"
+            if dvfs_pause_only_enabled():
+                time.sleep(pause_only_delay_sec())
+                target_mhz = None
+                apply_ok = None
+            else:
+                target_mhz = self._next_freq()
+                apply_result = apply_gpu_freq_mhz(
+                    target_mhz, self.freq_meta_dir
                 )
-
-            time.sleep(self.settle_sec)
+                apply_ok = apply_result.get("ok")
+                if not apply_ok:
+                    self._errors.append(
+                        f"freq apply {target_mhz} MHz failed: {apply_result}"
+                    )
+                time.sleep(self.settle_sec)
             pause_end = time.time()
 
             marker = {
                 "event": "layer_boundary",
+                "mode": "pause_only" if dvfs_pause_only_enabled() else "dvfs",
                 "wall_ts": _utc_now(),
                 "pause_start": pause_start,
                 "pause_end": pause_end,
                 "pause_sec": pause_end - pause_start,
                 "freq_mhz": target_mhz,
-                "settle_sec": self.settle_sec,
+                "settle_sec": (
+                    pause_only_delay_sec()
+                    if dvfs_pause_only_enabled()
+                    else self.settle_sec
+                ),
                 "layer_idx": payload.get("layer_idx"),
                 "layer_name": payload.get("layer_name"),
                 "shot_id": payload.get("shot_id"),
                 "barrier_id": payload.get("barrier_id"),
-                "freq_apply_ok": apply_result.get("ok"),
+                "freq_apply_ok": apply_ok,
             }
             self._append_marker(marker)
 
