@@ -23,7 +23,8 @@ and compare against the bundled architectures:
 | `qwen3` | `qwen3.yaml` | Qwen3 dense (0.6B / 4B / 7B / 14B / 32B), with per-head `qk_norm` |
 | `qwen3_moe` | `qwen3_moe.yaml` | Qwen3 MoE (30B-A3B, 235B-A22B) |
 | `mixtral` | `mixtral.yaml` | `MixtralForCausalLM` (8x7B, 8x22B) |
-| `phimoe` | `phimoe.yaml` | `PhiMoEForCausalLM` (Phi-3.5-MoE) |
+| `phimoe` | `phimoe.yaml` | `PhiMoEForCausalLM` (Phi-mini, Phi-tiny, Phi-3.5-MoE) |
+| `qwen2_moe` | `qwen2_moe.yaml` | `Qwen2MoeForCausalLM` (Qwen1.5-MoE, Qwen2 MoE) |
 
 If your `model_type` is one of these, you don't need to do anything
 - the existing YAML handles it.

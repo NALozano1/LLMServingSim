@@ -48,8 +48,21 @@ dimensional fields.
 | `Qwen/Qwen3-30B-A3B-Instruct-2507.json` | MoE | 48 | 2048 | 32 | 4 | 128E / top-8 |
 | `mistralai/Mixtral-8x7B-v0.1.json` | MoE | 32 | 4096 | 32 | 8 | 8E / top-2 |
 | `microsoft/Phi-mini-MoE-instruct.json` | MoE | 32 | 4096 | 32 | 8 | 16E / top-2 |
+| `microsoft/Phi-tiny-MoE-instruct.json` | MoE | 32 | 4096 | 16 | 4 | 16E / top-2 |
+| `Qwen/Qwen1.5-MoE-A2.7B-Chat.json` | MoE | 24 | 2048 | 16 | 16 | 60E / top-4 |
 
-## Adding a new model
+## V100 MoE pair (bench + profiler)
+
+| Model | `model_type` | Architecture YAML | Notes |
+| --- | --- | --- | --- |
+| `microsoft/Phi-tiny-MoE-instruct` | `phimoe` | `profiler/models/phimoe.yaml` | SlimMoE; same family as Phi-mini |
+| `Qwen/Qwen1.5-MoE-A2.7B-Chat` | `qwen2_moe` | `profiler/models/qwen2_moe.yaml` | vLLM `Qwen2MoeForCausalLM` |
+
+Quick check:
+
+```bash
+./profiler/scripts/verify_model_arch.sh
+```
 
 Three ways:
 
@@ -106,7 +119,8 @@ The profiler only runs when a matching architecture yaml exists at
 * `qwen3` — Qwen3 dense family
 * `qwen3_moe` — Qwen3 MoE family
 * `mixtral` — Mixtral family
-* `phimoe` — Phi MoE family
+* `phimoe` — Phi MoE family (Phi-mini, Phi-tiny, Phi-3.5-MoE)
+* `qwen2_moe` — Qwen2 / Qwen1.5 MoE family (`Qwen2MoeForCausalLM`)
 
 Any other `model_type` (e.g. `gemma2`, `deepseek_v3`) produces a clear
 error at profile time with instructions for adding support.
