@@ -1,0 +1,12 @@
+{
+  "warmup_sec": 0.006467,
+  "measured_sec": 0.279517,
+  "measured_exec_sec": 0.279517,
+  "barrier_wait_sec": 0.0,
+  "fire_total_sec": 0.28599,
+  "fire_exec_sec": 0.28599,
+  "measured_wall_start": 1782080915.6443727,
+  "measured_wall_end": 1782080915.92389,
+  "measurement_iterations": 1,
+  "barrier_enabled": false
+}

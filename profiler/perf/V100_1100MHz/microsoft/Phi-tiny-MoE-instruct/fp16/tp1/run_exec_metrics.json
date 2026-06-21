@@ -1,0 +1,19 @@
+{
+  "shot_count": 900,
+  "measured_sec": 278.38664,
+  "measured_exec_sec": 278.38664,
+  "barrier_wait_sec": 0.0,
+  "marker_pause_sec": 0.0,
+  "warmup_sec": 126.384827,
+  "fire_total_sec": 406.673812,
+  "fire_exec_sec": 406.673812,
+  "rpc_wall_sec": 441.740588,
+  "energy_j": 6489.352,
+  "energy_excl_pause_j": 6489.352,
+  "effective_runtime_sec": 278.38664,
+  "effective_energy_j": 6489.352,
+  "pause_overhead_sec": 0.0,
+  "pause_overhead_frac": 0.0,
+  "category": "moe",
+  "tp": 1
+}

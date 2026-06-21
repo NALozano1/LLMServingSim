@@ -1,0 +1,43 @@
+profiler_version: 1.0.0
+vllm_version: 0.19.0
+cuda_version: '12.9'
+gpu: Tesla V100-SXM2-32GB-LS
+hardware: V100_700MHz
+profiled_at: '2026-06-21T22:45:46+00:00'
+architecture: qwen2_moe
+architecture_sha256: 64be026d90b7cecfc5c05b50ab7680726f5fdfad2ec17d9a5c20a6221883559a
+model: Qwen/Qwen1.5-MoE-A2.7B-Chat
+variant: fp16
+tp_degrees: [1]
+engine_effective:
+  load_format: dummy
+  enforce_eager: true
+  skip_tokenizer_init: true
+  enable_prefix_caching: false
+  generation_config: vllm
+  tensor_parallel_size: 1
+  block_size: 16
+  gpu_memory_utilization: 0.9
+  max_num_batched_tokens: 256
+  max_num_seqs: 32
+  hf_overrides:
+    num_hidden_layers: 1
+    intermediate_size: 5632
+    num_attention_heads: 16
+    num_key_value_heads: 16
+    vocab_size: 151936
+  dtype: float16
+  worker_extension_cls: profiler.core.hooks.extension.Extension
+  model: /data/engs-glass/engs2950/.llmsim/8008667/t/profiler_model_7_z6kj3n
+attention_grid:
+  max_kv: 256
+  chunk_factor: 2.0
+  kv_factor: 2.0
+  chunks: 0, 16-256 x2
+  n_decode: 0, 1-32 x2
+  kv: 0, 16-256 x2
+measurement_iterations: 1
+skew_profile:
+  enabled: false
+skew_fit:
+  enabled: false

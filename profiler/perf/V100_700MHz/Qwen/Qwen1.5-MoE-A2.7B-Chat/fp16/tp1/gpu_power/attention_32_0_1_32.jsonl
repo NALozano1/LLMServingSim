@@ -1,0 +1,3 @@
+{"wall_ts": 1782081638.0761755, "gpus": [{"index": 0, "power_w": 104.69, "graphics_mhz": 1102, "util_gpu_pct": 0.0}]}
+{"wall_ts": 1782081638.2088459, "gpus": [{"index": 0, "power_w": 56.43, "graphics_mhz": 1102, "util_gpu_pct": 24.0}]}
+{"wall_ts": 1782081638.344619, "gpus": [{"index": 0, "power_w": 56.43, "graphics_mhz": 1102, "util_gpu_pct": 0.0}]}
