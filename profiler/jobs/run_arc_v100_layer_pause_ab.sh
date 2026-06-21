@@ -78,7 +78,7 @@ profiler_slice() {
   done
 
   echo ""
-  echo "=== A/B arm: ${arm_label} (hardware=${hardware}) ==="
+  echo "=== A/B arm: ${arm_label} (hardware=${hardware}) ===" >&2
   local t0 t1 wall
   t0="$(date +%s.%N)"
 
@@ -113,12 +113,12 @@ profiler_slice() {
       --measurement-iterations "'"${MEASUREMENT_ITERATIONS}"'" \
       --skip-skew \
       --force \
-      '"${VERBOSITY}"'' 2>&1 | tee "${log_file}"
+      '"${VERBOSITY}"'' >"${log_file}" 2>&1
 
   t1="$(date +%s.%N)"
   wall="$(python3 -c "print(round(float('${t1}') - float('${t0}'), 3))")"
+  echo "${wall}" > "${log_file}.wall_sec"
   echo "ARM ${arm_label} slice_wall_sec=${wall}" >&2
-  echo "${wall}"
 }
 
 extract_dense_shot_sec() {
@@ -167,33 +167,35 @@ fi
 OLD_ACCOUNT="${SLURM_JOB_ACCOUNT:-}"
 unset SLURM_JOB_ACCOUNT
 
-# --- Arm A: no pause ---
-LOG_NOPAUSE="${LOG_DIR}/nopause.log"
-WALL_NOPAUSE="$(profiler_slice nopause "${HARDWARE_NOPAUSE}" "${LOG_NOPAUSE}" \
-  DVFS_LAYER_PAUSE=0 \
-  DVFS_HOST_POLLER=0 \
-  DVFS_PAUSE_ONLY=0)"
-SHOT_NOPAUSE="$(extract_dense_shot_sec "${LOG_NOPAUSE}")"
-
-# --- Arm B: pause only ---
+# --- Arm A: pause only (first — cold GPU for both; pause adds barrier delay) ---
 rm -f "${TP_PAUSE}/dvfs_markers.jsonl"
 chmod +x "${HOST_POLLER}"
 export DVFS_PAUSE_ONLY=1
 export PAUSE_ONLY_DELAY_SEC
 bash "${HOST_POLLER}" "${TP_PAUSE}" "${TP_PAUSE}/gpu_freq" &
 POLLER_PID=$!
-echo "HOST_POLLER_PID=${POLLER_PID} watch=${TP_PAUSE}"
+echo "HOST_POLLER_PID=${POLLER_PID} watch=${TP_PAUSE}" >&2
 
 LOG_PAUSE="${LOG_DIR}/pause.log"
-WALL_PAUSE="$(profiler_slice pause "${HARDWARE_PAUSE}" "${LOG_PAUSE}" \
+profiler_slice pause "${HARDWARE_PAUSE}" "${LOG_PAUSE}" \
   DVFS_LAYER_PAUSE=1 \
   DVFS_HOST_POLLER=1 \
   DVFS_PAUSE_ONLY=1 \
-  PAUSE_ONLY_DELAY_SEC="${PAUSE_ONLY_DELAY_SEC}")"
+  PAUSE_ONLY_DELAY_SEC="${PAUSE_ONLY_DELAY_SEC}"
 kill "${POLLER_PID}" 2>/dev/null || true
 POLLER_PID=""
-
+WALL_PAUSE="$(cat "${LOG_PAUSE}.wall_sec")"
 SHOT_PAUSE="$(extract_dense_shot_sec "${LOG_PAUSE}")"
+
+# --- Arm B: no pause ---
+LOG_NOPAUSE="${LOG_DIR}/nopause.log"
+profiler_slice nopause "${HARDWARE_NOPAUSE}" "${LOG_NOPAUSE}" \
+  DVFS_LAYER_PAUSE=0 \
+  DVFS_HOST_POLLER=0 \
+  DVFS_PAUSE_ONLY=0
+WALL_NOPAUSE="$(cat "${LOG_NOPAUSE}.wall_sec")"
+SHOT_NOPAUSE="$(extract_dense_shot_sec "${LOG_NOPAUSE}")"
+
 MARKERS="${TP_PAUSE}/dvfs_markers.jsonl"
 MARKER_PAUSE_SUM="$(sum_marker_pause_sec "${MARKERS}")"
 MARKER_COUNT="$(wc -l < "${MARKERS}" 2>/dev/null || echo 0)"

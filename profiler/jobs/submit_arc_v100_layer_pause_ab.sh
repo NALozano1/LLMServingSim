@@ -73,7 +73,7 @@ jid_raw="$(sbatch -M htc \
   --output="${ROOT}/profiler/jobs/logs/${JOB_NAME}_%j.out" \
   --error="${ROOT}/profiler/jobs/logs/${JOB_NAME}_%j.err" \
   "${rendered}")"
-jid="${jid_raw##* }"
+jid="$(awk '{print $4}' <<< "${jid_raw}")"
 echo "Submitted job ${jid}"
 echo "  out: ${ROOT}/profiler/jobs/logs/${JOB_NAME}_${jid}.out"
 echo "  ab_compare: ${ROOT}/profiler/perf/V100_layer_pause_ab_pause/meta-llama/Llama-3.1-8B/fp16/tp1/ab_compare.json"
