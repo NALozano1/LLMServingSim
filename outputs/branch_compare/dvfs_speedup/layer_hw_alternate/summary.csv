@@ -1,0 +1,3 @@
+mode,dataset,num_reqs,wall_s,host_wall_s,sim_clocks_ns,layer_switches,invalid_switches,cache_reuse_log_hits,log,csv,events
+seg_alternate,workloads/example_trace.jsonl,1,9.401,9.937,926109202,0,0,4709,outputs/branch_compare/dvfs_speedup/layer_hw_alternate/seg_alternate_1req.log,outputs/branch_compare/dvfs_speedup/layer_hw_alternate/seg_alternate_1req.csv,outputs/branch_compare/dvfs_speedup/layer_hw_alternate/seg_alternate_1req_events.jsonl
+seg_alternate,workloads/example_trace.jsonl,10,56.701,57.345,1791130717,0,0,8704,outputs/branch_compare/dvfs_speedup/layer_hw_alternate/seg_alternate_10req.log,outputs/branch_compare/dvfs_speedup/layer_hw_alternate/seg_alternate_10req.csv,outputs/branch_compare/dvfs_speedup/layer_hw_alternate/seg_alternate_10req_events.jsonl

@@ -1,0 +1,3 @@
+mode,dataset,num_reqs,wall_s,host_wall_s,sim_clocks_ns,log,csv
+mono,workloads/sharegpt-llama-3.1-8b-300-sps10.jsonl,10,77.235,77.803,10269946516,outputs/branch_compare/dvfs_speedup/sharegpt_p0_2/mono_10req.log,outputs/branch_compare/dvfs_speedup/sharegpt_p0_2/mono_10req.csv
+seg,workloads/sharegpt-llama-3.1-8b-300-sps10.jsonl,10,17.767,18.237,10144740432,outputs/branch_compare/dvfs_speedup/sharegpt_p0_2/seg_10req.log,outputs/branch_compare/dvfs_speedup/sharegpt_p0_2/seg_10req.csv

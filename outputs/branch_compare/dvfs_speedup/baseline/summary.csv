@@ -1,0 +1,2 @@
+mode,dataset,num_reqs,wall_s,host_wall_s,sim_clocks_ns,log,csv
+seg,workloads/example_trace.jsonl,10,346.879,347.48,1665096395,outputs/branch_compare/dvfs_speedup/baseline/seg_10req.log,outputs/branch_compare/dvfs_speedup/baseline/seg_10req.csv
