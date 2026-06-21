@@ -71,8 +71,10 @@ def _shot_key_str(category: Category, shot) -> str:
     return f"{category.name}_{'_'.join(str(x) for x in category.shot_key(shot))}"
 
 
-def _dvfs_max_shots() -> int | None:
-    raw = os.environ.get("DVFS_LAYER_PAUSE_MAX_SHOTS", "").strip()
+def _profiler_max_shots() -> int | None:
+    raw = os.environ.get("PROFILER_MAX_SHOTS", "").strip()
+    if not raw:
+        raw = os.environ.get("DVFS_LAYER_PAUSE_MAX_SHOTS", "").strip()
     if not raw:
         return None
     return max(1, int(raw))
@@ -141,10 +143,19 @@ def _fire_one_category(
         log.info("%s: nothing to do (all shots already measured)", category.label)
         return
 
+    max_shots = _profiler_max_shots()
+    if max_shots is not None:
+        shots = shots[:max_shots]
+        log.info(
+            "%s: PROFILER_MAX_SHOTS=%d (firing %d shot(s))",
+            category.label,
+            max_shots,
+            len(shots),
+        )
+
     dvfs_pause = dvfs_layer_pause_enabled()
     freq_meta_dir = out_dir / "gpu_freq"
     markers_path = out_dir / "dvfs_markers.jsonl"
-    max_dvfs_shots = _dvfs_max_shots()
     if dvfs_pause:
         log.info(
             "%s: DVFS layer pause enabled (schedule=%s settle=%.2fs host_poller=%s)",
@@ -153,13 +164,6 @@ def _fire_one_category(
             gpu_freq_settle_sec(),
             dvfs_host_poller_enabled(),
         )
-        if max_dvfs_shots is not None:
-            shots = shots[:max_dvfs_shots]
-            log.info(
-                "%s: DVFS_LAYER_PAUSE_MAX_SHOTS=%d",
-                category.label,
-                max_dvfs_shots,
-            )
 
     label = f"TP={tp}  {category.label}"
     with log.progress(label, total=len(shots)) as bar:

@@ -30,6 +30,7 @@ VERBOSITY="${VERBOSITY:-"--verbose"}"
 PAUSE_ONLY_DELAY_SEC="${PAUSE_ONLY_DELAY_SEC:-0.05}"
 
 export DVFS_LAYER_PAUSE_MAX_SHOTS="${DVFS_LAYER_PAUSE_MAX_SHOTS:-1}"
+export PROFILER_MAX_SHOTS="${PROFILER_MAX_SHOTS:-${DVFS_LAYER_PAUSE_MAX_SHOTS}}"
 export ENGS2950_ROOT="${ENGS_GLASS}"
 
 VARIANT_TAG="fp16"
@@ -98,6 +99,7 @@ profiler_slice() {
     --env "HF_TOKEN=${HF_TOKEN:-}" \
     --env "ENGS2950_ROOT=${ENGS_GLASS}" \
     --env "DVFS_LAYER_PAUSE_MAX_SHOTS=${DVFS_LAYER_PAUSE_MAX_SHOTS}" \
+    --env "PROFILER_MAX_SHOTS=${PROFILER_MAX_SHOTS}" \
     "${env_args[@]}" \
     "$VLLM_IMAGE" \
     bash -c 'pip install -q datasets matplotlib 2>/dev/null || true; exec python3 -m profiler slice "'"${MODEL}"'" \
@@ -115,7 +117,7 @@ profiler_slice() {
 
   t1="$(date +%s.%N)"
   wall="$(python3 -c "print(round(float('${t1}') - float('${t0}'), 3))")"
-  echo "ARM ${arm_label} slice_wall_sec=${wall}"
+  echo "ARM ${arm_label} slice_wall_sec=${wall}" >&2
   echo "${wall}"
 }
 
@@ -176,6 +178,8 @@ SHOT_NOPAUSE="$(extract_dense_shot_sec "${LOG_NOPAUSE}")"
 # --- Arm B: pause only ---
 rm -f "${TP_PAUSE}/dvfs_markers.jsonl"
 chmod +x "${HOST_POLLER}"
+export DVFS_PAUSE_ONLY=1
+export PAUSE_ONLY_DELAY_SEC
 bash "${HOST_POLLER}" "${TP_PAUSE}" "${TP_PAUSE}/gpu_freq" &
 POLLER_PID=$!
 echo "HOST_POLLER_PID=${POLLER_PID} watch=${TP_PAUSE}"
@@ -196,13 +200,10 @@ MARKER_COUNT="$(wc -l < "${MARKERS}" 2>/dev/null || echo 0)"
 
 export SLURM_JOB_ACCOUNT="${OLD_ACCOUNT}"
 
-DELTA_WALL="$(python3 -c "
-wn=float('${WALL_NOPAUSE}'); wp=float('${WALL_PAUSE}')
-print(round(wp - wn, 3))
-")"
+DELTA_WALL="$(python3 -c "wn=float('''${WALL_NOPAUSE}'''); wp=float('''${WALL_PAUSE}'''); print(round(wp-wn, 3))")"
 DELTA_SHOT=""
 if [[ -n "${SHOT_NOPAUSE}" && -n "${SHOT_PAUSE}" ]]; then
-  DELTA_SHOT="$(python3 -c "print(round(float('${SHOT_PAUSE}') - float('${SHOT_NOPAUSE}'), 3))")"
+  DELTA_SHOT="$(python3 -c "print(round(float('''${SHOT_PAUSE}''') - float('''${SHOT_NOPAUSE}'''), 3))")"
 fi
 
 python3 - <<PY
