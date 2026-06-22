@@ -111,6 +111,13 @@ def _resolve_tp_hardware(instance):
     with ``dp_group`` (EP spanning DP is out of scope); EP rank i ↔ device i is
     already guaranteed by ``_resolve_parallelism`` (local_ep ≤ tp_size).
     """
+    # tp_hardware_scope: "all" (per-device on every layer) or "moe" (per-device
+    # only on MoE layers; non-MoE layers run homogeneous on the primary profile).
+    scope = instance.get("tp_hardware_scope", "all")
+    if scope not in ("all", "moe"):
+        raise ValueError(f"'tp_hardware_scope' must be 'all' or 'moe', got {scope!r}.")
+    instance["tp_hardware_scope"] = scope
+
     tp_size = instance["tp_size"]
     tp_hardware = instance.get("tp_hardware")
     if tp_hardware is None:

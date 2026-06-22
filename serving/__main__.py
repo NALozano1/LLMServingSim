@@ -800,7 +800,7 @@ def main():
                                        tp_dim=inst.get("tp_dim"), ep_dim=inst.get("ep_dim"),
                                        dp_sum_total_len=sum_total_len,
                                        enable_block_copy=inst_cfg["enable_block_copy"], dvfs_scale=inst.get("dvfs_scale", 1.0),
-                                       tp_hardware=inst.get("tp_hardware"))
+                                       tp_hardware=inst.get("tp_hardware"), tp_hardware_scope=inst.get("tp_hardware_scope", "all"))
                         generate_graph(batch, inst["hardware"], inst["num_npus"], nid,
                                        inst_id, inst2npu_mapping[inst_id],
                                        inst_cfg["enable_local_offloading"],
@@ -865,7 +865,7 @@ def main():
                                            tp_dim=inst.get("tp_dim"), ep_dim=inst.get("ep_dim"),
                                            dp_sum_total_len=sum_total_len,
                                            enable_block_copy=inst_cfg["enable_block_copy"], dvfs_scale=inst.get("dvfs_scale", 1.0),
-                                           tp_hardware=inst.get("tp_hardware"))
+                                           tp_hardware=inst.get("tp_hardware"), tp_hardware_scope=inst.get("tp_hardware_scope", "all"))
                             generate_graph(batch, inst["hardware"], inst["num_npus"], nid,
                                            inst_id, inst2npu_mapping[inst_id],
                                            inst_cfg["enable_local_offloading"],
@@ -898,7 +898,8 @@ def main():
                                    inst_cfg["enable_sub_batch_interleaving"], inst_cfg["fp"],
                                    dtype=inst_cfg["dtype"], kv_cache_dtype=inst_cfg["kv_cache_dtype"],
                                    enable_block_copy=inst_cfg["enable_block_copy"], dvfs_scale=instance.get("dvfs_scale", 1.0),
-                                   stage_idx=stage_idx, tp_hardware=instance.get("tp_hardware"))
+                                   stage_idx=stage_idx, tp_hardware=instance.get("tp_hardware"),
+                                   tp_hardware_scope=instance.get("tp_hardware_scope", "all"))
                     generate_graph(new_req, instance["hardware"], instance["num_npus"], node_id,
                                    instance_id, inst2npu_mapping[instance_id],
                                    inst_cfg["enable_local_offloading"], stage_idx=stage_idx)

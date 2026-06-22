@@ -40,6 +40,22 @@ class TpHardwareConfigTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             _resolve_tp_hardware(inst)
 
+    def test_scope_defaults_all(self):
+        inst = {"hardware": "V100", "tp_size": 2, "tp_hardware": ["V100", "V100_700MHz"]}
+        _resolve_tp_hardware(inst)
+        self.assertEqual(inst["tp_hardware_scope"], "all")
+
+    def test_scope_moe_accepted(self):
+        inst = {"hardware": "V100", "tp_size": 2, "tp_hardware": ["V100", "V100_700MHz"],
+                "tp_hardware_scope": "moe"}
+        _resolve_tp_hardware(inst)
+        self.assertEqual(inst["tp_hardware_scope"], "moe")
+
+    def test_scope_invalid_raises(self):
+        inst = {"hardware": "V100", "tp_size": 2, "tp_hardware_scope": "attention"}
+        with self.assertRaises(ValueError):
+            _resolve_tp_hardware(inst)
+
     def test_uniform_list_with_dp_group_ok(self):
         # uniform (homogeneous) tp_hardware is fine even with a dp_group
         inst = {"hardware": "V100", "tp_size": 2, "dp_group": "A",

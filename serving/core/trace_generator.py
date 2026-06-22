@@ -113,6 +113,7 @@ class TraceCtx:
     dvfs_scale: float = 1.0  # latency multiplier for DVFS (1.0 = nominal profile)
     rank_hardware: list = None   # per-device profiles, len tp_size; None = homogeneous
     rank_perf_dbs: list = None   # per-device perf_db dicts, len tp_size; None = homogeneous
+    rank_scope: str = "all"      # "all" = per-device everywhere; "moe" = only MoE layers
 
 
 @dataclass
@@ -838,7 +839,7 @@ def _build_trace_ctx(hardware, model, config, tp_size, pp_size, local_ep, ep_tot
                      variant, kv_cache_dtype='auto',
                      runtime_max_num_batched_tokens=None, runtime_max_num_seqs=None,
                      tp_dim=None, ep_dim=None, dp_sum_total_len=0, dvfs_scale=1.0,
-                     tp_hardware=None):
+                     tp_hardware=None, tp_hardware_scope="all"):
     model_type = config.get('model_type')
     if not model_type:
         raise KeyError(
@@ -883,6 +884,7 @@ def _build_trace_ctx(hardware, model, config, tp_size, pp_size, local_ep, ep_tot
         tp_dim=tp_dim, ep_dim=ep_dim, dp_sum_total_len=dp_sum_total_len,
         dvfs_scale=dvfs_scale,
         rank_hardware=rank_hardware, rank_perf_dbs=rank_perf_dbs,
+        rank_scope=tp_hardware_scope,
     )
 
 
@@ -945,12 +947,13 @@ def _layer_category(perf_db, layer_name):
     return None
 
 
-def _max_rank_latency(ctx, lookup_fn):
+def _max_rank_latency(ctx, lookup_fn, allow_per_rank=True):
     """Latency for a layer across per-device profiles.
-    Returns (max_lat_ns, per_rank_lats|None). Homogeneous (rank_perf_dbs is None)
-    does ONE lookup and returns per_rank=None so the power path stays on the
-    fast num_npus*tp_size route (byte-identical). dvfs_scale folded in here."""
-    if ctx.rank_perf_dbs is None:
+    Returns (max_lat_ns, per_rank_lats|None). Homogeneous (rank_perf_dbs is None),
+    or when allow_per_rank is False (e.g. scope='moe' on a non-MoE layer), does ONE
+    lookup against the primary profile and returns per_rank=None so the power path
+    stays on the fast num_npus*tp_size route (byte-identical). dvfs_scale folded in."""
+    if ctx.rank_perf_dbs is None or not allow_per_rank:
         lat = lookup_fn(ctx.perf_db)
         if ctx.dvfs_scale != 1.0:
             lat = max(1, int(round(lat * ctx.dvfs_scale)))
@@ -988,7 +991,7 @@ def _emit_layer(ctx, bctx, layer_name, lines, power_acc, batch_tag='NONE', layer
                 bctx.n_decode, bctx.kv_decode_mean, bctx.kv_decode_max, bctx.kv_decode_min)
         else:  # dense
             _fn = lambda db: _lookup_dense(db, layer_name, ctx.tp_size, bctx.total_len)
-        latency_ns, per_rank_lats = _max_rank_latency(ctx, _fn)
+        latency_ns, per_rank_lats = _max_rank_latency(ctx, _fn, allow_per_rank=(ctx.rank_scope != "moe"))
 
   # Size calculation uses the same canonical layer names.
     if size_override:
@@ -1299,7 +1302,7 @@ def _emit_final_layers(ctx, bctx, f, batch_tag='NONE'):
     if ctx.power_model is not None:
         for layer_name in head_layers:
             lat = _layer_latency_for_power(ctx, bctx, layer_name)
-            if ctx.rank_perf_dbs is None:
+            if ctx.rank_perf_dbs is None or ctx.rank_scope == "moe":  # non-MoE layers: homogeneous under scope='moe'
                 ctx.power_model.add_npu_active_energy_consumption(ctx.hardware, ctx.node_id, lat, num_npus=ctx.tp_size)
             else:
                 ctx.power_model.add_npu_active_energy_per_rank(ctx.node_id, ctx.rank_hardware, [lat] * ctx.tp_size)
@@ -1393,7 +1396,7 @@ def _emit_prologue(ctx, bctx, f, batch_tag='NONE'):
     if ctx.power_model:
         for layer_name in prologue_layers:
             lat = _layer_latency_for_power(ctx, bctx, layer_name)
-            if ctx.rank_perf_dbs is None:
+            if ctx.rank_perf_dbs is None or ctx.rank_scope == "moe":  # non-MoE layers: homogeneous under scope='moe'
                 ctx.power_model.add_npu_active_energy_consumption(
                     ctx.hardware, ctx.node_id, lat, num_npus=ctx.tp_size)
             else:
@@ -1411,7 +1414,7 @@ def _synthesize_trace_stage(hardware, model, config, tp_size, pp_size, local_ep,
                             variant, kv_cache_dtype='auto',
                             runtime_max_num_batched_tokens=None, runtime_max_num_seqs=None,
                             tp_dim=None, ep_dim=None, dp_sum_total_len=0, dvfs_scale=1.0,
-                            tp_hardware=None):
+                            tp_hardware=None, tp_hardware_scope="all"):
     """Emit one forward-pass segment: prologue, one transformer block, or head."""
     ctx = _build_trace_ctx(hardware, model, config, tp_size, pp_size, local_ep, ep_total, node_id, fp,
                            placement, gate, enable_attn_offloading, power_model, pim_model, pd_type,
@@ -1419,7 +1422,7 @@ def _synthesize_trace_stage(hardware, model, config, tp_size, pp_size, local_ep,
                            runtime_max_num_batched_tokens=runtime_max_num_batched_tokens,
                            runtime_max_num_seqs=runtime_max_num_seqs,
                            tp_dim=tp_dim, ep_dim=ep_dim, dp_sum_total_len=dp_sum_total_len,
-                           dvfs_scale=dvfs_scale, tp_hardware=tp_hardware)
+                           dvfs_scale=dvfs_scale, tp_hardware=tp_hardware, tp_hardware_scope=tp_hardware_scope)
     bctx = _build_batch_ctx(batch, ctx)
     num_layers = config['num_hidden_layers']
     num_stages = num_layers + 2
@@ -1451,14 +1454,14 @@ def _synthesize_trace(hardware, model, config, tp_size, pp_size, local_ep, ep_to
                       variant, kv_cache_dtype='auto',
                       runtime_max_num_batched_tokens=None, runtime_max_num_seqs=None,
                       tp_dim=None, ep_dim=None, dp_sum_total_len=0, dvfs_scale=1.0,
-                      tp_hardware=None):
+                      tp_hardware=None, tp_hardware_scope="all"):
     ctx = _build_trace_ctx(hardware, model, config, tp_size, pp_size, local_ep, ep_total, node_id, fp,
                            placement, gate, enable_attn_offloading, power_model, pim_model, pd_type,
                            variant=variant, kv_cache_dtype=kv_cache_dtype,
                            runtime_max_num_batched_tokens=runtime_max_num_batched_tokens,
                            runtime_max_num_seqs=runtime_max_num_seqs,
                            tp_dim=tp_dim, ep_dim=ep_dim, dp_sum_total_len=dp_sum_total_len,
-                           dvfs_scale=dvfs_scale, tp_hardware=tp_hardware)
+                           dvfs_scale=dvfs_scale, tp_hardware=tp_hardware, tp_hardware_scope=tp_hardware_scope)
     bctx = _build_batch_ctx(batch, ctx)
 
     logger.info(
@@ -1506,14 +1509,14 @@ def _synthesize_interleaved_trace(hardware, model, config, tp_size, pp_size, loc
                                   variant, kv_cache_dtype='auto',
                                   runtime_max_num_batched_tokens=None, runtime_max_num_seqs=None,
                                   tp_dim=None, ep_dim=None, dp_sum_total_len=0, dvfs_scale=1.0,
-                                  tp_hardware=None):
+                                  tp_hardware=None, tp_hardware_scope="all"):
     ctx = _build_trace_ctx(hardware, model, config, tp_size, pp_size, local_ep, ep_total, node_id, fp,
                            placement, gate, enable_attn_offloading, power_model, pim_model, pd_type,
                            variant=variant, kv_cache_dtype=kv_cache_dtype,
                            runtime_max_num_batched_tokens=runtime_max_num_batched_tokens,
                            runtime_max_num_seqs=runtime_max_num_seqs,
                            tp_dim=tp_dim, ep_dim=ep_dim, dp_sum_total_len=dp_sum_total_len,
-                           dvfs_scale=dvfs_scale, tp_hardware=tp_hardware)
+                           dvfs_scale=dvfs_scale, tp_hardware=tp_hardware, tp_hardware_scope=tp_hardware_scope)
     bctx1 = _build_batch_ctx(batches[0], ctx)
     bctx2 = _build_batch_ctx(batches[1], ctx)
 
@@ -1609,7 +1612,7 @@ def generate_trace(batch, hardware, tp_size, pp_size, local_ep, ep_total, pd_typ
                    enable_prefix_caching=False, enable_attn_offloading=False, power_model=None, pim_model=None,
                    enable_sub_batch_interleaving=False, fp=16, dtype=None, kv_cache_dtype='auto',
                    tp_dim=None, ep_dim=None, dp_sum_total_len=0, enable_block_copy=True, dvfs_scale=1.0, stage_idx=None,
-                   tp_hardware=None):
+                   tp_hardware=None, tp_hardware_scope="all"):
 
     model = batch.model
     config = get_config(model)
@@ -1667,7 +1670,7 @@ def generate_trace(batch, hardware, tp_size, pp_size, local_ep, ep_total, pd_typ
                         runtime_max_num_batched_tokens=max_num_batched_tokens,
                         runtime_max_num_seqs=max_num_seqs,
                         tp_dim=tp_dim, ep_dim=ep_dim, dp_sum_total_len=dp_sum_total_len, dvfs_scale=dvfs_scale,
-                        tp_hardware=tp_hardware)
+                        tp_hardware=tp_hardware, tp_hardware_scope=tp_hardware_scope)
     if stage_idx is not None:
         if enable_sub_batch_interleaving:
             raise ValueError("stage_idx is incompatible with enable_sub_batch_interleaving")
