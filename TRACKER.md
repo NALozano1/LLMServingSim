@@ -66,5 +66,28 @@ sync). Comparison is stamped `PROFILES_SUSPECT` until #2 is done.
 
 ---
 
+## 4. Per-device heterogeneous profiles — 🟡 built, real-data e2e pending
+_Last touched: 2026-06-22 · branch `feat/per-device-profiles`_
+
+Different devices (TP/EP ranks) in one instance can use different hardware
+profiles; latency = max-per-layer, energy = per-device sum. Python-only, no
+ASTRA/Chakra changes. See `PER_DEVICE_PROFILES.md` (readme) + WORK_LOG.md.
+
+- Commits: `7cb1462d` (base `tp_hardware`), `22f7474a` (`tp_hardware_scope`
+  all|moe — heterogeneity everywhere vs MoE-only). Branch not yet pushed.
+- Verified on RTXPRO6000+A6000 Llama tp2 (mechanism): uniform==homogeneous
+  byte-identical, 292/292 layers comp_time==max, scope=moe collapses dense to
+  homogeneous. 40 tests pass; regression OK.
+- **Needs:** two-clock **MoE tp2** profiles for the real DVFS-clock e2e
+  (Phi-tiny-MoE tp2 @ 700+1100 — same ARC run as #2 with `TP_DEGREES=2`).
+- Deferred: trace-driven expert selector (RAND works now); per-profile standby;
+  EP-spanning-DP; combine with layer-schedule.
+
+**Next:** on Phi tp2 data — build `single_node_tp2_hetero.json` for V100, run
+`[1100,700]` + the `[1100,1100]==2×1100` sanity check; add a permanent
+mechanism-check script.
+
+---
+
 ## Open questions
 - Confirm the ~600 J anchor: GPU-only? measured over `exec` or wall (incl. pause)? which schedule?

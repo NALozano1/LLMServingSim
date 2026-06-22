@@ -221,3 +221,52 @@ Collect: `python3 bench/jobs/collect_bench_layer_campaign_results.py bench/campa
   use a prefill instance's true (doubled) NPU range when gating segment
   completion, and (2) coordination of the prefill->decode handoff across
   segmented passes. Guard lives in `serving/__main__.py` (forward_segments setup).
+
+---
+
+## Per-device heterogeneous profiles (branch `feat/per-device-profiles`)
+
+Goal: within one TP/EP instance, let each device (rank) use a different hardware
+profile (e.g. NPU0 V100_1100MHz, NPU1 V100_700MHz), for accurate barrier-gated
+latency AND per-device energy. Driver: DVFS-MoE energy study + expert-load
+imbalance. See `PER_DEVICE_PROFILES.md` for the user-facing summary.
+
+### Design decision
+Chose "ONE trace, per-layer comp_time = max over the ranks' profiles" so ASTRA
+sees a homogeneous group — **zero ASTRA/Chakra/C++ changes** (the alternative,
+distinct per-NPU `.et`, is 500-1000 lines and touches collective stream-id sync).
+For clock-scaled profiles max-per-layer is exact. Deliberately low-risk /
+reversible ("try it and see"), Python-only on its own branch.
+
+Energy: verified the power model already separates a per-profile idle baseline
+(`base_powers`, summed per profile) from a per-layer active *delta*. So
+heterogeneous energy needs only `Σ_i (active(hw_i)-idle(hw_i))·lat_i`, with the
+idle handled automatically — IF config_builder registers each rank's `num_npus`
+under its own profile (load-bearing; done).
+
+### Implemented (commits on branch)
+- `Add per-device heterogeneous profiles within a TP/EP group` (7cb1462d):
+  `tp_hardware` config + per-profile num_npus (config_builder); per-rank latency
+  (`_max_rank_latency`) + per-rank energy (`add_npu_active_energy_per_rank`);
+  per-rank MoE lookup (each EP rank its own profile + load). Also fixed a
+  pre-existing PowerModel KeyError on unused power.npu profiles.
+- `Add tp_hardware_scope` (22f7474a): `"all"` (everywhere) vs `"moe"` (only MoE
+  layers heterogeneous; non-MoE homogeneous on primary). Bridges toward the
+  layer-boundary DVFS work (devices share a clock for dense, diverge for MoE).
+
+### Verification (real RTXPRO6000 + A6000 Llama-3.1-8B bf16 tp2; A6000 synthetic)
+- Uniform `tp_hardware` == pure homogeneous: byte-identical (clocks 1446417840,
+  energy 1200.13). Regression harness still `REGRESSION OK`.
+- Heterogeneous `[RTX,A6000]`: 292/292 layers comp_time == max(per-device);
+  clocks == pure-slowest-device (1596862708); energy per-device (1040.54).
+  Cross-checked: hetero clocks == pure-A6000 (identical max-trace); hetero
+  energy > pure-A6000 (device0 RTX higher power) — both exact.
+- `scope="moe"` on dense Llama: collapses to homogeneous (clocks 1446417840),
+  energy within the per-profile idle baseline (1192.90 vs 1200.13 = 7.23 J,
+  exactly the idle delta). 40 unit tests pass.
+
+### Pending / next
+- Real DVFS-clock validation needs two-clock **MoE tp2** profiles
+  (Phi-tiny-MoE tp2 @ 700 + 1100 MHz, clock-gate verified) — ARC spec in tracker.
+- Trace-driven expert selector (RAND fallback) not yet implemented.
+- Out of v1: per-profile standby, EP-spanning-DP, combining with layer-schedule.
