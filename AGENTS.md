@@ -2,6 +2,14 @@
 
 Guidelines for AI coding agents (Claude Code, Cursor, Copilot, etc.) working in this repository.
 
+## Work tracker
+
+`TRACKER.md` (repo root) holds the current state of active workstreams — where
+we left off, status, next step, and pointers to fuller context. **Read it at the
+start of a session, and update the relevant section whenever you switch context
+or workstream** (status, last-touched date, next step). Keep entries brief and
+link out rather than duplicating context.
+
 ## Project Context
 
 LLMServingSim 2.0 is a cycle-level LLM serving simulator. It combines a Python frontend
