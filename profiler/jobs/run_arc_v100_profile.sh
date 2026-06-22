@@ -10,6 +10,14 @@
 # (see .cursor/rules/arc-node-gpu-clocks.mdc). Restores on exit.
 # When set, HARDWARE defaults to V100_<MHz> unless HARDWARE is already exported.
 #
+# Clock-lock verification (guards against importing mislabeled profiles):
+#   - Pre-flight read-back: after applying the lock, asserts nvidia-smi reports
+#     within GPU_FREQ_TOLERANCE_MHZ of the target (catches a lock that never took).
+#   - Post-flight audit: runs audit_gpu_clocks.py over the captured gpu_power
+#     samples (catches mid-run throttling, e.g. heavy MoE kernels losing the lock).
+#   GPU_FREQ_TOLERANCE_MHZ (default 100) — allowed drift around the target.
+#   GPU_FREQ_VERIFY_STRICT  (default 1)  — 1 aborts on mismatch, 0 warns only.
+#
 # Usage:
 #   export HF_TOKEN=...
 #   bash profiler/jobs/run_arc_v100_profile.sh
@@ -43,6 +51,10 @@ MAX_NUM_SEQS="${MAX_NUM_SEQS:-256}"
 ATTENTION_MAX_KV="${ATTENTION_MAX_KV:-8192}"
 MEASUREMENT_ITERATIONS="${MEASUREMENT_ITERATIONS:-3}"
 VERBOSITY="${VERBOSITY:-"--verbose"}"
+
+# Clock-lock verification knobs (always in scope; used pre- and post-flight).
+GPU_FREQ_TOLERANCE_MHZ="${GPU_FREQ_TOLERANCE_MHZ:-100}"
+GPU_FREQ_VERIFY_STRICT="${GPU_FREQ_VERIFY_STRICT:-1}"
 
 VARIANT_TAG="fp16"
 case "${DTYPE}" in
@@ -101,6 +113,30 @@ nvidia-smi -L || true
 
 if [[ -n "${GPU_FREQ_MHZ:-}" ]]; then
   gpu_freq_lock_apply "${FREQ_META_DIR}" "${GPU_FREQ_MHZ}"
+
+  # Pre-flight read-back: confirm the lock took before spending an hour
+  # profiling at the wrong clock. -lgc pins the clock even at idle, so a
+  # large deviation here means the lock never applied.
+  _gpu_idx="${GPU_VERIFY_INDEX:-0}"
+  _measured_gr="$(nvidia-smi --query-gpu=clocks.gr --format=csv,noheader,nounits \
+      -i "${_gpu_idx}" 2>/dev/null | head -1 | tr -dc '0-9')"
+  if [[ -n "${_measured_gr}" ]]; then
+    _delta=$(( _measured_gr - GPU_FREQ_MHZ )); _absdelta="${_delta#-}"
+    echo "Clock read-back: target=${GPU_FREQ_MHZ}MHz measured=${_measured_gr}MHz" \
+         "delta=${_delta}MHz (tol=±${GPU_FREQ_TOLERANCE_MHZ})"
+    if (( _absdelta > GPU_FREQ_TOLERANCE_MHZ )); then
+      echo "ERROR: GPU clock lock did not hold (measured ${_measured_gr}MHz" \
+           "vs target ${GPU_FREQ_MHZ}MHz, ±${GPU_FREQ_TOLERANCE_MHZ} tol)." >&2
+      if [[ "${GPU_FREQ_VERIFY_STRICT}" == "1" ]]; then
+        echo "Aborting before profiling (set GPU_FREQ_VERIFY_STRICT=0 to override)." >&2
+        exit 3
+      fi
+      echo "WARN: continuing despite clock mismatch (GPU_FREQ_VERIFY_STRICT=0)." >&2
+    fi
+  else
+    echo "WARN: could not read back GPU clock via nvidia-smi;" \
+         "skipping pre-flight verification." >&2
+  fi
 fi
 
 if [[ -z "${HF_TOKEN:-}" ]]; then
@@ -141,5 +177,25 @@ unset SLURM_JOB_ACCOUNT
     '"${VERBOSITY_FLAG[*]}"''
 
 export SLURM_JOB_ACCOUNT="${OLD_ACCOUNT}"
+
+# Post-flight audit: the pre-flight read-back only sees the idle/start clock.
+# This inspects the per-shot gpu_power captures and flags any run whose measured
+# clocks drifted out of band mid-profiling (e.g. heavy MoE kernels throttling
+# below the lock) so mislabeled latency tables are never silently imported.
+AUDIT="${JOBS_ROOT}/audit_gpu_clocks.py"
+if [[ -f "${AUDIT}" ]] && command -v python3 >/dev/null 2>&1; then
+  echo "=== Post-flight GPU clock audit (${HARDWARE}) ==="
+  if python3 "${AUDIT}" --tolerance "${GPU_FREQ_TOLERANCE_MHZ}" "${PERF_VARIANT_ROOT}"; then
+    echo "Clock audit passed."
+  else
+    echo "ERROR: post-flight clock audit FLAGGED captured samples for ${HARDWARE}." >&2
+    echo "       Profiles under ${PERF_VARIANT_ROOT} are likely mislabeled — re-profile." >&2
+    if [[ "${GPU_FREQ_VERIFY_STRICT}" == "1" && -n "${GPU_FREQ_MHZ:-}" ]]; then
+      exit 4
+    fi
+  fi
+else
+  echo "WARN: ${AUDIT} or python3 unavailable; skipping post-flight clock audit." >&2
+fi
 
 echo "=== Done. Outputs under: ${PERF_VARIANT_ROOT}/ ==="
