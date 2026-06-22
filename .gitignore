@@ -11,6 +11,8 @@ __pycache__/
 
 # Ignore bench results
 bench/results/
+bench/campaigns/
+bench/jobs/logs/
 
 # AI agent cache files
 .claude/

@@ -9,7 +9,7 @@ Host side (profiler runner): background poller applies GPU frequency via
 Environment (host):
     DVFS_LAYER_PAUSE=1          Enable barriers for each ``fire()`` call
     DVFS_FREQ_SCHEDULE=700,900,1100,1300   MHz cycle at layer boundaries
-    GPU_FREQ_SETTLE_SEC=1.5     Seconds to wait after each freq change
+    GPU_FREQ_SETTLE_SEC=0         Optional extra sleep after stable verification (default 0)
     ENGS2950_ROOT=/data/engs-glass/engs2950
 """
 
@@ -31,12 +31,9 @@ from typing import Any, Callable
 # ---------------------------------------------------------------------------
 
 def dvfs_layer_pause_enabled() -> bool:
-    return os.environ.get("DVFS_LAYER_PAUSE", "").strip().lower() in (
-        "1",
-        "true",
-        "yes",
-        "on",
-    )
+    from vllm_layer_pause.config import layer_pause_enabled
+
+    return layer_pause_enabled()
 
 
 def dvfs_host_poller_enabled() -> bool:
@@ -50,12 +47,9 @@ def dvfs_host_poller_enabled() -> bool:
 
 def dvfs_pause_only_enabled() -> bool:
     """Pause at layer boundaries but do not change GPU frequency."""
-    return os.environ.get("DVFS_PAUSE_ONLY", "").strip().lower() in (
-        "1",
-        "true",
-        "yes",
-        "on",
-    )
+    from vllm_layer_pause.config import pause_only_enabled
+
+    return pause_only_enabled()
 
 
 def pause_only_delay_sec() -> float:
@@ -75,7 +69,62 @@ def parse_freq_schedule() -> list[int]:
 
 
 def gpu_freq_settle_sec() -> float:
-    return float(os.environ.get("GPU_FREQ_SETTLE_SEC", "1.5"))
+    return float(os.environ.get("GPU_FREQ_SETTLE_SEC", "0"))
+
+
+def gpu_freq_stable_timeout_sec() -> float:
+    return float(os.environ.get("GPU_FREQ_STABLE_TIMEOUT_SEC", "15"))
+
+
+def _load_gpu_freq_helpers() -> Any:
+    import importlib.util
+
+    script = gpu_freq_lock_script()
+    spec = importlib.util.spec_from_file_location("gpu_freq_lock", script)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"cannot load {script}")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def wait_stable_gpu_freq(mhz: int, meta_dir: Path) -> dict[str, Any]:
+    """Poll nvidia-smi until graphics clocks settle near *mhz*."""
+    meta_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        mod = _load_gpu_freq_helpers()
+        result = mod.wait_stable_graphics_mhz(
+            mhz,
+            timeout_sec=gpu_freq_stable_timeout_sec(),
+        )
+    except Exception as exc:
+        result = {"ok": False, "error": repr(exc), "target_mhz": mhz}
+    (meta_dir / "gpu_freq_stable.json").write_text(
+        json.dumps(result, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    return result
+
+
+def apply_and_verify_gpu_freq(
+    mhz: int,
+    meta_dir: Path,
+    *,
+    reset_first: bool = False,
+) -> dict[str, Any]:
+    """Lock clocks to *mhz*, then wait until nvidia-smi reports stable."""
+    apply_result = apply_gpu_freq_mhz(mhz, meta_dir, reset_first=reset_first)
+    stable_result = wait_stable_gpu_freq(mhz, meta_dir)
+    settle_sec = gpu_freq_settle_sec()
+    if settle_sec > 0:
+        time.sleep(settle_sec)
+    return {
+        "apply": apply_result,
+        "stable": stable_result,
+        "mhz": mhz,
+        "ok": bool(apply_result.get("ok")) and bool(stable_result.get("ok")),
+        "settle_sec": settle_sec,
+    }
 
 
 def engs2950_root() -> Path:
@@ -94,9 +143,16 @@ def _utc_now() -> str:
 # Host: frequency control
 # ---------------------------------------------------------------------------
 
-def apply_gpu_freq_mhz(mhz: int, meta_dir: Path) -> dict[str, Any]:
+def apply_gpu_freq_mhz(
+    mhz: int,
+    meta_dir: Path,
+    *,
+    reset_first: bool = False,
+) -> dict[str, Any]:
     """Lock all visible GPUs to *mhz* via site helper."""
     meta_dir.mkdir(parents=True, exist_ok=True)
+    if reset_first:
+        restore_gpu_freq(meta_dir)
     script = gpu_freq_lock_script()
     if not script.is_file():
         return {"ok": False, "error": f"missing {script}"}
@@ -205,17 +261,27 @@ class DvfsBarrierPoller:
                 time.sleep(pause_only_delay_sec())
                 target_mhz = None
                 apply_ok = None
+                stable_ok = None
+                stable_sec = None
+                clocks_after: list[dict[str, Any]] = []
             else:
                 target_mhz = self._next_freq()
-                apply_result = apply_gpu_freq_mhz(
+                dvfs_result = apply_and_verify_gpu_freq(
                     target_mhz, self.freq_meta_dir
                 )
-                apply_ok = apply_result.get("ok")
+                apply_ok = dvfs_result["apply"].get("ok")
+                stable = dvfs_result["stable"]
+                stable_ok = stable.get("ok")
+                stable_sec = stable.get("elapsed_sec")
+                clocks_after = stable.get("clocks") or []
                 if not apply_ok:
                     self._errors.append(
-                        f"freq apply {target_mhz} MHz failed: {apply_result}"
+                        f"freq apply {target_mhz} MHz failed: {dvfs_result['apply']}"
                     )
-                time.sleep(self.settle_sec)
+                if not stable_ok:
+                    self._errors.append(
+                        f"freq stable wait {target_mhz} MHz failed: {stable}"
+                    )
             pause_end = time.time()
 
             marker = {
@@ -229,13 +295,17 @@ class DvfsBarrierPoller:
                 "settle_sec": (
                     pause_only_delay_sec()
                     if dvfs_pause_only_enabled()
-                    else self.settle_sec
+                    else gpu_freq_settle_sec()
                 ),
                 "layer_idx": payload.get("layer_idx"),
                 "layer_name": payload.get("layer_name"),
                 "shot_id": payload.get("shot_id"),
                 "barrier_id": payload.get("barrier_id"),
                 "freq_apply_ok": apply_ok,
+                "freq_stable_ok": stable_ok,
+                "freq_stable_sec": stable_sec,
+                "clocks_after": clocks_after,
+                "poller": "python",
             }
             self._append_marker(marker)
 

@@ -58,6 +58,17 @@ PY
 
 arc_wait_htc_interactive_slot interactive || exit 1
 
+# Prefer a clean node when set; exclude polluted nodes (comma-separated).
+NODELIST="${NODELIST:-}"
+EXCLUDE_NODES="${EXCLUDE_NODES:-htc-g048}"
+SBATCH_EXTRA=()
+if [[ -n "${NODELIST}" ]]; then
+  SBATCH_EXTRA+=(--nodelist="${NODELIST}")
+fi
+if [[ -n "${EXCLUDE_NODES}" ]]; then
+  SBATCH_EXTRA+=(--exclude="${EXCLUDE_NODES}")
+fi
+
 jid_raw="$(sbatch -M htc \
   --clusters=htc \
   --account=engs-glass \
@@ -72,8 +83,9 @@ jid_raw="$(sbatch -M htc \
   --mail-type=BEGIN,END,FAIL \
   --output="${ROOT}/profiler/jobs/logs/${JOB_NAME}_%j.out" \
   --error="${ROOT}/profiler/jobs/logs/${JOB_NAME}_%j.err" \
+  "${SBATCH_EXTRA[@]}" \
   "${rendered}")"
-jid="${jid_raw##* }"
+jid="$(awk '{print $4}' <<< "${jid_raw}")"
 echo "Submitted job ${jid}"
 echo "  out: ${ROOT}/profiler/jobs/logs/${JOB_NAME}_${jid}.out"
 echo "  markers: ${ROOT}/profiler/perf/V100_layer_dvfs_smoke/${MODEL}/fp16/tp1/dvfs_markers.jsonl"

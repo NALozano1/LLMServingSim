@@ -24,6 +24,8 @@ jitter; averaging cuts that noise floor dramatically.
 
 from __future__ import annotations
 
+import json
+import time
 from pathlib import Path
 from typing import Any
 
@@ -33,17 +35,79 @@ from profiler.core.hooks.moe_hook import (
     force_moe_routing,
     single_moe_layer,
 )
-from profiler.core.hooks.layer_barrier import InPlaceLayerBarrier
+from profiler.core.hooks.layer_barrier import (
+    InPlaceLayerBarrier,
+    discover_transformer_layers,
+)
 from profiler.core.hooks.timings import extract_samples
 
 
 class Extension:
     """Worker-side profiling entry point.
 
-    vLLM instantiates this class inside each TP worker process and
-    injects ``self.model_runner`` via attribute assignment before any
-    ``collective_rpc`` call.
+    vLLM mixes this class into ``Worker`` via dynamic inheritance; ``Worker``
+    does not call ``Extension.__init__``, so layer-pause state is lazy-init.
     """
+
+    def _persist_barrier_state(self) -> InPlaceLayerBarrier | None:
+        return getattr(self, "_persist_barrier", None)
+
+    def _set_persist_barrier(self, barrier: InPlaceLayerBarrier | None) -> None:
+        self._persist_barrier = barrier
+
+    def layer_pause_install(
+        self,
+        watch_root: str,
+        session_id: str = "bench",
+    ) -> dict[str, Any]:
+        """Install post-forward hooks on every decoder layer for live forwards."""
+        if self._persist_barrier_state() is not None:
+            self.layer_pause_uninstall()
+
+        root = Path(watch_root)
+        barrier_dir = root / "dvfs_barriers" / session_id
+        self._set_persist_barrier(
+            InPlaceLayerBarrier(
+                barrier_dir,
+                shot_id=session_id,
+            )
+        )
+        model = self.model_runner.get_model()
+        layers = discover_transformer_layers(model)
+        installed = self._persist_barrier_state().install(model)
+        return {
+            "session_id": session_id,
+            "watch_root": str(root),
+            "barrier_dir": str(barrier_dir),
+            "layers_installed": installed,
+            "num_model_layers": len(layers),
+            "layer_names": [name for _, name, _ in layers],
+        }
+
+    def layer_pause_uninstall(self) -> dict[str, Any]:
+        """Remove persistent layer pause hooks."""
+        barrier = self._persist_barrier_state()
+        if barrier is None:
+            return {"layers_installed": 0, "barrier_wait_sec": 0.0}
+        wait_sec = barrier.barrier_wait_sec
+        barrier_dir = str(barrier.barrier_dir)
+        barrier.remove()
+        self._set_persist_barrier(None)
+        return {
+            "barrier_dir": barrier_dir,
+            "barrier_wait_sec": round(wait_sec, 6),
+        }
+
+    def layer_pause_status(self) -> dict[str, Any]:
+        """Return whether persistent hooks are installed."""
+        barrier = self._persist_barrier_state()
+        if barrier is None:
+            return {"installed": False, "layers_installed": 0}
+        return {
+            "installed": True,
+            "barrier_dir": str(barrier.barrier_dir),
+            "barrier_wait_sec": round(barrier.barrier_wait_sec, 6),
+        }
 
     def fire(
         self,
@@ -52,6 +116,7 @@ class Extension:
         kind: str,
         iterations: int = 3,
         barrier_dir: str | None = None,
+        timing_path: str | None = None,
     ) -> list[dict[str, Any]]:
         """Run one profiling shot and return per-layer timings.
 
@@ -68,12 +133,15 @@ class Extension:
             barrier_dir: When set, install in-place layer-boundary
                 barriers; worker blocks after each decoder layer until
                 the host writes ``ack.json`` (DVFS applied on host).
+            timing_path: When set, write per-phase wall times (warmup vs
+                measured forwards only) as JSON on the host.
 
         Returns:
             List of ``TimingSample`` as plain dicts (pickled back to host).
         """
         shot = Shot.hydrate(shot_dict)
         iterations = max(1, int(iterations))
+        fire_t0 = time.perf_counter()
 
         def _fresh_batch():
             # Rebuild the synthetic SchedulerOutput on every forward so
@@ -88,9 +156,11 @@ class Extension:
         # sample_tokens to exercise the sampler path (if execute_model
         # returns None it means the scheduler consumed everything and
         # sample_tokens finalizes the step).
+        warmup_t0 = time.perf_counter()
         warmup_out = self.model_runner.execute_model(_fresh_batch())
         if warmup_out is None:
             self.model_runner.sample_tokens(None)
+        warmup_sec = time.perf_counter() - warmup_t0
 
         # -- optional MoE routing forge --------------------------------
         route: ExpertRoute | None = None
@@ -131,6 +201,9 @@ class Extension:
                 layer_barrier.remove()
                 layer_barrier = None
 
+        measured_t0 = time.perf_counter()
+        measured_wall_start = time.time()
+        barrier_wait_sec = 0.0
         try:
             with force_moe_routing(route):
                 with layerwise_profile() as hook:
@@ -142,7 +215,32 @@ class Extension:
                             self.model_runner.sample_tokens(None)
         finally:
             if layer_barrier is not None:
+                barrier_wait_sec = layer_barrier.barrier_wait_sec
                 layer_barrier.remove()
+        measured_sec = time.perf_counter() - measured_t0
+        measured_wall_end = time.time()
+        fire_total_sec = time.perf_counter() - fire_t0
+        measured_exec_sec = max(0.0, measured_sec - barrier_wait_sec)
+
+        if timing_path:
+            timing_rec = {
+                "warmup_sec": round(warmup_sec, 6),
+                "measured_sec": round(measured_sec, 6),
+                "measured_exec_sec": round(measured_exec_sec, 6),
+                "barrier_wait_sec": round(barrier_wait_sec, 6),
+                "fire_total_sec": round(fire_total_sec, 6),
+                "fire_exec_sec": round(max(0.0, fire_total_sec - barrier_wait_sec), 6),
+                "measured_wall_start": measured_wall_start,
+                "measured_wall_end": measured_wall_end,
+                "measurement_iterations": iterations,
+                "barrier_enabled": bool(barrier_dir),
+            }
+            out = Path(timing_path)
+            out.parent.mkdir(parents=True, exist_ok=True)
+            out.write_text(
+                json.dumps(timing_rec, indent=2) + "\n",
+                encoding="utf-8",
+            )
 
         stats = hook.results.convert_stats_to_dict()
         summary = stats["summary_stats"]

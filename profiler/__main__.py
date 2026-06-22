@@ -52,7 +52,7 @@ from profiler.core.config import (
     read_model_config,
     resolve_architecture_by_model_type,
 )
-from profiler.core.runner import run_full, run_slice
+from profiler.core.runner import run_full, run_pause_ab, run_slice
 
 
 # ---------------------------------------------------------------------------
@@ -129,6 +129,11 @@ def _add_common_flags(p: argparse.ArgumentParser) -> None:
                         "can swing 15-25%% on large GEMMs due to DVFS / clock "
                         "jitter; N=3 (default) cuts that to ~5%% at ~3x "
                         "profile time.")
+    p.add_argument("--num-hidden-layers", type=int, default=None,
+                   dest="num_hidden_layers",
+                   help="Override model decoder layer count for profiling "
+                        "(default: 1). Use 2+ to exercise multi-layer "
+                        "DVFS barriers.")
     p.add_argument("--skip-skew", action="store_true", default=False,
                    dest="skip_skew",
                    help="Skip the per-TP skew profiling step (skew.csv). "
@@ -332,7 +337,11 @@ def _build_profile_args(
         skew_kvs_factor=getattr(ns, "skew_kvs_factor", 2.0),
         only_skew=getattr(ns, "only_skew", False),
         force=getattr(ns, "force", False),
-        hf_overrides=None,
+        hf_overrides=(
+            {"num_hidden_layers": ns.num_hidden_layers}
+            if getattr(ns, "num_hidden_layers", None) is not None
+            else None
+        ),
         model_config=model_config,
     )
 
@@ -381,6 +390,27 @@ def build_parser() -> argparse.ArgumentParser:
     )
     _add_common_flags(p_slice)
 
+    # ---- pause-ab ----
+    p_pause_ab = sub.add_parser(
+        "pause-ab",
+        help="A/B one dense shot: nopause vs pause on a single warm engine.",
+    )
+    p_pause_ab.add_argument(
+        "model",
+        help="HF model id.",
+    )
+    p_pause_ab.add_argument(
+        "--tp-refresh", type=int, default=1, dest="tp_refresh",
+        help="TP degree (default: 1).",
+    )
+    p_pause_ab.add_argument(
+        "--group",
+        choices=["dense", "per_sequence", "attention", "moe"],
+        default="dense",
+        help="Profile category for the A/B shot (default: dense).",
+    )
+    _add_common_flags(p_pause_ab)
+
     return p
 
 
@@ -419,6 +449,14 @@ def main(argv: list[str] | None = None) -> int:
         run_full(arch_path, profile_args, ns.out_root)
     elif ns.cmd == "slice":
         run_slice(
+            arch_path,
+            profile_args,
+            tp=ns.tp_refresh,
+            group=ns.group,
+            out_root=ns.out_root,
+        )
+    elif ns.cmd == "pause-ab":
+        run_pause_ab(
             arch_path,
             profile_args,
             tp=ns.tp_refresh,

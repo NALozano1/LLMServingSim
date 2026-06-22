@@ -3,7 +3,8 @@
 #
 # Watches ``<watch_root>/dvfs_barriers/*/pending.json``. When a worker
 # blocks at a layer boundary, applies GPU frequency via gpu_freq_lock.py,
-# waits for settle, writes ack.json + appends dvfs_markers.jsonl.
+# waits for stable clocks (nvidia-smi poll), optional settle, writes
+# ack.json + appends dvfs_markers.jsonl.
 #
 # Usage:
 #   dvfs_barrier_host_poller.sh <watch_root> [freq_meta_dir]
@@ -12,7 +13,10 @@
 #   DVFS_PAUSE_ONLY=1           Ack barriers only; no gpu_freq_lock (smoke)
 #   PAUSE_ONLY_DELAY_SEC=0.05   Artificial pause length in pause-only mode
 #   DVFS_FREQ_SCHEDULE=700,900,1100,1300
-#   GPU_FREQ_SETTLE_SEC=1.5
+#   GPU_FREQ_SETTLE_SEC=0       Optional extra sleep after stable verification (default 0)
+#   GPU_FREQ_STABLE_TOL_MHZ=15
+#   GPU_FREQ_STABLE_READS=2
+#   GPU_FREQ_STABLE_TIMEOUT_SEC=15
 #   ENGS2950_ROOT=/data/engs-glass/engs2950
 #
 set -euo pipefail
@@ -24,8 +28,11 @@ ENGS2950_ROOT="${ENGS2950_ROOT:-/data/engs-glass/engs2950}"
 GPU_FREQ_PY="${ENGS2950_ROOT}/shared/scripts/gpu_freq_lock.py"
 PAUSE_ONLY="${DVFS_PAUSE_ONLY:-0}"
 SCHEDULE="${DVFS_FREQ_SCHEDULE:-700,900,1100,1300}"
-SETTLE_SEC="${GPU_FREQ_SETTLE_SEC:-1.5}"
+SETTLE_SEC="${GPU_FREQ_SETTLE_SEC:-0}"
 PAUSE_DELAY="${PAUSE_ONLY_DELAY_SEC:-0.05}"
+STABLE_TOL="${GPU_FREQ_STABLE_TOL_MHZ:-15}"
+STABLE_READS="${GPU_FREQ_STABLE_READS:-2}"
+STABLE_TIMEOUT="${GPU_FREQ_STABLE_TIMEOUT_SEC:-15}"
 
 IFS=',' read -r -a FREQS <<< "${SCHEDULE}"
 if [[ "${PAUSE_ONLY}" != "1" && ${#FREQS[@]} -eq 0 ]]; then
@@ -39,7 +46,7 @@ FREQ_IDX=0
 if [[ "${PAUSE_ONLY}" == "1" ]]; then
   echo "[dvfs-poller] PAUSE_ONLY watching ${WATCH_ROOT}/dvfs_barriers delay=${PAUSE_DELAY}s"
 else
-  echo "[dvfs-poller] watching ${WATCH_ROOT}/dvfs_barriers schedule=${SCHEDULE} settle=${SETTLE_SEC}s"
+  echo "[dvfs-poller] watching ${WATCH_ROOT}/dvfs_barriers schedule=${SCHEDULE} settle=${SETTLE_SEC}s stable_tol=${STABLE_TOL}MHz"
 fi
 
 while true; do
@@ -61,21 +68,46 @@ while true; do
       mode_py="pause_only"
       mhz_val=""
       freq_ok_val=""
+      stable_ok_val=""
+      stable_sec_val=""
       settle_val="${PAUSE_DELAY}"
+      clocks_after_json="[]"
     else
       mhz="${FREQS[$((FREQ_IDX % ${#FREQS[@]}))]}"
       FREQ_IDX=$((FREQ_IDX + 1))
       echo "[dvfs-poller] layer=${layer_name} idx=${layer_idx} -> ${mhz} MHz"
       if python3 "${GPU_FREQ_PY}" apply --mhz "${mhz}" --out-dir "${FREQ_META_DIR}"; then
+        apply_rc=0
+      else
+        apply_rc=$?
+      fi
+      if [[ "${apply_rc}" -eq 0 ]]; then
         freq_ok_val="true"
       else
         freq_ok_val="false"
-        echo "[dvfs-poller] WARN freq apply failed for ${mhz} MHz" >&2
+        echo "[dvfs-poller] WARN freq apply failed for ${mhz} MHz (rc=${apply_rc})" >&2
       fi
-      sleep "${SETTLE_SEC}"
+      stable_rc=0
+      GPU_FREQ_STABLE_TOL_MHZ="${STABLE_TOL}" \
+      GPU_FREQ_STABLE_READS="${STABLE_READS}" \
+      GPU_FREQ_STABLE_TIMEOUT_SEC="${STABLE_TIMEOUT}" \
+        python3 "${GPU_FREQ_PY}" wait-stable --mhz "${mhz}" --out-dir "${FREQ_META_DIR}" \
+        --tolerance-mhz "${STABLE_TOL}" --stable-reads "${STABLE_READS}" --timeout "${STABLE_TIMEOUT}" \
+        || stable_rc=$?
+      if [[ "${stable_rc}" -eq 0 ]]; then
+        stable_ok_val="true"
+      else
+        stable_ok_val="false"
+        echo "[dvfs-poller] WARN stable wait failed for ${mhz} MHz (rc=${stable_rc})" >&2
+      fi
+      stable_sec_val="$(python3 -c "import json; print(json.load(open('${FREQ_META_DIR}/gpu_freq_stable.json')).get('elapsed_sec',''))" 2>/dev/null || echo "")"
+      if [[ "${SETTLE_SEC}" != "0" && "${SETTLE_SEC}" != "0.0" ]]; then
+        sleep "${SETTLE_SEC}"
+      fi
       mode_py="dvfs"
       mhz_val="${mhz}"
       settle_val="${SETTLE_SEC}"
+      clocks_after_json="$(python3 -c "import json; print(json.dumps(json.load(open('${FREQ_META_DIR}/gpu_freq_stable.json')).get('clocks',[])))" 2>/dev/null || echo '[]')"
     fi
     pause_end="$(date +%s.%N)"
 
@@ -90,6 +122,9 @@ while true; do
     FREQ_MHZ="${mhz_val}" \
     SETTLE_SEC_VAL="${settle_val}" \
     FREQ_OK="${freq_ok_val}" \
+    STABLE_OK="${stable_ok_val:-}" \
+    STABLE_SEC="${stable_sec_val:-}" \
+    CLOCKS_AFTER="${clocks_after_json}" \
     python3 - <<'PY'
 import json
 import os
@@ -107,18 +142,36 @@ def _opt_bool(s: str):
         return False
     return None
 
+def _opt_float(s: str):
+    s = (s or "").strip()
+    if not s:
+        return None
+    try:
+        return float(s)
+    except ValueError:
+        return None
+
+try:
+    clocks_after = json.loads(os.environ.get("CLOCKS_AFTER", "[]") or "[]")
+except json.JSONDecodeError:
+    clocks_after = []
+
 record = {
     "event": "layer_boundary",
     "mode": os.environ["MODE"],
     "wall_ts": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
     "pause_start": float(os.environ["PAUSE_START"]),
     "pause_end": float(os.environ["PAUSE_END"]),
+    "pause_sec": float(os.environ["PAUSE_END"]) - float(os.environ["PAUSE_START"]),
     "freq_mhz": _opt_int(os.environ.get("FREQ_MHZ", "")),
     "settle_sec": float(os.environ["SETTLE_SEC_VAL"]),
     "layer_idx": os.environ["LAYER_IDX"],
     "layer_name": os.environ["LAYER_NAME"],
     "barrier_id": os.environ["BARRIER_ID"],
     "freq_apply_ok": _opt_bool(os.environ.get("FREQ_OK", "")),
+    "freq_stable_ok": _opt_bool(os.environ.get("STABLE_OK", "")),
+    "freq_stable_sec": _opt_float(os.environ.get("STABLE_SEC", "")),
+    "clocks_after": clocks_after,
     "poller": "host_shell",
 }
 with open(os.environ["MARKERS_PATH"], "a", encoding="utf-8") as fh:
@@ -126,6 +179,7 @@ with open(os.environ["MARKERS_PATH"], "a", encoding="utf-8") as fh:
 ack = {
     "barrier_id": os.environ["BARRIER_ID"],
     "freq_mhz": _opt_int(os.environ.get("FREQ_MHZ", "")),
+    "freq_stable_ok": _opt_bool(os.environ.get("STABLE_OK", "")),
     "ack_ts": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
 }
 with open(os.environ["ACK_PATH"], "w", encoding="utf-8") as fh:

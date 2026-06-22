@@ -16,6 +16,58 @@ _DEFAULT_SPIN_TIMEOUT_SEC = float(
 )
 
 
+def _decode_token_threshold() -> int:
+    """Forwards with at most this many tokens are treated as decode passes."""
+    return max(1, int(os.environ.get("DVFS_DECODE_TOKEN_THRESHOLD", "4")))
+
+
+def _prefill_min_tokens() -> int:
+    """Forwards with at least this many tokens are always treated as prefill."""
+    return max(1, int(os.environ.get("DVFS_PREFILL_MIN_TOKENS", "8")))
+
+
+def _decode_max_pauses_per_pass() -> int:
+    return max(0, int(os.environ.get("DVFS_DECODE_MAX_PAUSES_PER_PASS", "1")))
+
+
+def _forward_num_tokens(inputs: Any) -> int:
+    if not inputs:
+        return 0
+    hs = inputs[0]
+    if hasattr(hs, "shape") and len(hs.shape) >= 1:
+        return int(hs.shape[0])
+    return 0
+
+
+def _skip_cuda_sync() -> bool:
+    return os.environ.get("DVFS_BARRIER_SKIP_CUDA_SYNC", "").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    )
+
+
+def _cuda_barrier_sync() -> None:
+    if _skip_cuda_sync():
+        return
+    stream = torch.cuda.current_stream()
+    stream.synchronize()
+
+
+def _barrier_layer_allowlist() -> set[int] | None:
+    """When set, only these layer indices trigger DVFS barriers."""
+    raw = os.environ.get("DVFS_BARRIER_LAYERS", "").strip()
+    if not raw:
+        return None
+    out: set[int] = set()
+    for part in raw.split(","):
+        part = part.strip()
+        if part:
+            out.add(int(part))
+    return out or None
+
+
 def discover_transformer_layers(
     model: nn.Module,
 ) -> list[tuple[int, str, nn.Module]]:
@@ -56,6 +108,12 @@ class InPlaceLayerBarrier:
         self.spin_timeout_sec = spin_timeout_sec
         self._handles: list[torch.utils.hooks.RemovableHandle] = []
         self._barrier_seq = 0
+        self._barrier_wait_sec = 0.0
+        self._pass_decode_pauses = 0
+
+    @property
+    def barrier_wait_sec(self) -> float:
+        return self._barrier_wait_sec
 
     def install(self, model: nn.Module) -> int:
         """Register hooks; return number of layers instrumented."""
@@ -66,33 +124,85 @@ class InPlaceLayerBarrier:
                 "DVFS layer pause: no transformer layers found on model"
             )
 
+        allow = _barrier_layer_allowlist()
+        installed = 0
         for layer_idx, layer_name, layer_mod in layers:
+            if allow is not None and layer_idx not in allow:
+                continue
             handle = layer_mod.register_forward_hook(
                 self._make_hook(layer_idx, layer_name)
             )
             self._handles.append(handle)
-        return len(layers)
+            installed += 1
+        if allow is not None and installed == 0:
+            raise RuntimeError(
+                "DVFS layer pause: DVFS_BARRIER_LAYERS matched no model layers"
+            )
+        return installed
 
     def remove(self) -> None:
         for handle in self._handles:
             handle.remove()
         self._handles.clear()
 
+    def reset_barrier_stats(self) -> None:
+        self._barrier_wait_sec = 0.0
+        self._barrier_seq = 0
+        self._pass_decode_pauses = 0
+
+    def _is_decode_pass(self, inputs: Any) -> bool:
+        num_tokens = _forward_num_tokens(inputs)
+        if num_tokens >= _prefill_min_tokens():
+            return False
+        return num_tokens > 0 and num_tokens <= _decode_token_threshold()
+
+    def _should_barrier(
+        self,
+        layer_idx: int,
+        inputs: Any,
+        *,
+        allow: set[int] | None,
+    ) -> bool:
+        if layer_idx == 0:
+            self._pass_decode_pauses = 0
+
+        if not self._is_decode_pass(inputs):
+            if allow is not None and layer_idx not in allow:
+                return False
+            return True
+
+        max_pauses = _decode_max_pauses_per_pass()
+        if max_pauses <= 0:
+            return False
+        if self._pass_decode_pauses >= max_pauses:
+            return False
+        if allow is not None and layer_idx not in allow:
+            return False
+        if allow is None and layer_idx != 0:
+            return False
+        self._pass_decode_pauses += 1
+        return True
+
     def _make_hook(self, layer_idx: int, layer_name: str):
+        allow = _barrier_layer_allowlist()
+
         def _hook(
             _module: nn.Module,
-            _inputs: Any,
+            inputs: Any,
             _output: Any,
             *,
             _layer_idx: int = layer_idx,
             _layer_name: str = layer_name,
         ) -> None:
-            torch.cuda.synchronize()
+            if not self._should_barrier(_layer_idx, inputs, allow=allow):
+                return
+            _cuda_barrier_sync()
             self._wait_at_barrier(_layer_idx, _layer_name)
 
         return _hook
 
     def _wait_at_barrier(self, layer_idx: int, layer_name: str) -> None:
+        wait_t0 = time.perf_counter()
         pending = self.barrier_dir / "pending.json"
         ack = self.barrier_dir / "ack.json"
 
@@ -144,4 +254,5 @@ class InPlaceLayerBarrier:
         if ack.exists():
             ack.unlink()
 
-        torch.cuda.synchronize()
+        self._barrier_wait_sec += time.perf_counter() - wait_t0
+        _cuda_barrier_sync()

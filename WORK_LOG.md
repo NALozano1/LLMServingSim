@@ -150,3 +150,61 @@ python3 scripts/generate_cluster_config.py \
 | 2026-06-10 | Created `scripts/generate_cluster_config.py` for TP/PP/EP/DP combinations and large-scale layouts (beyond bundled cluster JSONs) |
 | 2026-06-10 | **8-GPU generated config sim passed** — `outputs/generated_8gpu_run.csv` (~1m 41s) |
 | 2026-06-10 | Runtime estimator added to config generator; calibration table in this log |
+
+---
+
+## ARC / HTC — real vLLM layer-boundary pause + DVFS (bench)
+
+**Branch:** `feat/layer-boundary-dvfs-pause`  
+**Host:** ARC HTC V100 (`interactive` partition, 1× GPU per job)
+
+### What works (prefill-only, validated)
+
+- [x] **Pause-only smoke** — `python -m bench run` with sync `vLLM.LLM` (`VLLM_USE_V1=0`), `worker_extension_cls`, external host poller (`dvfs_barrier_host_poller.sh`). Job `8009732` PASS: 32 layer markers, `wall≈17s`, `exec≈8.2s`, `pause≈8.7s`.
+- [x] **Layer-boundary DVFS** — host poller applies `nvidia-smi-clocks` at each barrier; `run_exec_metrics.json` records wall/exec/pause/energy/throughput.
+- [x] **78-run campaign** — same scattered + fixed permutations as profiler plan (`bench/jobs/generate_bench_layer_dvfs_campaign.py`, seed `20260616`). Per-run `sim_replication.json` + `results/summary.json` for simulator replay.
+- [x] **Single-GPU targeting** — `CUDA_VISIBLE_DEVICES=0` / `GPU_FREQ_GPU_INDICES=0` (Slurm `--exclusive` exposed all node GPUs and inflated power).
+
+### Bench entrypoints
+
+| Script | Purpose |
+|--------|---------|
+| `bench/jobs/run_arc_v100_bench_layer_pause_smoke.sh` | Pause-only prefill (`VLLM_BENCH_PREFILL_ONLY=1`) |
+| `bench/jobs/run_arc_v100_bench_layer_pause_decode_smoke.sh` | Prefill + decode; `DVFS_DECODE_MAX_PAUSES_PER_PASS=1` |
+| `bench/jobs/run_arc_v100_bench_layer_boundary.sh` | Prefill DVFS smoke |
+| `bench/jobs/run_arc_v100_bench_layer_campaign.sh` | Single campaign permutation |
+| `bench/jobs/submit_arc_v100_bench_layer_campaign.sh` | Submit chained 78-run campaign |
+
+### Key env vars (bench)
+
+| Variable | Purpose |
+|----------|---------|
+| `VLLM_LAYER_PAUSE=1` | Enable in-place layer hooks |
+| `VLLM_EXTERNAL_HOST_POLLER=1` | Poller outside Apptainer (sudo clocks on ARC) |
+| `VLLM_BENCH_PREFILL_ONLY=1` | Prefill-only (no decode steps) |
+| `VLLM_BENCH_GPU_POWER=1` | Sample `gpu_power/bench.jsonl` |
+| `DVFS_BARRIER_LAYERS` | Scattered mode: which layers pause |
+| `DVFS_FREQ_SCHEDULE` | MHz per barrier (or fixed MHz for all layers) |
+| `DVFS_DECODE_MAX_PAUSES_PER_PASS=1` | Decode: max one pause per forward pass |
+
+### Architecture notes
+
+- **Sync `LLM` not `AsyncLLM`** — V1 async decode deadlocks when forward hooks block (~`DVFS_BARRIER_TIMEOUT_SEC`).
+- **Prefill-only** uses `max_tokens=1` (vLLM rejects 0); V0 hooks still fire on prefill only when `VLLM_BENCH_PREFILL_ONLY=1`.
+- **Decode** (new): token-count heuristic in `InPlaceLayerBarrier` — full barriers on prefill, at most one pause per decode forward (first eligible layer).
+- **Do not use** profiler `python -m profiler slice` campaign for full-model dense forwards — dummy 1-layer models mismatch `DVFS_BARRIER_LAYERS`.
+
+### Replication artifacts (per campaign run)
+
+- `runs/<run_id>/sim_replication.json` — barrier layers, MHz schedule, profiler profile paths
+- `runs/<run_id>/results/summary.json` — wall/exec/pause/energy/throughput/markers
+- `runs/<run_id>/artifacts/` — copies of `run_exec_metrics.json`, `dvfs_markers.jsonl`, `gpu_power/`, `node_meta.json`
+
+Collect: `python3 bench/jobs/collect_bench_layer_campaign_results.py bench/campaigns/v100_bench_layer_dvfs_20260622/`
+
+### Changelog (ARC bench)
+
+| Date | Note |
+|------|------|
+| 2026-06-22 | Prefill-only bench layer pause + DVFS validated on V100; 78-run campaign submitted |
+| 2026-06-22 | Decode support: `DVFS_DECODE_MAX_PAUSES_PER_PASS`, decode smoke job |

@@ -1,24 +1,24 @@
 #!/usr/bin/env bash
-# Submit V100 pause-only smoke (layer barrier, no DVFS).
+# Submit prefill+decode layer-pause smoke (max 1 pause per decode forward).
 #
 #   export HF_TOKEN=...
-#   ./profiler/jobs/submit_arc_v100_layer_pause_smoke.sh
+#   MODEL=microsoft/Phi-tiny-MoE-instruct ./bench/jobs/submit_arc_v100_bench_layer_pause_decode_smoke.sh
 #
 set -euo pipefail
 
 ROOT="/data/engs-glass/engs2950/DVFS-MoE/LLMServingSim"
-RUNNER="${ROOT}/profiler/jobs/run_arc_v100_layer_pause_smoke.sh"
+RUNNER="${ROOT}/bench/jobs/run_arc_v100_bench_layer_pause_decode_smoke.sh"
 TEMPLATE="${HOME}/arc_slurm_submission_template.sh"
 ARC_COMMON="/data/engs-glass/engs2950/shared/gpu_address_tracing/jobs/launchers/arc_slurm_common.sh"
 
 # shellcheck source=/dev/null
 source "${ARC_COMMON}"
 
-mkdir -p "${ROOT}/profiler/jobs/logs" "${ROOT}/profiler/jobs/rendered"
+mkdir -p "${ROOT}/bench/jobs/logs" "${ROOT}/profiler/jobs/rendered"
 
-MODEL="${MODEL:-meta-llama/Llama-3.1-8B}"
-TIME="${TIME:-00:30:00}"
-JOB_NAME="llmsim_layer_pause_smoke"
+MODEL="${MODEL:-microsoft/Phi-tiny-MoE-instruct}"
+TIME="${TIME:-01:00:00}"
+JOB_NAME="llmsim_bench_layer_pause_decode_smoke"
 rendered="${ROOT}/profiler/jobs/rendered/${JOB_NAME}.sbatch"
 cmd_frag="${ROOT}/profiler/jobs/rendered/_${JOB_NAME}_cmd.sh"
 
@@ -35,7 +35,7 @@ printf '%s' "${CMD}" > "${cmd_frag}"
 
 export TEMPLATE="${TEMPLATE}" CMD_FRAG="${cmd_frag}" RENDERED="${rendered}"
 export JOB_NAME="${JOB_NAME}" PROJECT=engs2950 PARTITION=interactive
-export DATA_OUTPUT="${ROOT}/profiler/perf"
+export DATA_OUTPUT="${ROOT}/bench/results"
 python3 - <<'PY'
 from pathlib import Path
 import os
@@ -50,30 +50,23 @@ repl = {
     "{{COMMAND}}": cmd,
 }
 for k, v in repl.items():
-    if k not in template:
-        raise SystemExit(f"missing {k} in template")
     template = template.replace(k, v)
 Path(os.environ["RENDERED"]).write_text(template)
 PY
 
-arc_wait_htc_interactive_slot interactive || exit 1
+arc_wait_htc_interactive_slot interactive || true
 
-jid_raw="$(sbatch -M htc \
-  --clusters=htc \
-  --account=engs-glass \
-  --partition=interactive \
-  --gres=gpu:v100:1 \
-  --nodes=1 \
-  --cpus-per-task=8 \
-  --mem=32G \
-  --time="${TIME}" \
-  --job-name="${JOB_NAME}" \
-  --mail-user=alex.lozano@eng.ox.ac.uk \
+jid_raw=$(sbatch -M htc --parsable \
+  --clusters=htc --account=engs-glass --partition=interactive \
+  --gres=gpu:v100:1 --nodes=1 --cpus-per-task=8 --mem=32G \
+  --time="${TIME}" --job-name="${JOB_NAME}" \
+  --mail-user="${MAIL_USER:-alex.lozano@eng.ox.ac.uk}" \
   --mail-type=BEGIN,END,FAIL \
-  --output="${ROOT}/profiler/jobs/logs/${JOB_NAME}_%j.out" \
-  --error="${ROOT}/profiler/jobs/logs/${JOB_NAME}_%j.err" \
-  "${rendered}")"
-jid="$(awk '{print $4}' <<< "${jid_raw}")"
+  --output="${ROOT}/bench/jobs/logs/${JOB_NAME}_%j.out" \
+  --error="${ROOT}/bench/jobs/logs/${JOB_NAME}_%j.err" \
+  "${rendered}")
+jid="${jid_raw%%;*}"
+
 echo "Submitted job ${jid}"
-echo "  out: ${ROOT}/profiler/jobs/logs/${JOB_NAME}_${jid}.out"
-echo "  markers: ${ROOT}/profiler/perf/V100_layer_pause_smoke/${MODEL}/fp16/tp1/dvfs_markers.jsonl"
+echo "  log: ${ROOT}/bench/jobs/logs/${JOB_NAME}_${jid}.out"
+echo "  out: ${ROOT}/bench/results/V100_layer_pause_decode_smoke/<model>/tp1/${jid}/"
