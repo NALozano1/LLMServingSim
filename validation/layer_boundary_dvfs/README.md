@@ -112,8 +112,11 @@ one).
 > deltas. Recorded here as a sanity anchor, not as the validation result.
 
 **Real hardware anchor (user, earlier ARC run):** ~**600 J** for a single Qwen
-prefill (prefill-only). Measurement basis (GPU-only vs system) and exact schedule
-to be pinned.
+prefill (prefill-only), **GPU-only** measurement (user recollection — to confirm
+against the synced bench data). Compare against the simulator's **GPU/NPU-only**
+energy, not the system total. Baseline standing: real ~600 J vs sim 415 J →
+simulator is ~30% low on GPU energy (expected to shift once the V100 profiles are
+re-measured with the clock lock holding). Exact schedule for this anchor TBD.
 
 **Simulator, Qwen single 64-tok prefill @ default V100 (no DVFS, no segments):**
 
