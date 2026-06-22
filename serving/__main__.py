@@ -262,6 +262,9 @@ def main():
                         help='alternate hardware alias between forward segments (requires --forward-segments per_block)')
     parser.add_argument('--dvfs-hardware-alt', type=str, default=None,
                         help='second GPU hardware name for layer alternation (default: auto-discover from profiler)')
+    parser.add_argument('--dvfs-allow-synthetic-profiles', action='store_true',
+                        help='permit fabricating a scaled placeholder profile (marked synthetic) when a '
+                             'requested hardware-alt has no measured profile; off by default (errors instead)')
     parser.add_argument('--dvfs-layer-schedule', type=str, default=None,
                         help='JSON file with barrier_layers + freq_schedule_mhz for scattered layer DVFS')
 
@@ -554,7 +557,9 @@ def main():
         if layer_hardware_alternate:
             raise ValueError("Use either --dvfs-layer-schedule or --layer-hardware-alternate, not both")
         from serving.core.layer_dvfs_schedule import LayerDvfsSchedule
-        from serving.core.utils import get_config
+        # get_config is module-level (from serving.core.utils import *); importing
+        # it locally here would shadow it and make it function-local for all of
+        # main(), breaking other get_config uses (layer alternation, DP path).
 
         schedule = LayerDvfsSchedule.from_path(_repo_relative_path(dvfs_layer_schedule_path))
         for i, inst in enumerate(instances):
@@ -582,6 +587,7 @@ def main():
             )
             pair = resolve_hardware_pair(
                 inst["model_name"], variant, inst["hardware"], dvfs_hardware_alt,
+                allow_synthetic=args.dvfs_allow_synthetic_profiles,
             )
             instance_hw_pairs[i] = pair
             inst["hardware"] = pair[0]
@@ -683,8 +689,6 @@ def main():
                     old_hw, new_hw = toggle_hardware(pair, inst["hardware"])
                     inst["hardware"] = new_hw
                 elif instance_id in layer_dvfs_schedules:
-                    from serving.core.utils import get_config
-
                     sched = layer_dvfs_schedules[instance_id]
                     num_layers = get_config(inst["model_name"])["num_hidden_layers"]
                     target_hw = sched.hardware_after_stage(stage_idx, num_layers)
