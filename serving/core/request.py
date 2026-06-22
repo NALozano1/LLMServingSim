@@ -96,6 +96,12 @@ class Batch:
 
         # for debugging
         self.scheduled_tokens = None
+        # per-layer forward segments (--forward-segments per_block)
+        self.layer_cursor = 0
+        self.num_stages = 0
+        self.segment_end = []
+        self.awaiting_segment_submit = False
+
     def log(self):
         print("-------------------------Batch Log------------------------")
         for key in self.__dict__.keys():

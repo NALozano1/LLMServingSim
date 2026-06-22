@@ -109,7 +109,8 @@ class TraceCtx:
     ep_total: int      # total EP degree across DP group
     tp_dim: list       # involved_dim for TP collectives (ALLREDUCE), None = all dims
     ep_dim: list       # involved_dim for EP collectives (ALLTOALL), None = all dims
-    dp_sum_total_len: int  # sum of total_len across DP group (0 = DP inactive). Captures the post-AG gathered size for MoE compute; dummy batches are pre-padded to max by serving/__main__.py so the sum reflects vLLM's CUDA-graph padding.
+    dp_sum_total_len: int  # sum of total_len across DP group (0 = DP inactive)
+    dvfs_scale: float = 1.0  # latency multiplier for DVFS (1.0 = nominal profile)
 
 
 @dataclass
@@ -829,7 +830,7 @@ def _build_trace_ctx(hardware, model, config, tp_size, pp_size, local_ep, ep_tot
                      placement, gate, enable_attn_offloading, power_model, pim_model, pd_type,
                      variant, kv_cache_dtype='auto',
                      runtime_max_num_batched_tokens=None, runtime_max_num_seqs=None,
-                     tp_dim=None, ep_dim=None, dp_sum_total_len=0):
+                     tp_dim=None, ep_dim=None, dp_sum_total_len=0, dvfs_scale=1.0):
     model_type = config.get('model_type')
     if not model_type:
         raise KeyError(
@@ -862,6 +863,7 @@ def _build_trace_ctx(hardware, model, config, tp_size, pp_size, local_ep, ep_tot
         pd_type=pd_type,
         tp_size=tp_size, pp_size=pp_size, local_ep=local_ep, ep_total=ep_total,
         tp_dim=tp_dim, ep_dim=ep_dim, dp_sum_total_len=dp_sum_total_len,
+        dvfs_scale=dvfs_scale,
     )
 
 
@@ -909,6 +911,10 @@ def _build_batch_ctx(batch, ctx):
 # Layer emission helpers
 # ======================================================================
 
+_ASTRA_STUB_LATENCY_NS = 1  # Chakra converter skips comp_time==0 nodes
+_ASTRA_STUB_SIZE = 1  # minimal tensor sizes so bookends don't simulate GB-scale mem traffic
+
+
 def _layer_category(perf_db, layer_name):
     """Return which catalog category (dense/per_sequence/attention/moe)
     a canonical layer belongs to for this architecture, or None if the
@@ -921,7 +927,8 @@ def _layer_category(perf_db, layer_name):
 
 
 def _emit_layer(ctx, bctx, layer_name, lines, power_acc, batch_tag='NONE', layer_num=None,
-                comm_type='NONE', comm_size=0, input_loc='LOCAL', output_loc='LOCAL'):
+                comm_type='NONE', comm_size=0, input_loc='LOCAL', output_loc='LOCAL',
+                latency_override=None, size_override=False):
     """Emit a single trace layer: lookup latency, compute sizes, format, track power."""
     category = _layer_category(ctx.perf_db, layer_name)
     if category is None:
@@ -931,7 +938,9 @@ def _emit_layer(ctx, bctx, layer_name, lines, power_acc, batch_tag='NONE', layer
             f"profiler/models/<model_type>.yaml or remove it from the sequence."
         )
 
-    if category == "per_sequence":
+    if latency_override is not None:
+        latency_ns = latency_override
+    elif category == "per_sequence":
         latency_ns = _lookup_per_sequence(ctx.perf_db, layer_name, ctx.tp_size, bctx.lm_head_len)
     elif category == "attention":
         latency_ns = _lookup_attention_with_skew(
@@ -943,17 +952,23 @@ def _emit_layer(ctx, bctx, layer_name, lines, power_acc, batch_tag='NONE', layer
     else:  # dense
         latency_ns = _lookup_dense(ctx.perf_db, layer_name, ctx.tp_size, bctx.total_len)
 
-    # Size calculation uses the same canonical layer names.
-    if layer_name == 'attention':
+    if latency_override is None and ctx.dvfs_scale != 1.0:
+        latency_ns = max(1, int(round(latency_ns * ctx.dvfs_scale)))
+
+  # Size calculation uses the same canonical layer names.
+    if size_override:
+        inp, wt, out = _ASTRA_STUB_SIZE, _ASTRA_STUB_SIZE, _ASTRA_STUB_SIZE
+        wt_loc = 'LOCAL'
+    elif layer_name == 'attention':
         kv_len_for_sizes = bctx.kv_prefill + bctx.n_decode * bctx.kv_decode_mean
         inp, wt, out = calculate_sizes(ctx.model, layer_name, bctx.total_len,
                                        kv_len=kv_len_for_sizes,
                                        parallel=ctx.tp_size, fp=ctx.fp)
+        wt_loc = get_device(ctx.placement, layer_num, layer_name, "weights")
     else:
         inp, wt, out = calculate_sizes(ctx.model, layer_name, bctx.total_len,
                                        parallel=ctx.tp_size, fp=ctx.fp)
-
-    wt_loc = get_device(ctx.placement, layer_num, layer_name, "weights")
+        wt_loc = get_device(ctx.placement, layer_num, layer_name, "weights")
 
     lines.append(formatter(layer_name, str(latency_ns), input_loc, str(inp), wt_loc, str(wt), output_loc, str(out), comm_type, str(comm_size), batch_tag))
 
@@ -1081,6 +1096,8 @@ def _emit_moe_block(ctx, bctx, lines, power_acc, layer_num, batch_id_str, batch_
 
         if local_tokens > 0:
             rank_latency_ns = _lookup_moe(ctx.perf_db, local_tokens, max(activated_experts, 1))
+            if ctx.dvfs_scale != 1.0:
+                rank_latency_ns = max(1, int(round(rank_latency_ns * ctx.dvfs_scale)))
             rank_inp, rank_wt, rank_out = calculate_sizes(
                 ctx.model, "moe", local_tokens, parallel=ep_total, fp=ctx.fp)
             max_rank_latency_ns = max(max_rank_latency_ns, rank_latency_ns)
@@ -1266,6 +1283,58 @@ def _emit_pp_pd_power(ctx, bctx):
 # _synthesize_trace (non-interleaved)
 # ======================================================================
 
+
+def _emit_astra_embed_stub(ctx, bctx, lines, batch_tag='NONE'):
+    """Minimal-cost embedding bookend so partial segment graphs complete in ASTRA."""
+    prologue_layers = _sequence(ctx.perf_db, "prologue")
+    if not prologue_layers:
+        return
+    _emit_layer(ctx, bctx, prologue_layers[0], lines, None, batch_tag,
+                input_loc=f'REMOTE:{ctx.node_id}', output_loc='LOCAL',
+                latency_override=_ASTRA_STUB_LATENCY_NS, size_override=True)
+
+
+def _emit_astra_head_stub(ctx, bctx, lines, batch_tag='NONE'):
+    """Minimal-cost head bookend (final_layernorm, lm_head, sampler)."""
+    head_layers = _sequence(ctx.perf_db, "head")
+    for i, layer_name in enumerate(head_layers):
+        output_loc = f'REMOTE:{ctx.node_id}' if i == len(head_layers) - 1 else 'LOCAL'
+        _emit_layer(ctx, bctx, layer_name, lines, None, batch_tag,
+                    output_loc=output_loc, latency_override=_ASTRA_STUB_LATENCY_NS,
+                    size_override=True)
+
+
+def _layer_lines_to_dic(lines):
+    return [re.findall(r'\S+', line) for line in lines if line.strip()]
+
+
+def _apply_segment_bookends(dic, stage_idx, config, hardware, model, tp_size, pp_size, local_ep,
+                            ep_total, pd_type, node_id, batch, placement, gate,
+                            enable_attn_offloading, pim_model, fp, variant, kv_cache_dtype,
+                            max_num_batched_tokens, max_num_seqs, tp_dim, ep_dim,
+                            dp_sum_total_len, dvfs_scale):
+    """Wrap segment layer rows with zero-cost embed/head stubs for ASTRA."""
+    num_stages = config['num_hidden_layers'] + 2
+    ctx = _build_trace_ctx(hardware, model, config, tp_size, pp_size, local_ep, ep_total, node_id, fp,
+                           placement, gate, enable_attn_offloading, None, pim_model, pd_type,
+                           variant=variant, kv_cache_dtype=kv_cache_dtype,
+                           runtime_max_num_batched_tokens=max_num_batched_tokens,
+                           runtime_max_num_seqs=max_num_seqs,
+                           tp_dim=tp_dim, ep_dim=ep_dim, dp_sum_total_len=dp_sum_total_len,
+                           dvfs_scale=dvfs_scale)
+    bctx = _build_batch_ctx(batch, ctx)
+    prefix, suffix = [], []
+    if stage_idx > 0:
+        stub_lines = []
+        _emit_astra_embed_stub(ctx, bctx, stub_lines)
+        prefix = _layer_lines_to_dic(stub_lines)
+    if stage_idx < num_stages - 1:
+        stub_lines = []
+        _emit_astra_head_stub(ctx, bctx, stub_lines)
+        suffix = _layer_lines_to_dic(stub_lines)
+    return prefix + dic + suffix
+
+
 def _emit_prologue(ctx, bctx, f, batch_tag='NONE'):
     """Emit prologue layers (typically just embedding). The first layer's
     input is routed from REMOTE to match the Chakra converter's
@@ -1289,18 +1358,60 @@ def _emit_prologue(ctx, bctx, f, batch_tag='NONE'):
                 ctx.power_model.add_dram_energy_consumption(ctx.node_id, wt)
 
 
-def _synthesize_trace(hardware, model, config, tp_size, pp_size, local_ep, ep_total, pd_type, node_id, instance_id,
-                      batch, max_len, output_path, placement, block_mode_on, gate,
-                      enable_attn_offloading, power_model, pim_model, fp,
-                      variant, kv_cache_dtype='auto',
-                      runtime_max_num_batched_tokens=None, runtime_max_num_seqs=None,
-                      tp_dim=None, ep_dim=None, dp_sum_total_len=0):
+
+
+def _synthesize_trace_stage(hardware, model, config, tp_size, pp_size, local_ep, ep_total, pd_type, node_id, instance_id,
+                            batch, max_len, output_path, stage_idx, placement, block_mode_on, gate,
+                            enable_attn_offloading, power_model, pim_model, fp,
+                            variant, kv_cache_dtype='auto',
+                            runtime_max_num_batched_tokens=None, runtime_max_num_seqs=None,
+                            tp_dim=None, ep_dim=None, dp_sum_total_len=0, dvfs_scale=1.0):
+    """Emit one forward-pass segment: prologue, one transformer block, or head."""
     ctx = _build_trace_ctx(hardware, model, config, tp_size, pp_size, local_ep, ep_total, node_id, fp,
                            placement, gate, enable_attn_offloading, power_model, pim_model, pd_type,
                            variant=variant, kv_cache_dtype=kv_cache_dtype,
                            runtime_max_num_batched_tokens=runtime_max_num_batched_tokens,
                            runtime_max_num_seqs=runtime_max_num_seqs,
-                           tp_dim=tp_dim, ep_dim=ep_dim, dp_sum_total_len=dp_sum_total_len)
+                           tp_dim=tp_dim, ep_dim=ep_dim, dp_sum_total_len=dp_sum_total_len,
+                           dvfs_scale=dvfs_scale)
+    bctx = _build_batch_ctx(batch, ctx)
+    num_layers = config['num_hidden_layers']
+    num_stages = num_layers + 2
+    if stage_idx < 0 or stage_idx >= num_stages:
+        raise ValueError(f"stage_idx {stage_idx} out of range [0, {num_stages})")
+
+    logger.info(
+        "Batch #%d segment %d/%d: model=%s num_reqs=%d total_len=%d",
+        batch.batch_id, stage_idx, num_stages, model, len(batch.requests), batch.total_len,
+        extra={"node_id": node_id, "instance_id": instance_id},
+    )
+
+    with open(output_path, 'w') as f:
+        if stage_idx == 0:
+            _emit_prologue(ctx, bctx, f)
+        elif stage_idx <= num_layers:
+            layer_num = stage_idx - 1
+            block_lines, block_power = _build_transformer_block(ctx, bctx, layer_num, 'NONE', str(batch.batch_id))
+            f.writelines(block_lines)
+            block_power.flush(ctx, enable_attn_offloading)
+        else:
+            _emit_final_layers(ctx, bctx, f)
+            _emit_pp_pd_power(ctx, bctx)
+
+
+def _synthesize_trace(hardware, model, config, tp_size, pp_size, local_ep, ep_total, pd_type, node_id, instance_id,
+                      batch, max_len, output_path, placement, block_mode_on, gate,
+                      enable_attn_offloading, power_model, pim_model, fp,
+                      variant, kv_cache_dtype='auto',
+                      runtime_max_num_batched_tokens=None, runtime_max_num_seqs=None,
+                      tp_dim=None, ep_dim=None, dp_sum_total_len=0, dvfs_scale=1.0):
+    ctx = _build_trace_ctx(hardware, model, config, tp_size, pp_size, local_ep, ep_total, node_id, fp,
+                           placement, gate, enable_attn_offloading, power_model, pim_model, pd_type,
+                           variant=variant, kv_cache_dtype=kv_cache_dtype,
+                           runtime_max_num_batched_tokens=runtime_max_num_batched_tokens,
+                           runtime_max_num_seqs=runtime_max_num_seqs,
+                           tp_dim=tp_dim, ep_dim=ep_dim, dp_sum_total_len=dp_sum_total_len,
+                           dvfs_scale=dvfs_scale)
     bctx = _build_batch_ctx(batch, ctx)
 
     logger.info(
@@ -1347,13 +1458,13 @@ def _synthesize_interleaved_trace(hardware, model, config, tp_size, pp_size, loc
                                   enable_attn_offloading, power_model, pim_model, fp,
                                   variant, kv_cache_dtype='auto',
                                   runtime_max_num_batched_tokens=None, runtime_max_num_seqs=None,
-                                  tp_dim=None, ep_dim=None, dp_sum_total_len=0):
+                                  tp_dim=None, ep_dim=None, dp_sum_total_len=0, dvfs_scale=1.0):
     ctx = _build_trace_ctx(hardware, model, config, tp_size, pp_size, local_ep, ep_total, node_id, fp,
                            placement, gate, enable_attn_offloading, power_model, pim_model, pd_type,
                            variant=variant, kv_cache_dtype=kv_cache_dtype,
                            runtime_max_num_batched_tokens=runtime_max_num_batched_tokens,
                            runtime_max_num_seqs=runtime_max_num_seqs,
-                           tp_dim=tp_dim, ep_dim=ep_dim, dp_sum_total_len=dp_sum_total_len)
+                           tp_dim=tp_dim, ep_dim=ep_dim, dp_sum_total_len=dp_sum_total_len, dvfs_scale=dvfs_scale)
     bctx1 = _build_batch_ctx(batches[0], ctx)
     bctx2 = _build_batch_ctx(batches[1], ctx)
 
@@ -1448,7 +1559,7 @@ def generate_trace(batch, hardware, tp_size, pp_size, local_ep, ep_total, pd_typ
                    placement={}, block_mode_on=False, expert_routing_policy="BALANCED",
                    enable_prefix_caching=False, enable_attn_offloading=False, power_model=None, pim_model=None,
                    enable_sub_batch_interleaving=False, fp=16, dtype=None, kv_cache_dtype='auto',
-                   tp_dim=None, ep_dim=None, dp_sum_total_len=0, enable_block_copy=True):
+                   tp_dim=None, ep_dim=None, dp_sum_total_len=0, enable_block_copy=True, dvfs_scale=1.0, stage_idx=None):
 
     model = batch.model
     config = get_config(model)
@@ -1460,8 +1571,19 @@ def generate_trace(batch, hardware, tp_size, pp_size, local_ep, ep_total, pd_typ
     load_size = batch.load
     evict_size = batch.evict
 
-    output_path = f"inputs/trace/{hardware}/{batch.model}/instance{instance_id}_batch{batch.batch_id}.txt"
+    if stage_idx is not None:
+        from .forward_segments import segment_workload_slug
+        slug = segment_workload_slug(instance_id, batch, stage_idx)
+        output_path = f"inputs/trace/{hardware}/{batch.model}/{slug}.txt"
+    else:
+        output_path = f"inputs/trace/{hardware}/{batch.model}/instance{instance_id}_batch{batch.batch_id}.txt"
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
+
+    if stage_idx is not None:
+        from .segment_trace_cache import segment_trace_is_fresh, write_segment_trace_meta
+        if segment_trace_is_fresh(output_path, dvfs_scale):
+            logger.info("Reusing cached segment trace %s", output_path)
+            return
 
     # make trace — accept either the Mistral-style ``num_local_experts``
     # key or the HF/Qwen3 ``num_experts`` key so both family's configs
@@ -1494,8 +1616,12 @@ def generate_trace(batch, hardware, tp_size, pp_size, local_ep, ep_total, pd_typ
                         variant=variant, kv_cache_dtype=kv_cache_dtype,
                         runtime_max_num_batched_tokens=max_num_batched_tokens,
                         runtime_max_num_seqs=max_num_seqs,
-                        tp_dim=tp_dim, ep_dim=ep_dim, dp_sum_total_len=dp_sum_total_len)
-    if not enable_sub_batch_interleaving:
+                        tp_dim=tp_dim, ep_dim=ep_dim, dp_sum_total_len=dp_sum_total_len, dvfs_scale=dvfs_scale)
+    if stage_idx is not None:
+        if enable_sub_batch_interleaving:
+            raise ValueError("stage_idx is incompatible with enable_sub_batch_interleaving")
+        _synthesize_trace_stage(*synth_args, batch, max_len, output_path, stage_idx, **synth_kwargs)
+    elif not enable_sub_batch_interleaving:
         _synthesize_trace(*synth_args, batch, max_len, output_path, **synth_kwargs)
     else:
         batches = _make_sub_batch(batch)
@@ -1510,14 +1636,24 @@ def generate_trace(batch, hardware, tp_size, pp_size, local_ep, ep_total, pd_typ
             split = re.findall(r'\S+', line)
             dic.append(split)
 
+    if stage_idx is not None:
+        dic = _apply_segment_bookends(
+            dic, stage_idx, config, hardware, model, tp_size, pp_size, local_ep, ep_total,
+            pd_type, node_id, batch, placement, gate, enable_attn_offloading, pim_model, fp,
+            variant, kv_cache_dtype, max_num_batched_tokens, max_num_seqs, tp_dim, ep_dim,
+            dp_sum_total_len, dvfs_scale,
+        )
+
     # vllm: open output txt file and add load, evict mem
     mem = []
-    if load_size != 0:
+    include_load = load_size != 0 and (stage_idx is None or stage_idx == 0)
+    include_evict = evict_size != 0 and (stage_idx is None or stage_idx == config['num_hidden_layers'] + 1)
+    if include_load:
         load = ["kv_load", '0', 'LOCAL', '0', get_device(placement, None, None, 'kv_evict_loc'), str(load_size), 'LOCAL', '0', 'NONE', '0', 'NONE']
         mem.append(load)
         if power_model is not None:
             power_model.add_dram_energy_consumption(node_id, load_size)
-    if evict_size != 0:
+    if include_evict:
         evict = ["kv_evict", '0', 'LOCAL', '0', get_device(placement, None, None, 'kv_evict_loc'), str(evict_size), 'LOCAL', '0', 'NONE', '0', 'NONE']
         mem.append(evict)
         if power_model is not None:
@@ -1550,6 +1686,9 @@ def generate_trace(batch, hardware, tp_size, pp_size, local_ep, ep_total, pd_typ
                 f.write(formatter(new_string, *result[i][1:]))
             else:
                 f.write(formatter(' '.join(result[i]),'','','','','','','','','',''))
+    if stage_idx is not None:
+        from .segment_trace_cache import write_segment_trace_meta
+        write_segment_trace_meta(output_path, dvfs_scale)
     return
 
 

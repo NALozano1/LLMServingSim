@@ -1,0 +1,6 @@
+COLOCATED		model_parallel_NPU_group: 1
+3
+Layername    comp_time    input_loc    input_size    weight_loc    weight_size    output_loc    output_size    comm_type    comm_size    misc
+embedding    5621    REMOTE:0    40    LOCAL    1050673152    LOCAL    81920    NONE    0    NONE
+attention    8000    LOCAL    262144    LOCAL    0    LOCAL    262144    NONE    0    NONE
+o_proj    32000    LOCAL    262144    LOCAL    8388608    LOCAL    262144    ALLREDUCE    262144    NONE

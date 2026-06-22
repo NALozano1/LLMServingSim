@@ -26,6 +26,9 @@ from serving.core.router import *
 from serving.core.power_model import *
 from serving.core.logger import *
 from serving.core.runtime_calibration import record_simulation_runtime
+from serving.core.work_state import WorkStateLogger, batch_to_work_record, trace_path_for
+from serving.core.forward_segments import register_astra_segment, pop_astra_segment
+from serving.core.hardware_aliases import resolve_hardware_pair, toggle_hardware
 import sys as flush
 
 from pyinstrument import Profiler
@@ -61,8 +64,27 @@ def _pad_batch_to_max(batch, max_len):
     batch.num_decode += pad              # counted for lm_head / dense shape
 
 
+
+def _log_batch_scheduled(work_logger, current, batch, instance_id, instances, inst2npu_mapping, is_dummy=False):
+    if work_logger is None:
+        return
+    inst = instances[instance_id]
+    start = inst2npu_mapping[instance_id]
+    npu_ids = list(range(start, start + inst["num_npus"]))
+    tpath = trace_path_for(inst["hardware"], inst["model_name"], instance_id, batch.batch_id)
+    work_logger.log_batch_scheduled(
+        current,
+        batch_to_work_record(batch, instance_id, npu_ids, tpath, is_dummy=is_dummy),
+    )
+
 def _runtime_limit(value):
     return float('inf') if value == 0 else value
+
+
+def _repo_relative_path(path):
+    if path is None or os.path.isabs(path):
+        return path
+    return os.path.join("..", path)
 
 
 def _cluster_config_path(path):
@@ -226,6 +248,22 @@ def main():
                         help='KV cache data type: auto (use default profile.csv) or fp8 (use profile_fp8.csv, halves KV cache memory)')
     parser.add_argument('--network-backend', type=str, choices=['analytical', 'ns3'], default='analytical',
                         help='network simulation backend: analytical (fast, default) or ns3 (detailed, WIP)')
+    parser.add_argument('--work-events', type=str, default=None,
+                        help='JSONL path for per-layer work-availability events')
+    parser.add_argument('--work-summary', type=str, default=None,
+                        help='CSV path for periodic per-NPU work summary (requires --work-events)')
+    parser.add_argument('--dvfs-switch-at', type=float, default=None,
+                        help='simulated time in seconds to apply DVFS scale to all instances (iteration boundary)')
+    parser.add_argument('--dvfs-scale', type=float, default=1.0,
+                        help='latency multiplier after --dvfs-switch-at (e.g. 0.75 = 25%% slower compute)')
+    parser.add_argument('--forward-segments', type=str, choices=['off', 'per_block'], default='off',
+                        help='split each forward pass into per-block ASTRA submissions (layer-boundary control)')
+    parser.add_argument('--layer-hardware-alternate', action='store_true',
+                        help='alternate hardware alias between forward segments (requires --forward-segments per_block)')
+    parser.add_argument('--dvfs-hardware-alt', type=str, default=None,
+                        help='second GPU hardware name for layer alternation (default: auto-discover from profiler)')
+    parser.add_argument('--dvfs-layer-schedule', type=str, default=None,
+                        help='JSON file with barrier_layers + freq_schedule_mhz for scattered layer DVFS')
 
     args = parser.parse_args()
     
@@ -247,6 +285,12 @@ def main():
     num_req=args.num_reqs
     log_interval=args.log_interval
     network_backend = args.network_backend
+    dvfs_switch_at = args.dvfs_switch_at
+    dvfs_scale_target = args.dvfs_scale
+    forward_segments = args.forward_segments == "per_block"
+    layer_hardware_alternate = args.layer_hardware_alternate
+    dvfs_hardware_alt = args.dvfs_hardware_alt
+    dvfs_layer_schedule_path = args.dvfs_layer_schedule
     raw_cluster_config = _load_cluster_config_for_overrides(args.cluster_config)
     raw_instances = list(_iter_raw_instances(raw_cluster_config))
     build_enable_local_offloading = args.enable_local_offloading or any(
@@ -259,6 +303,8 @@ def main():
     num_nodes = cluster["num_nodes"]
     num_instances = cluster["num_instances"]
     instances = cluster["instances"]
+    for _inst in instances:
+        _inst.setdefault("dvfs_scale", 1.0)
     inst2node_mapping = cluster["inst2node_mapping"]
     inst2npu_mapping = cluster["inst2npu_mapping"]
     npu2inst_mapping = cluster["npu2inst_mapping"]
@@ -453,14 +499,14 @@ def main():
     # set first workload file
     workload = get_workload(None, None, event=True)
     # run subprocess
-    args = [binary, "--workload-configuration="+workload, "--system-configuration="+system, "--network-configuration="+network, "--memory-configuration="+memory]
+    astra_cmd = [binary, "--workload-configuration="+workload, "--system-configuration="+system, "--network-configuration="+network, "--memory-configuration="+memory]
     if start_npu_ids != "":
-        args.append("--start-npu-ids="+start_npu_ids)
+        astra_cmd.append("--start-npu-ids="+start_npu_ids)
     if end_npu_ids != "":
-        args.append("--end-npu-ids="+end_npu_ids)
+        astra_cmd.append("--end-npu-ids="+end_npu_ids)
     if network_backend == 'ns3':
-        args.append("--logical-topology-configuration="+astra_sim+"/inputs/logical_topology/logical_8nodes_1D.json")
-    p = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
+        astra_cmd.append("--logical-topology-configuration="+astra_sim+"/inputs/logical_topology/logical_8nodes_1D.json")
+    p = subprocess.Popen(astra_cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
 
     # DP group synchronization: defer trace generation until all members have scheduled
     # dp_groups maps dp_group_name -> list of instance_ids
@@ -478,6 +524,95 @@ def main():
     dp_pending = {dg: {} for dg in dp_groups}  # dp_group -> {instance_id: (new_req, sys)}
     # Pre-generated workloads ready to submit on next "Waiting"
     dp_ready_workloads = {}  # instance_id -> workload_path
+
+    if forward_segments:
+        if dp_groups:
+            raise ValueError("--forward-segments per_block is not supported with DP groups yet")
+        if any(inst["num_npus"] > 1 for inst in instances):
+            raise ValueError("--forward-segments per_block requires tp_size=1 (single NPU per instance)")
+        if any(inst.get("pd_type") is not None for inst in instances):
+            # P/D-disaggregated prefill instances use a doubled NPU layout
+            # (see Scheduler.on_segment_done), which the single-NPU segment
+            # model cannot satisfy — it would deadlock waiting for a second NPU.
+            # TODO(future): support P/D disaggregation + forward segments by
+            # teaching on_segment_done the prefill instance's true NPU topology
+            # and coordinating the prefill->decode handoff across segmented
+            # passes. Tracked in WORK_LOG.md (Future work).
+            raise ValueError("--forward-segments per_block requires colocated instances "
+                             "(pd_type=null); P/D disaggregation is not supported")
+        for _sched in schedulers:
+            _sched.forward_segments = True
+        logger.info("Forward segments enabled: one ASTRA submission per transformer block")
+    else:
+        for _sched in schedulers:
+            _sched.forward_segments = False
+
+    layer_dvfs_schedules: dict[int, object] = {}
+    if dvfs_layer_schedule_path:
+        if not forward_segments:
+            raise ValueError("--dvfs-layer-schedule requires --forward-segments per_block")
+        if layer_hardware_alternate:
+            raise ValueError("Use either --dvfs-layer-schedule or --layer-hardware-alternate, not both")
+        from serving.core.layer_dvfs_schedule import LayerDvfsSchedule
+        from serving.core.utils import get_config
+
+        schedule = LayerDvfsSchedule.from_path(_repo_relative_path(dvfs_layer_schedule_path))
+        for i, inst in enumerate(instances):
+            layer_dvfs_schedules[i] = schedule
+            logger.info(
+                "Instance %d scattered layer DVFS: %d barriers, default hardware=%s",
+                i,
+                len(schedule.barrier_to_mhz),
+                schedule.default_hardware,
+            )
+            _ = get_config(inst["model_name"])  # validate model config exists
+
+    instance_hw_pairs = {}
+    if layer_hardware_alternate:
+        if not forward_segments:
+            raise ValueError("--layer-hardware-alternate requires --forward-segments per_block")
+        if dvfs_layer_schedule_path:
+            raise ValueError("Use either --dvfs-layer-schedule or --layer-hardware-alternate, not both")
+        from serving.core.trace_generator import resolve_variant
+        for i, inst in enumerate(instances):
+            variant = resolve_variant(
+                instance_runtime_configs[i]["dtype"],
+                instance_runtime_configs[i]["kv_cache_dtype"],
+                get_config(inst["model_name"]),
+            )
+            pair = resolve_hardware_pair(
+                inst["model_name"], variant, inst["hardware"], dvfs_hardware_alt,
+            )
+            instance_hw_pairs[i] = pair
+            inst["hardware"] = pair[0]
+            if pair[0] == pair[1]:
+                logger.warning(
+                    "Instance %d: only one hardware profile for %s; layer alternation disabled",
+                    i, inst["model_name"],
+                )
+            else:
+                logger.info(
+                    "Instance %d layer hardware alternation: %s <-> %s",
+                    i, pair[0], pair[1],
+                )
+
+    dvfs_switch_ns = int(dvfs_switch_at * 1_000_000_000) if dvfs_switch_at is not None else None
+    dvfs_applied = dvfs_switch_ns is None
+    segment_registry = {}
+
+    work_logger = None
+    if args.work_events:
+        summary_interval_ns = int(log_interval * FREQ)
+        work_logger = WorkStateLogger(
+            _repo_relative_path(args.work_events),
+            _repo_relative_path(args.work_summary),
+            summary_interval_ns,
+        )
+        inst2npus = {
+            i: list(range(inst2npu_mapping[i], inst2npu_mapping[i] + instances[i]["num_npus"]))
+            for i in range(num_instances)
+        }
+        work_logger.log_sim_start(0, npu2inst_mapping, inst2npus)
 
     # ----------------------------------- Start simulation loop ------------------------------------
     # Starting simulation, one while loop processes one iteration
@@ -498,6 +633,25 @@ def main():
         instance_id = npu2inst_mapping[sys]  # get instance id from NPU id
         node_id = inst2node_mapping[instance_id] # get node id from instance id
 
+        if not dvfs_applied and dvfs_switch_ns is not None and current >= dvfs_switch_ns:
+            old_scale = instances[0].get("dvfs_scale", 1.0)
+            for inst in instances:
+                inst["dvfs_scale"] = dvfs_scale_target
+            dvfs_applied = True
+            logger.info(
+                "DVFS switch at %.3f ms: scale %.4f -> %.4f (applies to subsequent batches)",
+                current / 1e6, old_scale, dvfs_scale_target,
+            )
+            if work_logger is not None:
+                work_logger.log_dvfs_switch(
+                    current, old_scale, dvfs_scale_target,
+                    instance_ids=[i for i in range(num_instances)],
+                )
+
+        if work_logger is not None and out_dict is not None:
+            work_logger.log_iteration_complete(
+                current, out_dict['sys'], out_dict['id'] - 1, instance_id)
+
         # add stanby energy consumption for power modeling
         if power_modeling and sys == inst2npu_mapping[instance_id] and waiting_request[instance_id]:
             power_model.add_npu_standby_energy_consumption(instances[instance_id]["hardware"], node_id, current,
@@ -511,8 +665,54 @@ def main():
             last_end_time[instance_id] = current
             waiting_request[instance_id] = True
 
-        # check request is done
-        prompt_t, gen_t, finished_reqs = schedulers[instance_id].add_done(id, sys, current)
+        # check request is done (or forward-pass segment)
+        seg_info = pop_astra_segment(segment_registry, sys, id) if forward_segments else None
+        if seg_info is not None:
+            seg_batch_id, stage_idx, is_final = seg_info
+            if is_final:
+                prompt_t, gen_t, finished_reqs = schedulers[instance_id].add_done(
+                    id, sys, current, batch_id=seg_batch_id)
+            else:
+                schedulers[instance_id].on_segment_done(seg_batch_id, sys, current)
+                prompt_t, gen_t, finished_reqs = 0, 0, []
+                pair = instance_hw_pairs.get(instance_id)
+                inst = instances[instance_id]
+                old_hw = inst["hardware"]
+                new_hw = None
+                if pair and pair[0] != pair[1] and layer_hardware_alternate:
+                    old_hw, new_hw = toggle_hardware(pair, inst["hardware"])
+                    inst["hardware"] = new_hw
+                elif instance_id in layer_dvfs_schedules:
+                    from serving.core.utils import get_config
+
+                    sched = layer_dvfs_schedules[instance_id]
+                    num_layers = get_config(inst["model_name"])["num_hidden_layers"]
+                    target_hw = sched.hardware_after_stage(stage_idx, num_layers)
+                    if target_hw is not None and target_hw != inst["hardware"]:
+                        new_hw = target_hw
+                        inst["hardware"] = new_hw
+                if new_hw is not None and new_hw != old_hw:
+                    logger.info(
+                        "Layer hardware switch instance %d after segment %d: %s -> %s",
+                        instance_id, stage_idx, old_hw, new_hw,
+                    )
+                    if work_logger is not None:
+                        work_logger.log_dvfs_switch(
+                            current, inst.get("dvfs_scale", 1.0), inst.get("dvfs_scale", 1.0),
+                            instance_ids=[instance_id],
+                            old_hardware=old_hw, new_hardware=new_hw,
+                            stage_idx=stage_idx, trigger="layer",
+                        )
+                if work_logger is not None:
+                    batch = next((b for b in schedulers[instance_id].inflight if b.batch_id == seg_batch_id), None)
+                    num_stages = batch.num_stages if batch is not None else 0
+                    work_logger.log_segment_complete(current, seg_batch_id, stage_idx, instance_id, num_stages)
+        elif forward_segments and any(
+            b.num_stages > 0 and b.layer_cursor < b.num_stages for b in schedulers[instance_id].inflight
+        ):
+            prompt_t, gen_t, finished_reqs = 0, 0, []
+        else:
+            prompt_t, gen_t, finished_reqs = schedulers[instance_id].add_done(id, sys, current)
         # add tokens in throughput
         prompt_th += prompt_t
         total_prompt += prompt_t
@@ -590,11 +790,13 @@ def main():
                                        dtype=inst_cfg["dtype"], kv_cache_dtype=inst_cfg["kv_cache_dtype"],
                                        tp_dim=inst.get("tp_dim"), ep_dim=inst.get("ep_dim"),
                                        dp_sum_total_len=sum_total_len,
-                                       enable_block_copy=inst_cfg["enable_block_copy"])
+                                       enable_block_copy=inst_cfg["enable_block_copy"], dvfs_scale=inst.get("dvfs_scale", 1.0))
                         generate_graph(batch, inst["hardware"], inst["num_npus"], nid,
                                        inst_id, inst2npu_mapping[inst_id],
                                        inst_cfg["enable_local_offloading"],
                                        workload_name=dp_workload_name)
+                        _log_batch_scheduled(work_logger, current, batch, inst_id, instances, inst2npu_mapping,
+                                             is_dummy=(len(batch.requests) == 0))
                         if inst_id != instance_id:
                             dp_ready_workloads[inst_id] = get_workload(batch, inst["hardware"], inst_id,
                                                                     workload_name=dp_workload_name)
@@ -652,11 +854,12 @@ def main():
                                            dtype=inst_cfg["dtype"], kv_cache_dtype=inst_cfg["kv_cache_dtype"],
                                            tp_dim=inst.get("tp_dim"), ep_dim=inst.get("ep_dim"),
                                            dp_sum_total_len=sum_total_len,
-                                           enable_block_copy=inst_cfg["enable_block_copy"])
+                                           enable_block_copy=inst_cfg["enable_block_copy"], dvfs_scale=inst.get("dvfs_scale", 1.0))
                             generate_graph(batch, inst["hardware"], inst["num_npus"], nid,
                                            inst_id, inst2npu_mapping[inst_id],
                                            inst_cfg["enable_local_offloading"],
                                            workload_name=dp_workload_name)
+                            _log_batch_scheduled(work_logger, current, batch, inst_id, instances, inst2npu_mapping)
                             if inst_id != instance_id:
                                 dp_ready_workloads[inst_id] = get_workload(batch, inst["hardware"], inst_id,
                                                                         workload_name=dp_workload_name)
@@ -672,6 +875,7 @@ def main():
                 else:
                     # Independent instance: generate trace immediately
                     inst_cfg = instance_runtime_configs[instance_id]
+                    stage_idx = new_req.layer_cursor if forward_segments else None
                     generate_trace(new_req, instance["hardware"], instance["tp_size"], instance["pp_size"],
                                    instance["local_ep"], instance["ep_total"],
                                    instance["pd_type"],
@@ -682,15 +886,21 @@ def main():
                                    inst_cfg["enable_attn_offloading"], power_model, pim_models[node_id],
                                    inst_cfg["enable_sub_batch_interleaving"], inst_cfg["fp"],
                                    dtype=inst_cfg["dtype"], kv_cache_dtype=inst_cfg["kv_cache_dtype"],
-                                   enable_block_copy=inst_cfg["enable_block_copy"])
+                                   enable_block_copy=inst_cfg["enable_block_copy"], dvfs_scale=instance.get("dvfs_scale", 1.0),
+                                   stage_idx=stage_idx)
                     generate_graph(new_req, instance["hardware"], instance["num_npus"], node_id,
                                    instance_id, inst2npu_mapping[instance_id],
-                                   inst_cfg["enable_local_offloading"])
-                    workload = get_workload(new_req, instance["hardware"], instance_id)
+                                   inst_cfg["enable_local_offloading"], stage_idx=stage_idx)
+                    _log_batch_scheduled(work_logger, current, new_req, instance_id, instances, inst2npu_mapping)
+                    if forward_segments:
+                        register_astra_segment(segment_registry, sys, id + 1, new_req.batch_id,
+                                               stage_idx, new_req.num_stages)
+                    workload = get_workload(new_req, instance["hardware"], instance_id, stage_idx=stage_idx)
                     controller.write_flush(p, workload)
             elif new_req is not None:
                 # Non-first NPU: pick up existing batch workload
-                workload = get_workload(new_req, instances[instance_id]["hardware"], instance_id)
+                _stage = new_req.layer_cursor if forward_segments else None
+                workload = get_workload(new_req, instances[instance_id]["hardware"], instance_id, stage_idx=_stage)
                 controller.write_flush(p, workload)
 
         # check time to store throughput (only print on start NPU to avoid transient states)
@@ -715,6 +925,10 @@ def main():
             )
             prompt_th = 0
             gen_th = 0
+
+            if work_logger is not None:
+                work_logger.log_scheduler_snapshot(
+                    current, schedulers, router, current, inst2npu_mapping, instances)
 
             ######### Per Instance Metrics #########
 
@@ -899,6 +1113,9 @@ def main():
     total_latency = current/FREQ
     print_rule()
     print_markup("[sim.heading]▶ Simulation results...[/]\n")
+    if work_logger is not None:
+        work_logger.close()
+
     print_markup(f"Total simulation time: {int(hours)}h {int(minutes)}m {seconds:.3f}s")
     print_rule("[sim.tagline]Throughput Results[/]")
     print_markup(f"Total requests:                                                     {req_cnt}")

@@ -208,3 +208,16 @@ Collect: `python3 bench/jobs/collect_bench_layer_campaign_results.py bench/campa
 |------|------|
 | 2026-06-22 | Prefill-only bench layer pause + DVFS validated on V100; 78-run campaign submitted |
 | 2026-06-22 | Decode support: `DVFS_DECODE_MAX_PAUSES_PER_PASS`, decode smoke job |
+
+---
+
+## Future work
+
+- **P/D disaggregation + `--forward-segments per_block`.** Currently mutually
+  exclusive: per-block layer-boundary DVFS is gated to colocated, single-NPU
+  (`tp_size=1`, no DP) instances, and a `pd_type != null` cluster now raises a
+  clear error instead of hanging. Supporting both would let prefill and decode
+  workers scale clocks independently. Needs: (1) `Scheduler.on_segment_done` to
+  use a prefill instance's true (doubled) NPU range when gating segment
+  completion, and (2) coordination of the prefill->decode handoff across
+  segmented passes. Guard lives in `serving/__main__.py` (forward_segments setup).

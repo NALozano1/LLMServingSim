@@ -22,13 +22,17 @@ _FMT = (
 )
 
 
-def get_workload(batch, hardware, instance_id=0, event=False, workload_name=None):
+def get_workload(batch, hardware, instance_id=0, event=False, workload_name=None, stage_idx=None):
     if event:
         file_name = 'event_handler'
     elif workload_name:
         file_name = workload_name
     else:
-        file_name = f'{hardware}/{batch.model}/instance{instance_id}_batch{batch.batch_id}'
+        if stage_idx is not None:
+            from .forward_segments import segment_workload_slug
+            file_name = f'{hardware}/{batch.model}/{segment_workload_slug(instance_id, batch, stage_idx)}'
+        else:
+            file_name = f'{hardware}/{batch.model}/instance{instance_id}_batch{batch.batch_id}'
 
     cwd = os.getcwd()
     return cwd + f"/inputs/workload/{file_name}/llm"
