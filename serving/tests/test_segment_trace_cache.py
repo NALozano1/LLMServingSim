@@ -33,6 +33,15 @@ class TestSegmentTraceCache(unittest.TestCase):
                 f.write("trace")
             self.assertFalse(segment_trace_is_fresh(trace_path, 1.0))
 
+    def test_stale_when_variant_changes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            trace_path = os.path.join(tmp, "slug.txt")
+            with open(trace_path, "w", encoding="utf-8") as f:
+                f.write("trace")
+            write_segment_trace_meta(trace_path, 1.0, "bf16")
+            self.assertTrue(segment_trace_is_fresh(trace_path, 1.0, "bf16"))
+            self.assertFalse(segment_trace_is_fresh(trace_path, 1.0, "fp16"))
+
 
 if __name__ == "__main__":
     unittest.main()

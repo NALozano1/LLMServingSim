@@ -20,5 +20,22 @@ def pop_astra_segment(registry, sys, astra_id):
 
 
 def segment_workload_slug(instance_id, batch, stage_idx):
-    """Reuse trace/graph across batches with identical token shape."""
-    return f"instance{instance_id}_t{batch.total_len}p{batch.num_prefill}_s{stage_idx}"
+    """Cache key for a segment's trace/graph.
+
+    Reuse is only safe across batches whose emitted latencies are identical, so
+    the signature captures everything that changes a segment's trace: token
+    counts plus the per-request prefill/decode KV shape (attention is a 4D
+    lookup over prefill_q/prefill_k/decode_k). This stops two decode batches
+    with the same total_len but different KV state from colliding. The dtype/kv
+    variant is handled by the trace .meta sidecar, and the active clock is
+    encoded in the trace path's hardware tag.
+    """
+    import hashlib
+    shape = "|".join((
+        str(batch.total_len), str(batch.num_prefill), str(batch.num_decode),
+        ",".join(map(str, batch.prefill_q_list)),
+        ",".join(map(str, batch.prefill_k_list)),
+        ",".join(map(str, batch.decode_k_list)),
+    ))
+    sig = hashlib.sha1(shape.encode()).hexdigest()[:12]
+    return f"instance{instance_id}_t{batch.total_len}p{batch.num_prefill}_s{stage_idx}_{sig}"

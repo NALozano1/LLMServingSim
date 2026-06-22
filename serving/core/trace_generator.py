@@ -1581,7 +1581,7 @@ def generate_trace(batch, hardware, tp_size, pp_size, local_ep, ep_total, pd_typ
 
     if stage_idx is not None:
         from .segment_trace_cache import segment_trace_is_fresh, write_segment_trace_meta
-        if segment_trace_is_fresh(output_path, dvfs_scale):
+        if segment_trace_is_fresh(output_path, dvfs_scale, variant):
             logger.info("Reusing cached segment trace %s", output_path)
             return
 
@@ -1688,7 +1688,7 @@ def generate_trace(batch, hardware, tp_size, pp_size, local_ep, ep_total, pd_typ
                 f.write(formatter(' '.join(result[i]),'','','','','','','','','',''))
     if stage_idx is not None:
         from .segment_trace_cache import write_segment_trace_meta
-        write_segment_trace_meta(output_path, dvfs_scale)
+        write_segment_trace_meta(output_path, dvfs_scale, variant)
     return
 
 
