@@ -1,0 +1,70 @@
+{
+  "_comment": "Verification config for per-device heterogeneous tp_hardware (feat/per-device-profiles). Intended shape: TP=2 with rank 0 on V100 and rank 1 on V100_700MHz. NOTE (data gap): a true end-to-end run requires tp2 profiles for BOTH clocks under profiler/perf/<hw>/Qwen/Qwen3-30B-A3B-Instruct-2507/fp16/tp2/. As of this branch only V100 has tp2; V100_700MHz (and all other V100 clock variants) only have tp1. _load_perf_db will raise FileNotFoundError on the missing V100_700MHz/.../tp2 folder. Profile V100_700MHz at tp2 to enable the e2e hetero run. Qwen3-30B is MoE, so this config also exercises the per-device expert-imbalance energy path (use --expert-routing-policy RAND).",
+  "num_nodes": 1,
+  "link_bw": 16,
+  "link_latency": 20000,
+  "nodes": [
+    {
+      "num_instances": 1,
+      "cpu_mem": {
+        "mem_size": 512,
+        "mem_bw": 256,
+        "mem_latency": 0
+      },
+      "instances": [
+        {
+          "model_name": "Qwen/Qwen3-30B-A3B-Instruct-2507",
+          "hardware": "V100",
+          "tp_hardware": ["V100", "V100_700MHz"],
+          "npu_mem": {
+            "mem_size": 32,
+            "mem_bw": 900,
+            "mem_latency": 0
+          },
+          "tp_size": 2,
+          "pd_type": null
+        }
+      ],
+      "power": {
+        "base_node_power": 60,
+        "npu": {
+          "V100": {
+            "idle_power": 42.26,
+            "standby_power": 150.72,
+            "active_power": 139.11,
+            "standby_duration": 18
+          },
+          "V100_700MHz": {
+            "idle_power": 42.26,
+            "standby_power": 118.78,
+            "active_power": 110.97,
+            "standby_duration": 18
+          }
+        },
+        "cpu": {
+          "idle_power": 10,
+          "active_power": 200,
+          "util": 0.15
+        },
+        "dram": {
+          "dimm_size": 32,
+          "idle_power": 2.0,
+          "energy_per_bit": 6.0
+        },
+        "link": {
+          "num_links": 1,
+          "idle_power": 5,
+          "energy_per_bit": 4.0
+        },
+        "nic": {
+          "num_nics": 1,
+          "idle_power": 20
+        },
+        "storage": {
+          "num_devices": 2,
+          "idle_power": 5
+        }
+      }
+    }
+  ]
+}

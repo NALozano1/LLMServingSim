@@ -18,7 +18,9 @@ class PowerModel:
         for i, power_config in enumerate(self.power_configs):
             self.base_powers[i]["base_node"] = power_config["base_node_power"]
             for _, npu_params in power_config["npu"].items():
-                self.base_powers[i]["npu"] += npu_params["idle_power"] * npu_params["num_npus"]
+                # A profile listed in power.npu but not assigned to any rank
+                # (num_npus unset) contributes 0 to the idle baseline.
+                self.base_powers[i]["npu"] += npu_params["idle_power"] * npu_params.get("num_npus", 0)
             self.base_powers[i]["cpu"] = power_config["cpu"]["idle_power"] + (power_config["cpu"]["active_power"] - power_config["cpu"]["idle_power"]) * power_config["cpu"]["util"]
             dimm_count = power_config["dram"]["mem_size"] // power_config["dram"]["dimm_size"]
             self.base_powers[i]["dram"] = power_config["dram"]["idle_power"] * dimm_count
@@ -69,6 +71,14 @@ class PowerModel:
         self.net_energies[node_id]["npu"] += standby_energy * num_npus # should be total npus in the instance
         self.standby_log += standby_energy * num_npus
 
+    # CPU active energy for one layer (charged once, not per-NPU)
+    def _add_cpu_active(self, node_id, latency_ns):
+        latency_s = latency_ns * 1e-9         # ns → s
+        cpu_active_util = max(0.7 - self.power_configs[node_id]["cpu"]["util"], 0)  # assume max CPU utilization during NPU active time
+        energy_j = (self.power_configs[node_id]["cpu"]["active_power"] - self.power_configs[node_id]["cpu"]["idle_power"]) * cpu_active_util * latency_s        # J = W × s
+        self.net_energies[node_id]["cpu"] += energy_j
+        self.cpu_log += energy_j
+
     # Add active energy for current layer execution
     def add_npu_active_energy_consumption(self, hardware, node_id, latency_ns, num_npus=1):
         latency_s = latency_ns * 1e-9         # ns → s
@@ -77,11 +87,22 @@ class PowerModel:
         self.net_energies[node_id]["npu"] += energy_j * num_npus # should be npus in the group (npus running the layer)
         self.npu_log += energy_j * num_npus
         # CPU
-        cpu_active_util = max(0.7 - self.power_configs[node_id]["cpu"]["util"], 0)  # assume max CPU utilization during NPU active time
-        energy_j = (self.power_configs[node_id]["cpu"]["active_power"] - self.power_configs[node_id]["cpu"]["idle_power"]) * cpu_active_util * latency_s        # J = W × s
-        self.net_energies[node_id]["cpu"] += energy_j
-        self.cpu_log += energy_j
-               
+        self._add_cpu_active(node_id, latency_ns)
+
+    # Heterogeneous (per-device) active energy: each rank uses its OWN profile's
+    # power numbers and its OWN busy latency. The per-profile idle baseline is
+    # carried separately in base_powers, so we only add the active-minus-idle
+    # delta per rank: Σ_i (active(hw_i) − idle(hw_i)) · lat_i. CPU is charged once
+    # on the barrier-closing (max) latency, matching the homogeneous path.
+    def add_npu_active_energy_per_rank(self, node_id, rank_hardware, rank_latencies_ns):
+        cfg = self.power_configs[node_id]["npu"]
+        for hw, lat_ns in zip(rank_hardware, rank_latencies_ns):
+            energy_j = (cfg[hw]["active_power"] - cfg[hw]["idle_power"]) * (lat_ns * 1e-9)
+            self.net_energies[node_id]["npu"] += energy_j
+            self.npu_log += energy_j
+        if rank_latencies_ns:
+            self._add_cpu_active(node_id, max(rank_latencies_ns))
+
     
     # load/store of kv cache & loading weights
     def add_dram_energy_consumption(self, node_id, data_size_bytes):

@@ -101,6 +101,36 @@ def _resolve_parallelism(instance, model_config):
     return num_npus, tp_size, pp_size, ep_size, dp_group
 
 
+def _resolve_tp_hardware(instance):
+    """Canonicalize ``instance['tp_hardware']`` to a list of length ``tp_size``.
+
+    Default is homogeneous — every TP rank uses ``instance['hardware']``. When a
+    list is supplied it enables per-device heterogeneous profiles. ``hardware``
+    stays the primary (rank-0) profile so features that read/mutate it (DVFS
+    layer-schedule) are unaffected. v1 forbids heterogeneous profiles together
+    with ``dp_group`` (EP spanning DP is out of scope); EP rank i ↔ device i is
+    already guaranteed by ``_resolve_parallelism`` (local_ep ≤ tp_size).
+    """
+    tp_size = instance["tp_size"]
+    tp_hardware = instance.get("tp_hardware")
+    if tp_hardware is None:
+        instance["tp_hardware"] = [instance["hardware"]] * tp_size
+        return
+    if not isinstance(tp_hardware, list):
+        raise ValueError(f"'tp_hardware' must be a list, got {type(tp_hardware).__name__}.")
+    if len(tp_hardware) != tp_size:
+        raise ValueError(
+            f"'tp_hardware' length ({len(tp_hardware)}) must equal tp_size ({tp_size}).")
+    if tp_hardware[0] != instance["hardware"]:
+        raise ValueError(
+            f"'tp_hardware'[0] ('{tp_hardware[0]}') must equal 'hardware' "
+            f"('{instance['hardware']}').")
+    if instance.get("dp_group") is not None and len(set(tp_hardware)) > 1:
+        raise ValueError(
+            "Heterogeneous 'tp_hardware' is not supported with dp_group (EP spanning DP) in v1.")
+    instance["tp_hardware"] = list(tp_hardware)
+
+
 def _resolve_dp_groups(all_instances):
     """Validate DP groups and compute dp_group_size and ep_total for each instance."""
     dp_groups = {}
@@ -306,13 +336,17 @@ def build_cluster_config(astra_sim, cluster_config_path, enable_local_offloading
                     continue
                 elif key == "npu":
                     for temp_inst in node_config["instances"]:
-                        hardware = temp_inst["hardware"]
-                        if hardware not in power_config["npu"]:
-                            raise KeyError(f"Missing power configuration for npu hardware '{hardware}'.")
-                        npu_keys = ["idle_power","standby_power","active_power","standby_duration"]
-                        for npu_key in npu_keys:
-                            if npu_key not in power_config["npu"][hardware]:
-                                raise KeyError(f"Missing required key '{npu_key}' in npu '{hardware}' power configuration.")
+                        # Validate a power config for the primary hardware AND every
+                        # per-device profile listed in tp_hardware (if present).
+                        hw_list = list(dict.fromkeys(
+                            [temp_inst["hardware"], *(temp_inst.get("tp_hardware") or [])]))
+                        for hardware in hw_list:
+                            if hardware not in power_config["npu"]:
+                                raise KeyError(f"Missing power configuration for npu hardware '{hardware}'.")
+                            npu_keys = ["idle_power","standby_power","active_power","standby_duration"]
+                            for npu_key in npu_keys:
+                                if npu_key not in power_config["npu"][hardware]:
+                                    raise KeyError(f"Missing required key '{npu_key}' in npu '{hardware}' power configuration.")
                 elif key == "cpu":
                     cpu_keys = ["idle_power","active_power","util"]
                     for cpu_key in cpu_keys:
@@ -375,18 +409,22 @@ def build_cluster_config(astra_sim, cluster_config_path, enable_local_offloading
             # Resolve tp_size, pp_size, ep_size from partial config
             model_config = get_config(instance["model_name"])
             _resolve_parallelism(instance, model_config)
+            # Canonicalize per-device hardware profiles (default homogeneous)
+            _resolve_tp_hardware(instance)
 
             instance["node_id"] = node_id
             instance["instance_id"] = inst_id
             inst2node_mapping[inst_id] = node_id
             inst_id += 1
-            # add hardware count in power config
+            # add hardware count in power config — register each rank's NPU under
+            # its OWN profile so the idle baseline (PowerModel.base_powers) and the
+            # per-rank active energy use the correct per-profile power numbers.
             if power_modeling:
                 power = node_config["power"]
-                hardware = instance["hardware"]
-                if "num_npus" not in power["npu"][hardware]:
-                    power["npu"][hardware]["num_npus"] = 0
-                power["npu"][hardware]["num_npus"] += instance["num_npus"]
+                pp_size = instance["pp_size"]
+                for hw in instance["tp_hardware"]:  # one TP rank each, spanning pp_size stages
+                    npu_cfg = power["npu"][hw]
+                    npu_cfg["num_npus"] = npu_cfg.get("num_npus", 0) + pp_size
 
         # Validate instance configuration
         if len(instances) != num_instances:

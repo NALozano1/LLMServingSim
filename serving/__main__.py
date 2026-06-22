@@ -602,6 +602,11 @@ def main():
                     i, pair[0], pair[1],
                 )
 
+    if (dvfs_layer_schedule_path or layer_hardware_alternate) and any(
+        len(set(inst.get("tp_hardware") or [inst["hardware"]])) > 1 for inst in instances):
+        raise ValueError("Heterogeneous tp_hardware is mutually exclusive with "
+                         "--dvfs-layer-schedule / --layer-hardware-alternate in v1")
+
     dvfs_switch_ns = int(dvfs_switch_at * 1_000_000_000) if dvfs_switch_at is not None else None
     dvfs_applied = dvfs_switch_ns is None
     segment_registry = {}
@@ -794,7 +799,8 @@ def main():
                                        dtype=inst_cfg["dtype"], kv_cache_dtype=inst_cfg["kv_cache_dtype"],
                                        tp_dim=inst.get("tp_dim"), ep_dim=inst.get("ep_dim"),
                                        dp_sum_total_len=sum_total_len,
-                                       enable_block_copy=inst_cfg["enable_block_copy"], dvfs_scale=inst.get("dvfs_scale", 1.0))
+                                       enable_block_copy=inst_cfg["enable_block_copy"], dvfs_scale=inst.get("dvfs_scale", 1.0),
+                                       tp_hardware=inst.get("tp_hardware"))
                         generate_graph(batch, inst["hardware"], inst["num_npus"], nid,
                                        inst_id, inst2npu_mapping[inst_id],
                                        inst_cfg["enable_local_offloading"],
@@ -858,7 +864,8 @@ def main():
                                            dtype=inst_cfg["dtype"], kv_cache_dtype=inst_cfg["kv_cache_dtype"],
                                            tp_dim=inst.get("tp_dim"), ep_dim=inst.get("ep_dim"),
                                            dp_sum_total_len=sum_total_len,
-                                           enable_block_copy=inst_cfg["enable_block_copy"], dvfs_scale=inst.get("dvfs_scale", 1.0))
+                                           enable_block_copy=inst_cfg["enable_block_copy"], dvfs_scale=inst.get("dvfs_scale", 1.0),
+                                           tp_hardware=inst.get("tp_hardware"))
                             generate_graph(batch, inst["hardware"], inst["num_npus"], nid,
                                            inst_id, inst2npu_mapping[inst_id],
                                            inst_cfg["enable_local_offloading"],
@@ -891,7 +898,7 @@ def main():
                                    inst_cfg["enable_sub_batch_interleaving"], inst_cfg["fp"],
                                    dtype=inst_cfg["dtype"], kv_cache_dtype=inst_cfg["kv_cache_dtype"],
                                    enable_block_copy=inst_cfg["enable_block_copy"], dvfs_scale=instance.get("dvfs_scale", 1.0),
-                                   stage_idx=stage_idx)
+                                   stage_idx=stage_idx, tp_hardware=instance.get("tp_hardware"))
                     generate_graph(new_req, instance["hardware"], instance["num_npus"], node_id,
                                    instance_id, inst2npu_mapping[instance_id],
                                    inst_cfg["enable_local_offloading"], stage_idx=stage_idx)
