@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "model": "Qwen/Qwen1.5-MoE-A2.7B-Chat",
+  "vllm_version": "0.19.0",
+  "engine_kwargs": {
+    "model": "Qwen/Qwen1.5-MoE-A2.7B-Chat",
+    "tensor_parallel_size": 1,
+    "data_parallel_size": 1,
+    "enable_expert_parallel": false,
+    "max_num_seqs": 8,
+    "max_num_batched_tokens": 1024,
+    "max_model_len": 512,
+    "dtype": "float16",
+    "kv_cache_dtype": "auto",
+    "seed": 42,
+    "layer_pause": true,
+    "worker_extension_cls": "profiler.core.hooks.extension.Extension",
+    "engine_api": "LLM",
+    "prefill_only": true
+  },
+  "dataset_path": "/data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/bench/campaigns/v100_bench_layer_dvfs_mini3x3/shared/sharegpt-Qwen_Qwen1.5-MoE-A2.7B-Chat-1-sps100-seed42-ml512-fixlen64o0.jsonl",
+  "dataset_hash": "30f639e42db0e155ba0885b4e8aab55672c68c38a2bcc351219edde77886298f",
+  "num_requests": 1,
+  "started_at": "2026-06-22T15:32:46.031606Z",
+  "finished_at": "2026-06-22T15:33:07.030147Z",
+  "tick_seconds": 0.5
+}

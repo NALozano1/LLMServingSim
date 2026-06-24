@@ -1,0 +1,67 @@
+{
+  "run_id": "scat_p01_qwen_i1",
+  "model": "Qwen/Qwen1.5-MoE-A2.7B-Chat",
+  "mode": "scattered_dvfs_prefill",
+  "iteration": 1,
+  "num_hidden_layers": 24,
+  "dvfs": {
+    "barrier_layers": [
+      1,
+      19,
+      20,
+      22
+    ],
+    "freq_schedule_mhz": [
+      1100,
+      900,
+      1400,
+      1400
+    ],
+    "freq_at_layer": [
+      {
+        "layer": 1,
+        "mhz": 1100
+      },
+      {
+        "layer": 19,
+        "mhz": 900
+      },
+      {
+        "layer": 20,
+        "mhz": 1400
+      },
+      {
+        "layer": 22,
+        "mhz": 1400
+      }
+    ]
+  },
+  "llmservingsim": {
+    "hardware_profiles": [
+      {
+        "mhz": 900,
+        "profile_path": "profiler/perf/V100_900MHz/Qwen/Qwen1.5-MoE-A2.7B-Chat/fp16"
+      },
+      {
+        "mhz": 1100,
+        "profile_path": "profiler/perf/V100_1100MHz/Qwen/Qwen1.5-MoE-A2.7B-Chat/fp16"
+      },
+      {
+        "mhz": 1400,
+        "profile_path": "profiler/perf/V100_1400MHz/Qwen/Qwen1.5-MoE-A2.7B-Chat/fp16"
+      }
+    ],
+    "notes": "Scattered layer-boundary DVFS during a full-model dense forward. For simulation, use per-frequency profiler profiles and compare against measured exec metrics (effective_runtime_sec, energy_j)."
+  },
+  "bench": {
+    "prefill_only": true,
+    "num_reqs": 1,
+    "sps": 100,
+    "seed": 42,
+    "fix_input_length": 64,
+    "fix_output_length": 0,
+    "tick_seconds": 0.5,
+    "dtype": "float16",
+    "tp_size": 1
+  }
+}

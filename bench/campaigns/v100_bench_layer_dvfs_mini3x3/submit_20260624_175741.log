@@ -1,0 +1,3 @@
+=== V100 bench layer-boundary DVFS campaign ===
+CAMPAIGN_DIR=/data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/bench/campaigns/v100_bench_layer_dvfs_mini3x3
+TIME=00:45:00  SEED=20260616

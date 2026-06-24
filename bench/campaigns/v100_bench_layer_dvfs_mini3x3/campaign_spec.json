@@ -1,0 +1,40 @@
+{
+  "campaign_id": "v100_bench_layer_dvfs_mini3x3",
+  "created_at": "2026-06-22T09:54:13.233385+00:00",
+  "repo": ".",
+  "seed": 20260616,
+  "path": "bench_layer_boundary_prefill",
+  "models": {
+    "phi": {
+      "model": "microsoft/Phi-tiny-MoE-instruct",
+      "num_hidden_layers": 32,
+      "max_num_batched_tokens": 256,
+      "max_num_seqs": 32,
+      "attention_max_kv": 256
+    },
+    "qwen": {
+      "model": "Qwen/Qwen1.5-MoE-A2.7B-Chat",
+      "num_hidden_layers": 24,
+      "max_num_batched_tokens": 256,
+      "max_num_seqs": 8,
+      "attention_max_kv": 256
+    }
+  },
+  "valid_freqs_mhz": [
+    700,
+    900,
+    1100,
+    1400
+  ],
+  "fixed_freqs_mhz": [
+    700,
+    1100,
+    1400
+  ],
+  "num_scattered_permutations": 3,
+  "iterations_per_run": 3,
+  "include_fixed": false,
+  "total_runs": 18,
+  "scattered_runs": 18,
+  "fixed_runs": 0
+}
