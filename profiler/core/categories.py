@@ -536,10 +536,15 @@ def categories_for(arch: Architecture, tp: int) -> list[Category]:
     Excludes:
       * Any category whose catalog slice is empty (e.g., ExpertCategory
         for a dense model).
-      * ExpertCategory for tp != 1 (MoE is profiled once at tp=1;
-        simulator scales per-expert time by ep_size).
       * Any category for which every matching layer is tp_stable AND
         tp != 1 (replicate_tp_stable will fill it in from tp=1).
+
+    ExpertCategory runs at ALL tp degrees:
+      * tp=1  — full 128-expert kernel, full batch (legacy baseline).
+      * tp>1  — EP-sharded per-rank kernel: num_experts/tp local experts,
+                top_k=1 (set via hf_overrides in engine.fuse_engine_kwargs).
+                tokens axis = total_local_pairs arriving at this rank.
+    See profiler/EP_RANK_PROFILING.md.
     """
     result: list[Category] = []
     registry = [
@@ -550,8 +555,6 @@ def categories_for(arch: Architecture, tp: int) -> list[Category]:
     ]
     for cat, entries in registry:
         if not entries:
-            continue
-        if isinstance(cat, ExpertCategory) and tp != 1:
             continue
         if tp != 1 and all(e.tp_stable for e in entries.values()):
             continue

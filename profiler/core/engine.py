@@ -30,6 +30,8 @@ from vllm import LLM
 from profiler.core import logger as log
 from profiler.core.config import (
     HOST_ENGINE_DEFAULTS,
+    MOE_NUM_EXPERTS_KEYS,
+    MOE_TOP_K_KEYS,
     SHARD_FIELDS,
     ProfileArgs,
     probe_moe_params,
@@ -188,6 +190,29 @@ def fuse_engine_kwargs(args: ProfileArgs, tp: int) -> dict[str, Any]:
                 f"divisible by tp={tp}; cannot TP-shard for profiling"
             )
         sharded_overrides[field_name] = val // tp
+
+    # EP sharding for MoE: when tp > 1 (= EP size in vLLM), profile the
+    # per-rank kernel by dividing num_experts by tp and setting top_k=1.
+    # After all-to-all dispatch each arriving (token, expert) pair uses
+    # exactly one local expert slot, so top_k=1 is the correct per-rank
+    # framing. See profiler/EP_RANK_PROFILING.md.
+    if tp > 1:
+        for field_name in MOE_NUM_EXPERTS_KEYS:
+            if field_name in args.model_config:
+                val = args.model_config[field_name]
+                if isinstance(val, int) and val % tp == 0:
+                    sharded_overrides[field_name] = val // tp
+                elif isinstance(val, int):
+                    log.warning(
+                        "num_experts=%d not divisible by tp=%d; "
+                        "skipping MoE EP sharding",
+                        val, tp,
+                    )
+                break
+        for field_name in MOE_TOP_K_KEYS:
+            if field_name in args.model_config:
+                sharded_overrides[field_name] = 1
+                break
 
     # 5. Sharding wins.
     kwargs["hf_overrides"] = _deep_merge(hf_overrides, sharded_overrides)
