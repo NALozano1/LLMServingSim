@@ -1,0 +1,87 @@
+=== V100 full-model DVFS campaign submit ===
+CAMPAIGN_DIR=/data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/profiler/campaigns/v100_full_dvfs_20260622
+TIME_SCATTERED=01:30:00  TIME_FIXED=03:00:00
+  job 8009139  scat_p01_phi_i0  microsoft/Phi-tiny-MoE-instruct  mode=scattered  iter=0
+  job 8009140  scat_p01_phi_i1  microsoft/Phi-tiny-MoE-instruct  mode=scattered  iter=1
+  job 8009141  scat_p01_phi_i2  microsoft/Phi-tiny-MoE-instruct  mode=scattered  iter=2
+  job 8009142  scat_p01_qwen_i0  Qwen/Qwen1.5-MoE-A2.7B-Chat  mode=scattered  iter=0
+  job 8009143  scat_p01_qwen_i1  Qwen/Qwen1.5-MoE-A2.7B-Chat  mode=scattered  iter=1
+  job 8009144  scat_p01_qwen_i2  Qwen/Qwen1.5-MoE-A2.7B-Chat  mode=scattered  iter=2
+  job 8009145  scat_p02_phi_i0  microsoft/Phi-tiny-MoE-instruct  mode=scattered  iter=0
+  job 8009146  scat_p02_phi_i1  microsoft/Phi-tiny-MoE-instruct  mode=scattered  iter=1
+  job 8009147  scat_p02_phi_i2  microsoft/Phi-tiny-MoE-instruct  mode=scattered  iter=2
+  job 8009148  scat_p02_qwen_i0  Qwen/Qwen1.5-MoE-A2.7B-Chat  mode=scattered  iter=0
+  job 8009149  scat_p02_qwen_i1  Qwen/Qwen1.5-MoE-A2.7B-Chat  mode=scattered  iter=1
+  job 8009150  scat_p02_qwen_i2  Qwen/Qwen1.5-MoE-A2.7B-Chat  mode=scattered  iter=2
+  job 8009151  scat_p03_phi_i0  microsoft/Phi-tiny-MoE-instruct  mode=scattered  iter=0
+  job 8009152  scat_p03_phi_i1  microsoft/Phi-tiny-MoE-instruct  mode=scattered  iter=1
+  job 8009153  scat_p03_phi_i2  microsoft/Phi-tiny-MoE-instruct  mode=scattered  iter=2
+  job 8009154  scat_p03_qwen_i0  Qwen/Qwen1.5-MoE-A2.7B-Chat  mode=scattered  iter=0
+  job 8009155  scat_p03_qwen_i1  Qwen/Qwen1.5-MoE-A2.7B-Chat  mode=scattered  iter=1
+  job 8009156  scat_p03_qwen_i2  Qwen/Qwen1.5-MoE-A2.7B-Chat  mode=scattered  iter=2
+  job 8009157  scat_p04_phi_i0  microsoft/Phi-tiny-MoE-instruct  mode=scattered  iter=0
+  job 8009158  scat_p04_phi_i1  microsoft/Phi-tiny-MoE-instruct  mode=scattered  iter=1
+  job 8009159  scat_p04_phi_i2  microsoft/Phi-tiny-MoE-instruct  mode=scattered  iter=2
+  job 8009160  scat_p04_qwen_i0  Qwen/Qwen1.5-MoE-A2.7B-Chat  mode=scattered  iter=0
+  job 8009161  scat_p04_qwen_i1  Qwen/Qwen1.5-MoE-A2.7B-Chat  mode=scattered  iter=1
+  job 8009162  scat_p04_qwen_i2  Qwen/Qwen1.5-MoE-A2.7B-Chat  mode=scattered  iter=2
+  job 8009163  scat_p05_phi_i0  microsoft/Phi-tiny-MoE-instruct  mode=scattered  iter=0
+  job 8009164  scat_p05_phi_i1  microsoft/Phi-tiny-MoE-instruct  mode=scattered  iter=1
+  job 8009165  scat_p05_phi_i2  microsoft/Phi-tiny-MoE-instruct  mode=scattered  iter=2
+  job 8009166  scat_p05_qwen_i0  Qwen/Qwen1.5-MoE-A2.7B-Chat  mode=scattered  iter=0
+  job 8009167  scat_p05_qwen_i1  Qwen/Qwen1.5-MoE-A2.7B-Chat  mode=scattered  iter=1
+  job 8009168  scat_p05_qwen_i2  Qwen/Qwen1.5-MoE-A2.7B-Chat  mode=scattered  iter=2
+  job 8009169  scat_p06_phi_i0  microsoft/Phi-tiny-MoE-instruct  mode=scattered  iter=0
+  job 8009170  scat_p06_phi_i1  microsoft/Phi-tiny-MoE-instruct  mode=scattered  iter=1
+  job 8009171  scat_p06_phi_i2  microsoft/Phi-tiny-MoE-instruct  mode=scattered  iter=2
+  job 8009172  scat_p06_qwen_i0  Qwen/Qwen1.5-MoE-A2.7B-Chat  mode=scattered  iter=0
+  job 8009173  scat_p06_qwen_i1  Qwen/Qwen1.5-MoE-A2.7B-Chat  mode=scattered  iter=1
+  job 8009174  scat_p06_qwen_i2  Qwen/Qwen1.5-MoE-A2.7B-Chat  mode=scattered  iter=2
+  job 8009175  scat_p07_phi_i0  microsoft/Phi-tiny-MoE-instruct  mode=scattered  iter=0
+  job 8009176  scat_p07_phi_i1  microsoft/Phi-tiny-MoE-instruct  mode=scattered  iter=1
+  job 8009177  scat_p07_phi_i2  microsoft/Phi-tiny-MoE-instruct  mode=scattered  iter=2
+  job 8009178  scat_p07_qwen_i0  Qwen/Qwen1.5-MoE-A2.7B-Chat  mode=scattered  iter=0
+  job 8009179  scat_p07_qwen_i1  Qwen/Qwen1.5-MoE-A2.7B-Chat  mode=scattered  iter=1
+  job 8009180  scat_p07_qwen_i2  Qwen/Qwen1.5-MoE-A2.7B-Chat  mode=scattered  iter=2
+  job 8009181  scat_p08_phi_i0  microsoft/Phi-tiny-MoE-instruct  mode=scattered  iter=0
+  job 8009182  scat_p08_phi_i1  microsoft/Phi-tiny-MoE-instruct  mode=scattered  iter=1
+  job 8009183  scat_p08_phi_i2  microsoft/Phi-tiny-MoE-instruct  mode=scattered  iter=2
+  job 8009184  scat_p08_qwen_i0  Qwen/Qwen1.5-MoE-A2.7B-Chat  mode=scattered  iter=0
+  job 8009185  scat_p08_qwen_i1  Qwen/Qwen1.5-MoE-A2.7B-Chat  mode=scattered  iter=1
+  job 8009186  scat_p08_qwen_i2  Qwen/Qwen1.5-MoE-A2.7B-Chat  mode=scattered  iter=2
+  job 8009187  scat_p09_phi_i0  microsoft/Phi-tiny-MoE-instruct  mode=scattered  iter=0
+  job 8009188  scat_p09_phi_i1  microsoft/Phi-tiny-MoE-instruct  mode=scattered  iter=1
+  job 8009189  scat_p09_phi_i2  microsoft/Phi-tiny-MoE-instruct  mode=scattered  iter=2
+  job 8009190  scat_p09_qwen_i0  Qwen/Qwen1.5-MoE-A2.7B-Chat  mode=scattered  iter=0
+  job 8009191  scat_p09_qwen_i1  Qwen/Qwen1.5-MoE-A2.7B-Chat  mode=scattered  iter=1
+  job 8009192  scat_p09_qwen_i2  Qwen/Qwen1.5-MoE-A2.7B-Chat  mode=scattered  iter=2
+  job 8009193  scat_p10_phi_i0  microsoft/Phi-tiny-MoE-instruct  mode=scattered  iter=0
+  job 8009194  scat_p10_phi_i1  microsoft/Phi-tiny-MoE-instruct  mode=scattered  iter=1
+  job 8009195  scat_p10_phi_i2  microsoft/Phi-tiny-MoE-instruct  mode=scattered  iter=2
+  job 8009196  scat_p10_qwen_i0  Qwen/Qwen1.5-MoE-A2.7B-Chat  mode=scattered  iter=0
+  job 8009197  scat_p10_qwen_i1  Qwen/Qwen1.5-MoE-A2.7B-Chat  mode=scattered  iter=1
+  job 8009198  scat_p10_qwen_i2  Qwen/Qwen1.5-MoE-A2.7B-Chat  mode=scattered  iter=2
+  job 8009199  fixed_700_phi_i0  microsoft/Phi-tiny-MoE-instruct  mode=fixed  iter=0
+  job 8009200  fixed_700_phi_i1  microsoft/Phi-tiny-MoE-instruct  mode=fixed  iter=1
+  job 8009201  fixed_700_phi_i2  microsoft/Phi-tiny-MoE-instruct  mode=fixed  iter=2
+  job 8009202  fixed_1100_phi_i0  microsoft/Phi-tiny-MoE-instruct  mode=fixed  iter=0
+  job 8009203  fixed_1100_phi_i1  microsoft/Phi-tiny-MoE-instruct  mode=fixed  iter=1
+  job 8009204  fixed_1100_phi_i2  microsoft/Phi-tiny-MoE-instruct  mode=fixed  iter=2
+  job 8009205  fixed_1400_phi_i0  microsoft/Phi-tiny-MoE-instruct  mode=fixed  iter=0
+  job 8009206  fixed_1400_phi_i1  microsoft/Phi-tiny-MoE-instruct  mode=fixed  iter=1
+  job 8009207  fixed_1400_phi_i2  microsoft/Phi-tiny-MoE-instruct  mode=fixed  iter=2
+  job 8009208  fixed_700_qwen_i0  Qwen/Qwen1.5-MoE-A2.7B-Chat  mode=fixed  iter=0
+  job 8009209  fixed_700_qwen_i1  Qwen/Qwen1.5-MoE-A2.7B-Chat  mode=fixed  iter=1
+  job 8009210  fixed_700_qwen_i2  Qwen/Qwen1.5-MoE-A2.7B-Chat  mode=fixed  iter=2
+  job 8009211  fixed_1100_qwen_i0  Qwen/Qwen1.5-MoE-A2.7B-Chat  mode=fixed  iter=0
+  job 8009212  fixed_1100_qwen_i1  Qwen/Qwen1.5-MoE-A2.7B-Chat  mode=fixed  iter=1
+  job 8009213  fixed_1100_qwen_i2  Qwen/Qwen1.5-MoE-A2.7B-Chat  mode=fixed  iter=2
+  job 8009214  fixed_1400_qwen_i0  Qwen/Qwen1.5-MoE-A2.7B-Chat  mode=fixed  iter=0
+  job 8009215  fixed_1400_qwen_i1  Qwen/Qwen1.5-MoE-A2.7B-Chat  mode=fixed  iter=1
+  job 8009216  fixed_1400_qwen_i2  Qwen/Qwen1.5-MoE-A2.7B-Chat  mode=fixed  iter=2
+=== Done: submitted 78 jobs ===
+Last job: 8009216
+Manifest: /data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/profiler/campaigns/v100_full_dvfs_20260622/jobs_manifest.tsv
+Campaign: /data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/profiler/campaigns/v100_full_dvfs_20260622
+Collect after completion:
+  python3 /data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/profiler/jobs/collect_full_dvfs_campaign_results.py --campaign-dir /data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/profiler/campaigns/v100_full_dvfs_20260622

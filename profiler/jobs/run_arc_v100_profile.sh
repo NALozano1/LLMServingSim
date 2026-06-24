@@ -114,28 +114,22 @@ nvidia-smi -L || true
 if [[ -n "${GPU_FREQ_MHZ:-}" ]]; then
   gpu_freq_lock_apply "${FREQ_META_DIR}" "${GPU_FREQ_MHZ}"
 
-  # Pre-flight read-back: confirm the lock took before spending an hour
-  # profiling at the wrong clock. -lgc pins the clock even at idle, so a
-  # large deviation here means the lock never applied.
+  # Pre-flight read-back: INFORMATIONAL ONLY. On V100 the graphics clock idles
+  # at ~135 MHz even after a successful --lock-gpu-clocks; the locked clock only
+  # becomes observable under GPU load (waiting longer at idle does NOT help).
+  # So an idle mismatch here is expected and must NOT abort. The authoritative
+  # check is the under-load post-flight audit (audit_gpu_clocks.py) below.
   _gpu_idx="${GPU_VERIFY_INDEX:-0}"
   _measured_gr="$(nvidia-smi --query-gpu=clocks.gr --format=csv,noheader,nounits \
       -i "${_gpu_idx}" 2>/dev/null | head -1 | tr -dc '0-9')"
   if [[ -n "${_measured_gr}" ]]; then
     _delta=$(( _measured_gr - GPU_FREQ_MHZ )); _absdelta="${_delta#-}"
-    echo "Clock read-back: target=${GPU_FREQ_MHZ}MHz measured=${_measured_gr}MHz" \
-         "delta=${_delta}MHz (tol=±${GPU_FREQ_TOLERANCE_MHZ})"
-    if (( _absdelta > GPU_FREQ_TOLERANCE_MHZ )); then
-      echo "ERROR: GPU clock lock did not hold (measured ${_measured_gr}MHz" \
-           "vs target ${GPU_FREQ_MHZ}MHz, ±${GPU_FREQ_TOLERANCE_MHZ} tol)." >&2
-      if [[ "${GPU_FREQ_VERIFY_STRICT}" == "1" ]]; then
-        echo "Aborting before profiling (set GPU_FREQ_VERIFY_STRICT=0 to override)." >&2
-        exit 3
-      fi
-      echo "WARN: continuing despite clock mismatch (GPU_FREQ_VERIFY_STRICT=0)." >&2
-    fi
+    echo "Clock read-back (idle, informational): target=${GPU_FREQ_MHZ}MHz" \
+         "measured=${_measured_gr}MHz delta=${_delta}MHz" \
+         "(idle clock can't see the lock on V100; under-load audit is authoritative)"
   else
     echo "WARN: could not read back GPU clock via nvidia-smi;" \
-         "skipping pre-flight verification." >&2
+         "relying on post-flight under-load audit." >&2
   fi
 fi
 

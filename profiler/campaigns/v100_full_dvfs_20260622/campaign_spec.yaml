@@ -1,0 +1,31 @@
+campaign_id: v100_full_dvfs_20260622
+created_at: '2026-06-22T00:29:43.318290+00:00'
+repo: /data/engs-glass/engs2950/DVFS-MoE/LLMServingSim
+seed: 20260616
+models:
+  phi:
+    model: microsoft/Phi-tiny-MoE-instruct
+    num_hidden_layers: 32
+    max_num_batched_tokens: 256
+    max_num_seqs: 32
+    attention_max_kv: 256
+  qwen:
+    model: Qwen/Qwen1.5-MoE-A2.7B-Chat
+    num_hidden_layers: 24
+    max_num_batched_tokens: 256
+    max_num_seqs: 8
+    attention_max_kv: 256
+valid_freqs_mhz:
+- 700
+- 900
+- 1100
+- 1400
+fixed_freqs_mhz:
+- 700
+- 1100
+- 1400
+num_scattered_permutations: 10
+iterations_per_run: 3
+total_runs: 78
+scattered_runs: 60
+fixed_runs: 18

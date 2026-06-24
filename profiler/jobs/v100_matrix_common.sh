@@ -93,23 +93,34 @@ v100_baseline_matrix_complete() {
 # Requires caller to set: ROOT RUNNER TEMPLATE PROJECT PARTITION DATA_OUTPUT TIME
 # JOB_NAME_PREFIX SUBMIT_LOG MANIFEST CONTINUE_ON_ERROR HF_TOKEN FULL_PROFILE VERBOSITY
 # Optional: GPU_FREQ_MHZ (locks clocks + sets HARDWARE if unset)
+# $5 replica_idx — when set (e.g. 0..7), appends _g{i} to hardware tag, job name, and
+#   rendered paths so per-GPU replica runs land in separate perf directories.
 v100_matrix_submit_profile_job() {
   local model="$1"
   local hardware="$2"
   local gpu_freq_mhz="${3:-}"
   local prev_jid="${4:-}"
+  local replica_idx="${5:-}"
+
+  # Per-GPU replica suffix: _g0 .. _g7. Applied to hardware tag and file names so
+  # each replica's perf tables land in a distinct directory for outlier comparison.
+  local rep_suffix=""
+  if [[ -n "$replica_idx" ]]; then
+    rep_suffix="_g${replica_idx}"
+    hardware="${hardware}${rep_suffix}"
+  fi
 
   local safe freq_tag job_name rendered cmd_frag dep_args jid_raw jid
   safe="$(v100_matrix_safe_name "${model}")"
   if [[ -n "$gpu_freq_mhz" ]]; then
     freq_tag="${gpu_freq_mhz}MHz"
-    job_name="${JOB_NAME_PREFIX}_${freq_tag}_${safe:0:24}"
-    rendered="${ROOT}/profiler/jobs/rendered/llmsim_prof_v100_${gpu_freq_mhz}MHz_${safe}.sbatch"
-    cmd_frag="${ROOT}/profiler/jobs/rendered/_llmsim_prof_v100_${gpu_freq_mhz}MHz_${safe}_cmd.sh"
+    job_name="${JOB_NAME_PREFIX}_${freq_tag}_${safe:0:20}${rep_suffix}"
+    rendered="${ROOT}/profiler/jobs/rendered/llmsim_prof_v100_${gpu_freq_mhz}MHz_${safe}${rep_suffix}.sbatch"
+    cmd_frag="${ROOT}/profiler/jobs/rendered/_llmsim_prof_v100_${gpu_freq_mhz}MHz_${safe}${rep_suffix}_cmd.sh"
   else
-    job_name="${JOB_NAME_PREFIX}_${safe:0:32}"
-    rendered="${ROOT}/profiler/jobs/rendered/llmsim_prof_v100_${safe}.sbatch"
-    cmd_frag="${ROOT}/profiler/jobs/rendered/_llmsim_prof_v100_${safe}_cmd.sh"
+    job_name="${JOB_NAME_PREFIX}_${safe:0:28}${rep_suffix}"
+    rendered="${ROOT}/profiler/jobs/rendered/llmsim_prof_v100_${safe}${rep_suffix}.sbatch"
+    cmd_frag="${ROOT}/profiler/jobs/rendered/_llmsim_prof_v100_${safe}${rep_suffix}_cmd.sh"
   fi
 
   read -r -d '' CMD <<EOF || true

@@ -7,14 +7,14 @@
   "ioctl_timing": {
     "strategy": "sequential",
     "n_gpus": 1,
-    "batch_wall_ms": 344.44,
+    "batch_wall_ms": 118.96,
     "per_gpu": {
       "0": {
-        "duration_ms": 344.41
+        "duration_ms": 118.94
       }
     },
-    "max_gpu_duration_ms": 344.41,
-    "sum_gpu_duration_ms": 344.41
+    "max_gpu_duration_ms": 118.94,
+    "sum_gpu_duration_ms": 118.94
   },
   "reset_results": {
     "0": {
@@ -28,9 +28,9 @@
     {
       "index": 0,
       "name": "Tesla V100-SXM2-32GB-LS",
-      "graphics_mhz": 1305,
+      "graphics_mhz": 135,
       "max_graphics_mhz": 1440
     }
   ],
-  "finished_at": "2026-06-21T23:18:14.182281Z"
+  "finished_at": "2026-06-23T22:08:25.008131Z"
 }

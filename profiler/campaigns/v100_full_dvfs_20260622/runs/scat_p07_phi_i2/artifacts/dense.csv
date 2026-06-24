@@ -1,0 +1,7 @@
+layer,tokens,time_us
+embedding,1,6.72
+final_layernorm,1,21.312
+layernorm,1,13.6594
+o_proj,1,34.0589
+qkv_proj,1,55.9175
+rotary_emb,1,5.53294

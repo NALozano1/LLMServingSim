@@ -1,0 +1,39 @@
+run_id: scat_p04_phi_i0
+campaign_mode: scattered
+iteration: 0
+model: microsoft/Phi-tiny-MoE-instruct
+model_key: phi
+num_hidden_layers: 32
+hardware: V100_full_dvfs_scat_p04_phi_i0
+dtype: float16
+tp_size: 1
+measurement_iterations: 1
+max_num_batched_tokens: 256
+max_num_seqs: 32
+attention_max_kv: 256
+dvfs:
+  barrier_layers:
+  - 3
+  - 23
+  freq_schedule_mhz:
+  - 700
+  - 900
+  freq_at_layer:
+  - layer: 3
+    mhz: 700
+  - layer: 23
+    mhz: 900
+llmservingsim:
+  hardware_profiles:
+  - mhz: 700
+    profile_path: profiler/perf/V100_700MHz/microsoft/Phi-tiny-MoE-instruct/fp16
+  - mhz: 900
+    profile_path: profiler/perf/V100_900MHz/microsoft/Phi-tiny-MoE-instruct/fp16
+  notes: Scattered layer-boundary DVFS during a full-model dense forward. For simulation,
+    use per-frequency profiler profiles and compare against measured exec metrics
+    (effective_runtime_sec, energy_j).
+profiler:
+  group: dense
+  max_shots: 1
+  categories:
+  - dense
