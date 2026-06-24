@@ -2,3 +2,8 @@ submitted_at	job_id	model	hardware	gpu_freq_mhz	status
 2026-06-15T20:58:35Z	7968333	meta-llama/Llama-3.1-8B	V100	default	submitted
 2026-06-15T21:23:14Z	7969155	Qwen/Qwen3-30B-A3B-Instruct-2507	V100	default	submitted
 2026-06-15T21:26:59Z	7969178	Qwen/Qwen3-30B-A3B-Instruct-2507	V100	default	submitted
+2026-06-22T19:14:24Z	8013532	meta-llama/Llama-3.1-8B	V100	default	submitted
+2026-06-22T19:14:26Z	8013533	microsoft/Phi-mini-MoE-instruct	V100	default	submitted
+2026-06-22T19:14:26Z	8013534	mistralai/Mixtral-8x7B-v0.1	V100	default	submitted
+2026-06-22T19:14:27Z	8013535	Qwen/Qwen3-32B	V100	default	submitted
+2026-06-22T19:14:27Z	8013536	meta-llama/Llama-3.1-70B	V100	default	submitted

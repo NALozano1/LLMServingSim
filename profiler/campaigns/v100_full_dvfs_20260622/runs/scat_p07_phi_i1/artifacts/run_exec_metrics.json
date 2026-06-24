@@ -1,0 +1,19 @@
+{
+  "shot_count": 1,
+  "measured_sec": 15.390877,
+  "measured_exec_sec": 10.920825,
+  "barrier_wait_sec": 4.470052,
+  "marker_pause_sec": 3.363808,
+  "warmup_sec": 7.187591,
+  "fire_total_sec": 23.916903,
+  "fire_exec_sec": 19.446851,
+  "rpc_wall_sec": 23.929033,
+  "energy_j": 773.715,
+  "energy_excl_pause_j": 589.042,
+  "effective_runtime_sec": 10.920825,
+  "effective_energy_j": 589.042,
+  "pause_overhead_sec": 4.470052,
+  "pause_overhead_frac": 0.290435,
+  "category": "dense",
+  "tp": 1
+}

@@ -1,0 +1,28 @@
+run_id: fixed_1400_phi_i1
+campaign_mode: fixed
+iteration: 1
+model: microsoft/Phi-tiny-MoE-instruct
+model_key: phi
+num_hidden_layers: 32
+hardware: V100_1400MHz
+dtype: float16
+tp_size: 1
+measurement_iterations: 3
+gpu_freq_mhz: 1400
+max_num_batched_tokens: 256
+max_num_seqs: 32
+attention_max_kv: 256
+skip_skew: true
+dvfs:
+  gpu_freq_mhz: 1400
+llmservingsim:
+  hardware: V100_1400MHz
+  profile_path: /data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/profiler/perf/V100_1400MHz/microsoft/Phi-tiny-MoE-instruct/fp16
+  notes: Fixed-frequency full profiler sweep (dense, attention, moe). Use hardware=V100_1400MHz
+    in cluster config.
+profiler:
+  full_profile: false
+  categories:
+  - dense
+  - attention
+  - moe

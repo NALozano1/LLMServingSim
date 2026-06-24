@@ -1,0 +1,819 @@
+permutations:
+- perm_id: p01
+  model_key: phi
+  model: microsoft/Phi-tiny-MoE-instruct
+  num_hidden_layers: 32
+  mode: scattered_dvfs
+  barrier_layers:
+  - 7
+  - 9
+  - 10
+  - 14
+  - 16
+  - 17
+  - 20
+  - 26
+  freq_schedule_mhz:
+  - 1400
+  - 700
+  - 700
+  - 900
+  - 1400
+  - 1400
+  - 900
+  - 700
+  freq_at_layer:
+  - layer: 7
+    mhz: 1400
+  - layer: 9
+    mhz: 700
+  - layer: 10
+    mhz: 700
+  - layer: 14
+    mhz: 900
+  - layer: 16
+    mhz: 1400
+  - layer: 17
+    mhz: 1400
+  - layer: 20
+    mhz: 900
+  - layer: 26
+    mhz: 700
+  n_transitions: 8
+  llmservingsim:
+    hardware_profiles:
+    - mhz: 700
+      profile_path: profiler/perf/V100_700MHz/microsoft/Phi-tiny-MoE-instruct/fp16
+    - mhz: 900
+      profile_path: profiler/perf/V100_900MHz/microsoft/Phi-tiny-MoE-instruct/fp16
+    - mhz: 1400
+      profile_path: profiler/perf/V100_1400MHz/microsoft/Phi-tiny-MoE-instruct/fp16
+    notes: Scattered layer-boundary DVFS during a full-model dense forward. For simulation,
+      use per-frequency profiler profiles and compare against measured exec metrics
+      (effective_runtime_sec, energy_j).
+- perm_id: p01
+  model_key: qwen
+  model: Qwen/Qwen1.5-MoE-A2.7B-Chat
+  num_hidden_layers: 24
+  mode: scattered_dvfs
+  barrier_layers:
+  - 1
+  - 19
+  - 20
+  - 22
+  freq_schedule_mhz:
+  - 1100
+  - 900
+  - 1400
+  - 1400
+  freq_at_layer:
+  - layer: 1
+    mhz: 1100
+  - layer: 19
+    mhz: 900
+  - layer: 20
+    mhz: 1400
+  - layer: 22
+    mhz: 1400
+  n_transitions: 4
+  llmservingsim:
+    hardware_profiles:
+    - mhz: 900
+      profile_path: profiler/perf/V100_900MHz/Qwen/Qwen1.5-MoE-A2.7B-Chat/fp16
+    - mhz: 1100
+      profile_path: profiler/perf/V100_1100MHz/Qwen/Qwen1.5-MoE-A2.7B-Chat/fp16
+    - mhz: 1400
+      profile_path: profiler/perf/V100_1400MHz/Qwen/Qwen1.5-MoE-A2.7B-Chat/fp16
+    notes: Scattered layer-boundary DVFS during a full-model dense forward. For simulation,
+      use per-frequency profiler profiles and compare against measured exec metrics
+      (effective_runtime_sec, energy_j).
+- perm_id: p02
+  model_key: phi
+  model: microsoft/Phi-tiny-MoE-instruct
+  num_hidden_layers: 32
+  mode: scattered_dvfs
+  barrier_layers:
+  - 1
+  - 18
+  - 27
+  freq_schedule_mhz:
+  - 700
+  - 1100
+  - 900
+  freq_at_layer:
+  - layer: 1
+    mhz: 700
+  - layer: 18
+    mhz: 1100
+  - layer: 27
+    mhz: 900
+  n_transitions: 3
+  llmservingsim:
+    hardware_profiles:
+    - mhz: 700
+      profile_path: profiler/perf/V100_700MHz/microsoft/Phi-tiny-MoE-instruct/fp16
+    - mhz: 900
+      profile_path: profiler/perf/V100_900MHz/microsoft/Phi-tiny-MoE-instruct/fp16
+    - mhz: 1100
+      profile_path: profiler/perf/V100_1100MHz/microsoft/Phi-tiny-MoE-instruct/fp16
+    notes: Scattered layer-boundary DVFS during a full-model dense forward. For simulation,
+      use per-frequency profiler profiles and compare against measured exec metrics
+      (effective_runtime_sec, energy_j).
+- perm_id: p02
+  model_key: qwen
+  model: Qwen/Qwen1.5-MoE-A2.7B-Chat
+  num_hidden_layers: 24
+  mode: scattered_dvfs
+  barrier_layers:
+  - 2
+  - 9
+  freq_schedule_mhz:
+  - 1100
+  - 900
+  freq_at_layer:
+  - layer: 2
+    mhz: 1100
+  - layer: 9
+    mhz: 900
+  n_transitions: 2
+  llmservingsim:
+    hardware_profiles:
+    - mhz: 900
+      profile_path: profiler/perf/V100_900MHz/Qwen/Qwen1.5-MoE-A2.7B-Chat/fp16
+    - mhz: 1100
+      profile_path: profiler/perf/V100_1100MHz/Qwen/Qwen1.5-MoE-A2.7B-Chat/fp16
+    notes: Scattered layer-boundary DVFS during a full-model dense forward. For simulation,
+      use per-frequency profiler profiles and compare against measured exec metrics
+      (effective_runtime_sec, energy_j).
+- perm_id: p03
+  model_key: phi
+  model: microsoft/Phi-tiny-MoE-instruct
+  num_hidden_layers: 32
+  mode: scattered_dvfs
+  barrier_layers:
+  - 3
+  - 12
+  - 14
+  - 15
+  - 16
+  - 17
+  freq_schedule_mhz:
+  - 700
+  - 900
+  - 1400
+  - 1400
+  - 1100
+  - 1400
+  freq_at_layer:
+  - layer: 3
+    mhz: 700
+  - layer: 12
+    mhz: 900
+  - layer: 14
+    mhz: 1400
+  - layer: 15
+    mhz: 1400
+  - layer: 16
+    mhz: 1100
+  - layer: 17
+    mhz: 1400
+  n_transitions: 6
+  llmservingsim:
+    hardware_profiles:
+    - mhz: 700
+      profile_path: profiler/perf/V100_700MHz/microsoft/Phi-tiny-MoE-instruct/fp16
+    - mhz: 900
+      profile_path: profiler/perf/V100_900MHz/microsoft/Phi-tiny-MoE-instruct/fp16
+    - mhz: 1100
+      profile_path: profiler/perf/V100_1100MHz/microsoft/Phi-tiny-MoE-instruct/fp16
+    - mhz: 1400
+      profile_path: profiler/perf/V100_1400MHz/microsoft/Phi-tiny-MoE-instruct/fp16
+    notes: Scattered layer-boundary DVFS during a full-model dense forward. For simulation,
+      use per-frequency profiler profiles and compare against measured exec metrics
+      (effective_runtime_sec, energy_j).
+- perm_id: p03
+  model_key: qwen
+  model: Qwen/Qwen1.5-MoE-A2.7B-Chat
+  num_hidden_layers: 24
+  mode: scattered_dvfs
+  barrier_layers:
+  - 0
+  - 1
+  - 9
+  - 18
+  - 22
+  freq_schedule_mhz:
+  - 900
+  - 900
+  - 1100
+  - 1400
+  - 900
+  freq_at_layer:
+  - layer: 0
+    mhz: 900
+  - layer: 1
+    mhz: 900
+  - layer: 9
+    mhz: 1100
+  - layer: 18
+    mhz: 1400
+  - layer: 22
+    mhz: 900
+  n_transitions: 5
+  llmservingsim:
+    hardware_profiles:
+    - mhz: 900
+      profile_path: profiler/perf/V100_900MHz/Qwen/Qwen1.5-MoE-A2.7B-Chat/fp16
+    - mhz: 1100
+      profile_path: profiler/perf/V100_1100MHz/Qwen/Qwen1.5-MoE-A2.7B-Chat/fp16
+    - mhz: 1400
+      profile_path: profiler/perf/V100_1400MHz/Qwen/Qwen1.5-MoE-A2.7B-Chat/fp16
+    notes: Scattered layer-boundary DVFS during a full-model dense forward. For simulation,
+      use per-frequency profiler profiles and compare against measured exec metrics
+      (effective_runtime_sec, energy_j).
+- perm_id: p04
+  model_key: phi
+  model: microsoft/Phi-tiny-MoE-instruct
+  num_hidden_layers: 32
+  mode: scattered_dvfs
+  barrier_layers:
+  - 3
+  - 23
+  freq_schedule_mhz:
+  - 700
+  - 900
+  freq_at_layer:
+  - layer: 3
+    mhz: 700
+  - layer: 23
+    mhz: 900
+  n_transitions: 2
+  llmservingsim:
+    hardware_profiles:
+    - mhz: 700
+      profile_path: profiler/perf/V100_700MHz/microsoft/Phi-tiny-MoE-instruct/fp16
+    - mhz: 900
+      profile_path: profiler/perf/V100_900MHz/microsoft/Phi-tiny-MoE-instruct/fp16
+    notes: Scattered layer-boundary DVFS during a full-model dense forward. For simulation,
+      use per-frequency profiler profiles and compare against measured exec metrics
+      (effective_runtime_sec, energy_j).
+- perm_id: p04
+  model_key: qwen
+  model: Qwen/Qwen1.5-MoE-A2.7B-Chat
+  num_hidden_layers: 24
+  mode: scattered_dvfs
+  barrier_layers:
+  - 11
+  - 18
+  - 20
+  freq_schedule_mhz:
+  - 1400
+  - 900
+  - 900
+  freq_at_layer:
+  - layer: 11
+    mhz: 1400
+  - layer: 18
+    mhz: 900
+  - layer: 20
+    mhz: 900
+  n_transitions: 3
+  llmservingsim:
+    hardware_profiles:
+    - mhz: 900
+      profile_path: profiler/perf/V100_900MHz/Qwen/Qwen1.5-MoE-A2.7B-Chat/fp16
+    - mhz: 1400
+      profile_path: profiler/perf/V100_1400MHz/Qwen/Qwen1.5-MoE-A2.7B-Chat/fp16
+    notes: Scattered layer-boundary DVFS during a full-model dense forward. For simulation,
+      use per-frequency profiler profiles and compare against measured exec metrics
+      (effective_runtime_sec, energy_j).
+- perm_id: p05
+  model_key: phi
+  model: microsoft/Phi-tiny-MoE-instruct
+  num_hidden_layers: 32
+  mode: scattered_dvfs
+  barrier_layers:
+  - 1
+  - 6
+  - 7
+  - 8
+  - 12
+  - 15
+  - 27
+  - 30
+  freq_schedule_mhz:
+  - 1400
+  - 900
+  - 1400
+  - 1100
+  - 1100
+  - 900
+  - 700
+  - 700
+  freq_at_layer:
+  - layer: 1
+    mhz: 1400
+  - layer: 6
+    mhz: 900
+  - layer: 7
+    mhz: 1400
+  - layer: 8
+    mhz: 1100
+  - layer: 12
+    mhz: 1100
+  - layer: 15
+    mhz: 900
+  - layer: 27
+    mhz: 700
+  - layer: 30
+    mhz: 700
+  n_transitions: 8
+  llmservingsim:
+    hardware_profiles:
+    - mhz: 700
+      profile_path: profiler/perf/V100_700MHz/microsoft/Phi-tiny-MoE-instruct/fp16
+    - mhz: 900
+      profile_path: profiler/perf/V100_900MHz/microsoft/Phi-tiny-MoE-instruct/fp16
+    - mhz: 1100
+      profile_path: profiler/perf/V100_1100MHz/microsoft/Phi-tiny-MoE-instruct/fp16
+    - mhz: 1400
+      profile_path: profiler/perf/V100_1400MHz/microsoft/Phi-tiny-MoE-instruct/fp16
+    notes: Scattered layer-boundary DVFS during a full-model dense forward. For simulation,
+      use per-frequency profiler profiles and compare against measured exec metrics
+      (effective_runtime_sec, energy_j).
+- perm_id: p05
+  model_key: qwen
+  model: Qwen/Qwen1.5-MoE-A2.7B-Chat
+  num_hidden_layers: 24
+  mode: scattered_dvfs
+  barrier_layers:
+  - 1
+  - 7
+  - 10
+  - 13
+  - 14
+  - 17
+  - 19
+  - 20
+  freq_schedule_mhz:
+  - 1100
+  - 1100
+  - 900
+  - 1100
+  - 1100
+  - 1100
+  - 1400
+  - 1400
+  freq_at_layer:
+  - layer: 1
+    mhz: 1100
+  - layer: 7
+    mhz: 1100
+  - layer: 10
+    mhz: 900
+  - layer: 13
+    mhz: 1100
+  - layer: 14
+    mhz: 1100
+  - layer: 17
+    mhz: 1100
+  - layer: 19
+    mhz: 1400
+  - layer: 20
+    mhz: 1400
+  n_transitions: 8
+  llmservingsim:
+    hardware_profiles:
+    - mhz: 900
+      profile_path: profiler/perf/V100_900MHz/Qwen/Qwen1.5-MoE-A2.7B-Chat/fp16
+    - mhz: 1100
+      profile_path: profiler/perf/V100_1100MHz/Qwen/Qwen1.5-MoE-A2.7B-Chat/fp16
+    - mhz: 1400
+      profile_path: profiler/perf/V100_1400MHz/Qwen/Qwen1.5-MoE-A2.7B-Chat/fp16
+    notes: Scattered layer-boundary DVFS during a full-model dense forward. For simulation,
+      use per-frequency profiler profiles and compare against measured exec metrics
+      (effective_runtime_sec, energy_j).
+- perm_id: p06
+  model_key: phi
+  model: microsoft/Phi-tiny-MoE-instruct
+  num_hidden_layers: 32
+  mode: scattered_dvfs
+  barrier_layers:
+  - 4
+  - 6
+  - 11
+  - 12
+  - 19
+  - 30
+  freq_schedule_mhz:
+  - 1100
+  - 900
+  - 1400
+  - 900
+  - 1400
+  - 900
+  freq_at_layer:
+  - layer: 4
+    mhz: 1100
+  - layer: 6
+    mhz: 900
+  - layer: 11
+    mhz: 1400
+  - layer: 12
+    mhz: 900
+  - layer: 19
+    mhz: 1400
+  - layer: 30
+    mhz: 900
+  n_transitions: 6
+  llmservingsim:
+    hardware_profiles:
+    - mhz: 900
+      profile_path: profiler/perf/V100_900MHz/microsoft/Phi-tiny-MoE-instruct/fp16
+    - mhz: 1100
+      profile_path: profiler/perf/V100_1100MHz/microsoft/Phi-tiny-MoE-instruct/fp16
+    - mhz: 1400
+      profile_path: profiler/perf/V100_1400MHz/microsoft/Phi-tiny-MoE-instruct/fp16
+    notes: Scattered layer-boundary DVFS during a full-model dense forward. For simulation,
+      use per-frequency profiler profiles and compare against measured exec metrics
+      (effective_runtime_sec, energy_j).
+- perm_id: p06
+  model_key: qwen
+  model: Qwen/Qwen1.5-MoE-A2.7B-Chat
+  num_hidden_layers: 24
+  mode: scattered_dvfs
+  barrier_layers:
+  - 4
+  - 8
+  - 10
+  - 11
+  - 12
+  - 15
+  freq_schedule_mhz:
+  - 900
+  - 700
+  - 900
+  - 1400
+  - 700
+  - 1100
+  freq_at_layer:
+  - layer: 4
+    mhz: 900
+  - layer: 8
+    mhz: 700
+  - layer: 10
+    mhz: 900
+  - layer: 11
+    mhz: 1400
+  - layer: 12
+    mhz: 700
+  - layer: 15
+    mhz: 1100
+  n_transitions: 6
+  llmservingsim:
+    hardware_profiles:
+    - mhz: 700
+      profile_path: profiler/perf/V100_700MHz/Qwen/Qwen1.5-MoE-A2.7B-Chat/fp16
+    - mhz: 900
+      profile_path: profiler/perf/V100_900MHz/Qwen/Qwen1.5-MoE-A2.7B-Chat/fp16
+    - mhz: 1100
+      profile_path: profiler/perf/V100_1100MHz/Qwen/Qwen1.5-MoE-A2.7B-Chat/fp16
+    - mhz: 1400
+      profile_path: profiler/perf/V100_1400MHz/Qwen/Qwen1.5-MoE-A2.7B-Chat/fp16
+    notes: Scattered layer-boundary DVFS during a full-model dense forward. For simulation,
+      use per-frequency profiler profiles and compare against measured exec metrics
+      (effective_runtime_sec, energy_j).
+- perm_id: p07
+  model_key: phi
+  model: microsoft/Phi-tiny-MoE-instruct
+  num_hidden_layers: 32
+  mode: scattered_dvfs
+  barrier_layers:
+  - 5
+  - 6
+  - 10
+  - 14
+  - 30
+  freq_schedule_mhz:
+  - 700
+  - 1400
+  - 900
+  - 1100
+  - 700
+  freq_at_layer:
+  - layer: 5
+    mhz: 700
+  - layer: 6
+    mhz: 1400
+  - layer: 10
+    mhz: 900
+  - layer: 14
+    mhz: 1100
+  - layer: 30
+    mhz: 700
+  n_transitions: 5
+  llmservingsim:
+    hardware_profiles:
+    - mhz: 700
+      profile_path: profiler/perf/V100_700MHz/microsoft/Phi-tiny-MoE-instruct/fp16
+    - mhz: 900
+      profile_path: profiler/perf/V100_900MHz/microsoft/Phi-tiny-MoE-instruct/fp16
+    - mhz: 1100
+      profile_path: profiler/perf/V100_1100MHz/microsoft/Phi-tiny-MoE-instruct/fp16
+    - mhz: 1400
+      profile_path: profiler/perf/V100_1400MHz/microsoft/Phi-tiny-MoE-instruct/fp16
+    notes: Scattered layer-boundary DVFS during a full-model dense forward. For simulation,
+      use per-frequency profiler profiles and compare against measured exec metrics
+      (effective_runtime_sec, energy_j).
+- perm_id: p07
+  model_key: qwen
+  model: Qwen/Qwen1.5-MoE-A2.7B-Chat
+  num_hidden_layers: 24
+  mode: scattered_dvfs
+  barrier_layers:
+  - 2
+  - 4
+  - 5
+  - 12
+  - 18
+  - 19
+  - 23
+  freq_schedule_mhz:
+  - 900
+  - 1400
+  - 700
+  - 900
+  - 1400
+  - 700
+  - 1400
+  freq_at_layer:
+  - layer: 2
+    mhz: 900
+  - layer: 4
+    mhz: 1400
+  - layer: 5
+    mhz: 700
+  - layer: 12
+    mhz: 900
+  - layer: 18
+    mhz: 1400
+  - layer: 19
+    mhz: 700
+  - layer: 23
+    mhz: 1400
+  n_transitions: 7
+  llmservingsim:
+    hardware_profiles:
+    - mhz: 700
+      profile_path: profiler/perf/V100_700MHz/Qwen/Qwen1.5-MoE-A2.7B-Chat/fp16
+    - mhz: 900
+      profile_path: profiler/perf/V100_900MHz/Qwen/Qwen1.5-MoE-A2.7B-Chat/fp16
+    - mhz: 1400
+      profile_path: profiler/perf/V100_1400MHz/Qwen/Qwen1.5-MoE-A2.7B-Chat/fp16
+    notes: Scattered layer-boundary DVFS during a full-model dense forward. For simulation,
+      use per-frequency profiler profiles and compare against measured exec metrics
+      (effective_runtime_sec, energy_j).
+- perm_id: p08
+  model_key: phi
+  model: microsoft/Phi-tiny-MoE-instruct
+  num_hidden_layers: 32
+  mode: scattered_dvfs
+  barrier_layers:
+  - 6
+  - 18
+  - 19
+  - 20
+  - 25
+  - 30
+  freq_schedule_mhz:
+  - 700
+  - 1400
+  - 700
+  - 900
+  - 900
+  - 1100
+  freq_at_layer:
+  - layer: 6
+    mhz: 700
+  - layer: 18
+    mhz: 1400
+  - layer: 19
+    mhz: 700
+  - layer: 20
+    mhz: 900
+  - layer: 25
+    mhz: 900
+  - layer: 30
+    mhz: 1100
+  n_transitions: 6
+  llmservingsim:
+    hardware_profiles:
+    - mhz: 700
+      profile_path: profiler/perf/V100_700MHz/microsoft/Phi-tiny-MoE-instruct/fp16
+    - mhz: 900
+      profile_path: profiler/perf/V100_900MHz/microsoft/Phi-tiny-MoE-instruct/fp16
+    - mhz: 1100
+      profile_path: profiler/perf/V100_1100MHz/microsoft/Phi-tiny-MoE-instruct/fp16
+    - mhz: 1400
+      profile_path: profiler/perf/V100_1400MHz/microsoft/Phi-tiny-MoE-instruct/fp16
+    notes: Scattered layer-boundary DVFS during a full-model dense forward. For simulation,
+      use per-frequency profiler profiles and compare against measured exec metrics
+      (effective_runtime_sec, energy_j).
+- perm_id: p08
+  model_key: qwen
+  model: Qwen/Qwen1.5-MoE-A2.7B-Chat
+  num_hidden_layers: 24
+  mode: scattered_dvfs
+  barrier_layers:
+  - 1
+  - 5
+  - 11
+  freq_schedule_mhz:
+  - 1400
+  - 1100
+  - 700
+  freq_at_layer:
+  - layer: 1
+    mhz: 1400
+  - layer: 5
+    mhz: 1100
+  - layer: 11
+    mhz: 700
+  n_transitions: 3
+  llmservingsim:
+    hardware_profiles:
+    - mhz: 700
+      profile_path: profiler/perf/V100_700MHz/Qwen/Qwen1.5-MoE-A2.7B-Chat/fp16
+    - mhz: 1100
+      profile_path: profiler/perf/V100_1100MHz/Qwen/Qwen1.5-MoE-A2.7B-Chat/fp16
+    - mhz: 1400
+      profile_path: profiler/perf/V100_1400MHz/Qwen/Qwen1.5-MoE-A2.7B-Chat/fp16
+    notes: Scattered layer-boundary DVFS during a full-model dense forward. For simulation,
+      use per-frequency profiler profiles and compare against measured exec metrics
+      (effective_runtime_sec, energy_j).
+- perm_id: p09
+  model_key: phi
+  model: microsoft/Phi-tiny-MoE-instruct
+  num_hidden_layers: 32
+  mode: scattered_dvfs
+  barrier_layers:
+  - 1
+  - 14
+  - 18
+  - 23
+  freq_schedule_mhz:
+  - 1400
+  - 1400
+  - 900
+  - 900
+  freq_at_layer:
+  - layer: 1
+    mhz: 1400
+  - layer: 14
+    mhz: 1400
+  - layer: 18
+    mhz: 900
+  - layer: 23
+    mhz: 900
+  n_transitions: 4
+  llmservingsim:
+    hardware_profiles:
+    - mhz: 900
+      profile_path: profiler/perf/V100_900MHz/microsoft/Phi-tiny-MoE-instruct/fp16
+    - mhz: 1400
+      profile_path: profiler/perf/V100_1400MHz/microsoft/Phi-tiny-MoE-instruct/fp16
+    notes: Scattered layer-boundary DVFS during a full-model dense forward. For simulation,
+      use per-frequency profiler profiles and compare against measured exec metrics
+      (effective_runtime_sec, energy_j).
+- perm_id: p09
+  model_key: qwen
+  model: Qwen/Qwen1.5-MoE-A2.7B-Chat
+  num_hidden_layers: 24
+  mode: scattered_dvfs
+  barrier_layers:
+  - 3
+  - 5
+  - 6
+  - 7
+  - 9
+  - 14
+  - 19
+  - 23
+  freq_schedule_mhz:
+  - 700
+  - 900
+  - 1400
+  - 1100
+  - 700
+  - 700
+  - 700
+  - 1100
+  freq_at_layer:
+  - layer: 3
+    mhz: 700
+  - layer: 5
+    mhz: 900
+  - layer: 6
+    mhz: 1400
+  - layer: 7
+    mhz: 1100
+  - layer: 9
+    mhz: 700
+  - layer: 14
+    mhz: 700
+  - layer: 19
+    mhz: 700
+  - layer: 23
+    mhz: 1100
+  n_transitions: 8
+  llmservingsim:
+    hardware_profiles:
+    - mhz: 700
+      profile_path: profiler/perf/V100_700MHz/Qwen/Qwen1.5-MoE-A2.7B-Chat/fp16
+    - mhz: 900
+      profile_path: profiler/perf/V100_900MHz/Qwen/Qwen1.5-MoE-A2.7B-Chat/fp16
+    - mhz: 1100
+      profile_path: profiler/perf/V100_1100MHz/Qwen/Qwen1.5-MoE-A2.7B-Chat/fp16
+    - mhz: 1400
+      profile_path: profiler/perf/V100_1400MHz/Qwen/Qwen1.5-MoE-A2.7B-Chat/fp16
+    notes: Scattered layer-boundary DVFS during a full-model dense forward. For simulation,
+      use per-frequency profiler profiles and compare against measured exec metrics
+      (effective_runtime_sec, energy_j).
+- perm_id: p10
+  model_key: phi
+  model: microsoft/Phi-tiny-MoE-instruct
+  num_hidden_layers: 32
+  mode: scattered_dvfs
+  barrier_layers:
+  - 25
+  - 26
+  - 27
+  - 31
+  freq_schedule_mhz:
+  - 900
+  - 900
+  - 900
+  - 1400
+  freq_at_layer:
+  - layer: 25
+    mhz: 900
+  - layer: 26
+    mhz: 900
+  - layer: 27
+    mhz: 900
+  - layer: 31
+    mhz: 1400
+  n_transitions: 4
+  llmservingsim:
+    hardware_profiles:
+    - mhz: 900
+      profile_path: profiler/perf/V100_900MHz/microsoft/Phi-tiny-MoE-instruct/fp16
+    - mhz: 1400
+      profile_path: profiler/perf/V100_1400MHz/microsoft/Phi-tiny-MoE-instruct/fp16
+    notes: Scattered layer-boundary DVFS during a full-model dense forward. For simulation,
+      use per-frequency profiler profiles and compare against measured exec metrics
+      (effective_runtime_sec, energy_j).
+- perm_id: p10
+  model_key: qwen
+  model: Qwen/Qwen1.5-MoE-A2.7B-Chat
+  num_hidden_layers: 24
+  mode: scattered_dvfs
+  barrier_layers:
+  - 8
+  - 11
+  - 13
+  - 14
+  - 17
+  - 21
+  freq_schedule_mhz:
+  - 700
+  - 700
+  - 900
+  - 1100
+  - 1100
+  - 700
+  freq_at_layer:
+  - layer: 8
+    mhz: 700
+  - layer: 11
+    mhz: 700
+  - layer: 13
+    mhz: 900
+  - layer: 14
+    mhz: 1100
+  - layer: 17
+    mhz: 1100
+  - layer: 21
+    mhz: 700
+  n_transitions: 6
+  llmservingsim:
+    hardware_profiles:
+    - mhz: 700
+      profile_path: profiler/perf/V100_700MHz/Qwen/Qwen1.5-MoE-A2.7B-Chat/fp16
+    - mhz: 900
+      profile_path: profiler/perf/V100_900MHz/Qwen/Qwen1.5-MoE-A2.7B-Chat/fp16
+    - mhz: 1100
+      profile_path: profiler/perf/V100_1100MHz/Qwen/Qwen1.5-MoE-A2.7B-Chat/fp16
+    notes: Scattered layer-boundary DVFS during a full-model dense forward. For simulation,
+      use per-frequency profiler profiles and compare against measured exec metrics
+      (effective_runtime_sec, energy_j).

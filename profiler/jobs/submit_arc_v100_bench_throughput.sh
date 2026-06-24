@@ -23,9 +23,24 @@ mkdir -p "${ROOT}/profiler/jobs/logs" "${ROOT}/profiler/jobs/rendered" \
 
 MODEL="${MODEL:-microsoft/Phi-mini-MoE-instruct}"
 SAFE="$(echo "${MODEL}" | tr '/:' '__' | tr -cd 'A-Za-z0-9_-')"
-JOB_NAME="${JOB_NAME:-llmsim_bench_v100_tp1_${SAFE:0:20}}"
 TIME="${TIME:-02:00:00}"
 NUM_REQS="${NUM_REQS:-100}"
+
+# Optional locked-clock bench (§1 per-frequency ground truth). When set, the
+# runner locks the GPU clock, tags output V100_<MHz>, and runs the same
+# pre-flight read-back + post-flight audit_gpu_clocks.py as the profiler.
+GPU_FREQ_MHZ="${GPU_FREQ_MHZ:-}"
+GPU_FREQ_VERIFY_STRICT="${GPU_FREQ_VERIFY_STRICT:-1}"
+# DEPEND_JID chains jobs sequentially so two locked-clock benches never share a
+# GPU and fight over its clock (afterany: run regardless of prior exit status).
+DEPEND_JID="${DEPEND_JID:-}"
+if [[ -n "${GPU_FREQ_MHZ}" ]]; then
+  HARDWARE="${HARDWARE:-V100_${GPU_FREQ_MHZ}MHz}"
+  JOB_NAME="${JOB_NAME:-llmsim_bench_v100_${GPU_FREQ_MHZ}MHz_${SAFE:0:16}}"
+else
+  HARDWARE="${HARDWARE:-V100}"
+  JOB_NAME="${JOB_NAME:-llmsim_bench_v100_tp1_${SAFE:0:20}}"
+fi
 
 rendered="${ROOT}/profiler/jobs/rendered/${JOB_NAME}.sbatch"
 cmd_frag="${ROOT}/profiler/jobs/rendered/_${JOB_NAME}_cmd.sh"
@@ -40,6 +55,12 @@ export NUM_REQS='${NUM_REQS}'
 export SPS='${SPS:-10}'
 export SEED='${SEED:-42}'
 export V100_BENCH_PRESET='${V100_BENCH_PRESET:-auto}'
+export GPU_FREQ_MHZ='${GPU_FREQ_MHZ}'
+export HARDWARE='${HARDWARE}'
+export GPU_FREQ_VERIFY_STRICT='${GPU_FREQ_VERIFY_STRICT}'
+export SHAREGPT_FIX_LEN='${SHAREGPT_FIX_LEN:-}'
+export FIX_INPUT_LENGTH='${FIX_INPUT_LENGTH:-128}'
+export FIX_OUTPUT_LENGTH='${FIX_OUTPUT_LENGTH:-512}'
 export HF_CACHE_ROOT='${HF_CACHE_ROOT:-/data/engs-glass/engs2950/infra/hf_cache}'
 export VLLM_IMAGE='${VLLM_IMAGE:-docker://vllm/vllm-openai:v0.19.0}'
 export CONTAINER_RUNTIME='${CONTAINER_RUNTIME:-apptainer}'
@@ -66,8 +87,14 @@ for k, v in {
 Path(os.environ["RENDERED"]).write_text(template)
 PY
 
-if [[ "${SKIP_INTERACTIVE_WAIT:-0}" != "1" ]]; then
+# A chained job waits on its dependency, not on a free interactive slot.
+if [[ "${SKIP_INTERACTIVE_WAIT:-0}" != "1" && -z "${DEPEND_JID}" ]]; then
   arc_wait_htc_interactive_slot interactive || true
+fi
+
+dep_args=()
+if [[ -n "${DEPEND_JID}" ]]; then
+  dep_args+=(--dependency="afterany:${DEPEND_JID}")
 fi
 
 jid_raw=$(sbatch --parsable --clusters=htc --account=engs-glass \
@@ -76,9 +103,10 @@ jid_raw=$(sbatch --parsable --clusters=htc --account=engs-glass \
   --mail-user="${MAIL_USER:-alex.lozano@eng.ox.ac.uk}" --mail-type=BEGIN,END,FAIL \
   --output="${ROOT}/profiler/jobs/logs/${JOB_NAME}_%j.out" \
   --error="${ROOT}/profiler/jobs/logs/${JOB_NAME}_%j.err" \
+  "${dep_args[@]}" \
   "${rendered}")
 jid="${jid_raw%%;*}"
 
-echo "Submitted ${jid}  MODEL=${MODEL}  tp=1  NUM_REQS=${NUM_REQS}"
+echo "Submitted ${jid}  MODEL=${MODEL}  HARDWARE=${HARDWARE}  tp=1  NUM_REQS=${NUM_REQS}  dep=${DEPEND_JID:-none}"
 echo "Logs: ${ROOT}/profiler/jobs/logs/${JOB_NAME}_${jid}.out"
 echo "${jid}"

@@ -1,0 +1,34 @@
+run_id: scat_p10_phi_i2
+model: microsoft/Phi-tiny-MoE-instruct
+mode: scattered_dvfs
+iteration: 2
+num_hidden_layers: 32
+dvfs:
+  barrier_layers:
+  - 25
+  - 26
+  - 27
+  - 31
+  freq_schedule_mhz:
+  - 900
+  - 900
+  - 900
+  - 1400
+  freq_at_layer:
+  - layer: 25
+    mhz: 900
+  - layer: 26
+    mhz: 900
+  - layer: 27
+    mhz: 900
+  - layer: 31
+    mhz: 1400
+llmservingsim:
+  hardware_profiles:
+  - mhz: 900
+    profile_path: /data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/profiler/perf/V100_900MHz/microsoft/Phi-tiny-MoE-instruct/fp16
+  - mhz: 1400
+    profile_path: /data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/profiler/perf/V100_1400MHz/microsoft/Phi-tiny-MoE-instruct/fp16
+  notes: Scattered layer-boundary DVFS during a full-model dense forward. For simulation,
+    use per-frequency profiler profiles and compare against measured exec metrics
+    (effective_runtime_sec, energy_j).

@@ -1,0 +1,28 @@
+run_id: fixed_1100_qwen_i1
+campaign_mode: fixed
+iteration: 1
+model: Qwen/Qwen1.5-MoE-A2.7B-Chat
+model_key: qwen
+num_hidden_layers: 24
+hardware: V100_1100MHz
+dtype: float16
+tp_size: 1
+measurement_iterations: 3
+gpu_freq_mhz: 1100
+max_num_batched_tokens: 256
+max_num_seqs: 8
+attention_max_kv: 256
+skip_skew: true
+dvfs:
+  gpu_freq_mhz: 1100
+llmservingsim:
+  hardware: V100_1100MHz
+  profile_path: /data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/profiler/perf/V100_1100MHz/Qwen/Qwen1.5-MoE-A2.7B-Chat/fp16
+  notes: Fixed-frequency full profiler sweep (dense, attention, moe). Use hardware=V100_1100MHz
+    in cluster config.
+profiler:
+  full_profile: false
+  categories:
+  - dense
+  - attention
+  - moe

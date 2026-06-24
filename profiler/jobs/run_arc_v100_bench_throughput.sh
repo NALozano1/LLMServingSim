@@ -31,6 +31,11 @@ SPS="${SPS:-10}"
 SEED="${SEED:-42}"
 TICK_SECONDS="${TICK_SECONDS:-1.0}"
 GPU_FREQ_MHZ="${GPU_FREQ_MHZ:-}"
+# Clock-lock verification (mirrors run_arc_v100_profile.sh): pre-flight read-back
+# confirms the lock took before benching, post-flight audit scans the captured
+# gpu_power samples for mid-run throttling. STRICT=1 aborts on mismatch, 0 warns.
+GPU_FREQ_TOLERANCE_MHZ="${GPU_FREQ_TOLERANCE_MHZ:-100}"
+GPU_FREQ_VERIFY_STRICT="${GPU_FREQ_VERIFY_STRICT:-1}"
 
 # shellcheck source=/dev/null
 source "${JOBS_ROOT}/v100_bench_presets.sh"
@@ -92,6 +97,24 @@ nvidia-smi -L || true
 
 if [[ -n "${GPU_FREQ_MHZ}" ]]; then
   gpu_freq_lock_apply "${FREQ_META_DIR}" "${GPU_FREQ_MHZ}"
+
+  # Pre-flight read-back: INFORMATIONAL ONLY. On V100 the graphics clock idles
+  # at ~135 MHz even after a successful --lock-gpu-clocks; the locked clock only
+  # becomes observable under GPU load. So an idle mismatch here is expected and
+  # must NOT abort. The authoritative check is the under-load post-flight audit
+  # (audit_gpu_clocks.py over captured gpu_power samples) below.
+  _gpu_idx="${GPU_VERIFY_INDEX:-0}"
+  _measured_gr="$(nvidia-smi --query-gpu=clocks.gr --format=csv,noheader,nounits \
+      -i "${_gpu_idx}" 2>/dev/null | head -1 | tr -dc '0-9')"
+  if [[ -n "${_measured_gr}" ]]; then
+    _delta=$(( _measured_gr - GPU_FREQ_MHZ )); _absdelta="${_delta#-}"
+    echo "Clock read-back (idle, informational): target=${GPU_FREQ_MHZ}MHz" \
+         "measured=${_measured_gr}MHz delta=${_delta}MHz" \
+         "(idle clock can't see the lock on V100; under-load audit is authoritative)"
+  else
+    echo "WARN: could not read back GPU clock via nvidia-smi;" \
+         "relying on post-flight under-load audit." >&2
+  fi
 fi
 
 if [[ -z "${HF_TOKEN:-}" ]]; then
@@ -187,6 +210,29 @@ if (out / "meta.json").exists():
 (out / "node_meta.json").write_text(json.dumps(node_meta, indent=2) + "\n")
 print(f"node_meta: {out / 'node_meta.json'}")
 PY
+
+# Post-flight audit: the pre-flight read-back only sees the idle/start clock.
+# This inspects the captured gpu_power JSONL and flags any run whose measured
+# clocks drifted out of band mid-bench (e.g. heavy MoE kernels throttling below
+# the lock) so mislabeled latency/energy ground truth is never trusted. The
+# audit recovers the V100_<MHz> tag from the OUT_DIR ancestry.
+if [[ -n "${GPU_FREQ_MHZ}" ]]; then
+  AUDIT="${JOBS_ROOT}/audit_gpu_clocks.py"
+  if [[ -f "${AUDIT}" ]] && command -v python3 >/dev/null 2>&1; then
+    echo "=== Post-flight GPU clock audit (${HARDWARE}) ==="
+    if python3 "${AUDIT}" --tolerance "${GPU_FREQ_TOLERANCE_MHZ}" "${OUT_DIR}"; then
+      echo "Clock audit passed."
+    else
+      echo "ERROR: post-flight clock audit FLAGGED captured samples for ${HARDWARE}." >&2
+      echo "       Bench under ${OUT_DIR} is likely mislabeled — re-run." >&2
+      if [[ "${GPU_FREQ_VERIFY_STRICT}" == "1" ]]; then
+        exit 4
+      fi
+    fi
+  else
+    echo "WARN: ${AUDIT} or python3 unavailable; skipping post-flight clock audit." >&2
+  fi
+fi
 
 echo "=== Done. Throughput outputs: ${OUT_DIR} ==="
 echo "  timeseries.csv — prompt_throughput / gen_throughput (tok/s per tick)"

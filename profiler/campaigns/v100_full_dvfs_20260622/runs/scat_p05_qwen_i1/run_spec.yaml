@@ -1,0 +1,65 @@
+run_id: scat_p05_qwen_i1
+campaign_mode: scattered
+iteration: 1
+model: Qwen/Qwen1.5-MoE-A2.7B-Chat
+model_key: qwen
+num_hidden_layers: 24
+hardware: V100_full_dvfs_scat_p05_qwen_i1
+dtype: float16
+tp_size: 1
+measurement_iterations: 1
+max_num_batched_tokens: 256
+max_num_seqs: 8
+attention_max_kv: 256
+dvfs:
+  barrier_layers:
+  - 1
+  - 7
+  - 10
+  - 13
+  - 14
+  - 17
+  - 19
+  - 20
+  freq_schedule_mhz:
+  - 1100
+  - 1100
+  - 900
+  - 1100
+  - 1100
+  - 1100
+  - 1400
+  - 1400
+  freq_at_layer:
+  - layer: 1
+    mhz: 1100
+  - layer: 7
+    mhz: 1100
+  - layer: 10
+    mhz: 900
+  - layer: 13
+    mhz: 1100
+  - layer: 14
+    mhz: 1100
+  - layer: 17
+    mhz: 1100
+  - layer: 19
+    mhz: 1400
+  - layer: 20
+    mhz: 1400
+llmservingsim:
+  hardware_profiles:
+  - mhz: 900
+    profile_path: profiler/perf/V100_900MHz/Qwen/Qwen1.5-MoE-A2.7B-Chat/fp16
+  - mhz: 1100
+    profile_path: profiler/perf/V100_1100MHz/Qwen/Qwen1.5-MoE-A2.7B-Chat/fp16
+  - mhz: 1400
+    profile_path: profiler/perf/V100_1400MHz/Qwen/Qwen1.5-MoE-A2.7B-Chat/fp16
+  notes: Scattered layer-boundary DVFS during a full-model dense forward. For simulation,
+    use per-frequency profiler profiles and compare against measured exec metrics
+    (effective_runtime_sec, energy_j).
+profiler:
+  group: dense
+  max_shots: 1
+  categories:
+  - dense

@@ -42,6 +42,10 @@ VERBOSITY="${VERBOSITY:-"--verbose"}"
 HF_TOKEN="${HF_TOKEN:-}"
 DRY_RUN="${DRY_RUN:-0}"
 SCHEDULE_FREQ_MATRIX="${SCHEDULE_FREQ_MATRIX:-0}"
+# N_GPU_REPLICAS: submit this many independent replica jobs per model, each landing in
+# a separate hardware sub-directory (e.g. V100_g0 .. V100_g7) so per-device latency
+# outliers can be detected by comparing replicas. Default 1 = original behaviour.
+N_GPU_REPLICAS="${N_GPU_REPLICAS:-1}"
 
 SUBMIT_LOG="${SUBMIT_LOG:-${ROOT}/profiler/jobs/logs/v100_matrix_submit_$(date -u +%Y%m%d_%H%M%S).log}"
 MANIFEST="${ROOT}/profiler/jobs/checkpoints/v100_matrix_jobs.tsv"
@@ -52,7 +56,7 @@ mapfile -t MODEL_LIST < <(v100_matrix_model_list)
   echo "=== V100 baseline profiler matrix (one job per model, default clocks) ==="
   echo "MODELS (${#MODEL_LIST[@]}): ${MODEL_LIST[*]}"
   echo "HARDWARE=${HARDWARE}  TP_DEGREES=${TP_DEGREES}  SKIP_COMPLETE=${SKIP_COMPLETE}"
-  echo "TIME=${TIME}  SCHEDULE_FREQ_MATRIX=${SCHEDULE_FREQ_MATRIX}"
+  echo "TIME=${TIME}  SCHEDULE_FREQ_MATRIX=${SCHEDULE_FREQ_MATRIX}  N_GPU_REPLICAS=${N_GPU_REPLICAS}"
 } | tee "${SUBMIT_LOG}"
 
 if [[ ! -f "${MANIFEST}" ]] || ! head -1 "${MANIFEST}" | grep -q gpu_freq_mhz; then
@@ -78,19 +82,18 @@ for MODEL in "${MODEL_LIST[@]}"; do
     continue
   fi
 
-  if [[ "${submitted}" -eq 0 && "${DRY_RUN}" != "1" ]]; then
-    arc_wait_htc_interactive_slot interactive || exit 1
-  fi
-
-  echo "SUBMIT ${MODEL} (default clocks -> ${HARDWARE})" | tee -a "${SUBMIT_LOG}"
+  echo "SUBMIT ${MODEL} (default clocks -> ${HARDWARE}, replicas=${N_GPU_REPLICAS})" | tee -a "${SUBMIT_LOG}"
   if [[ "${DRY_RUN}" == "1" ]]; then
     prev_jid="dry_$(v100_matrix_safe_name "${MODEL}")"
-    submitted=$((submitted + 1))
+    submitted=$((submitted + N_GPU_REPLICAS))
     continue
   fi
 
-  prev_jid="$(v100_matrix_submit_profile_job "${MODEL}" "${HARDWARE}" "" "${prev_jid}")"
-  submitted=$((submitted + 1))
+  for (( _rep=0; _rep < N_GPU_REPLICAS; _rep++ )); do
+    _rep_arg=$([[ "${N_GPU_REPLICAS}" -gt 1 ]] && echo "${_rep}" || echo "")
+    prev_jid="$(v100_matrix_submit_profile_job "${MODEL}" "${HARDWARE}" "" "${prev_jid}" "${_rep_arg}")"
+    submitted=$((submitted + 1))
+  done
 done
 
 {
