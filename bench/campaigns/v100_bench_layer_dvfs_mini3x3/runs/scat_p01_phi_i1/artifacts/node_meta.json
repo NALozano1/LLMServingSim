@@ -1,0 +1,114 @@
+{
+  "run_id": "scat_p01_phi_i1",
+  "campaign_dir": "/data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/bench/campaigns/v100_bench_layer_dvfs_mini3x3",
+  "campaign_mode": "scattered",
+  "slurm_job_id": "8010418",
+  "hostname": "htc-g048",
+  "recorded_at": "2026-06-22T10:16:30.616922+00:00",
+  "model": "microsoft/Phi-tiny-MoE-instruct",
+  "dvfs_barrier_layers": "7,9,10,14,16,17,20,26",
+  "dvfs_freq_schedule": "1400,700,700,900,1400,1400,900,700",
+  "cuda_visible_devices": "0",
+  "bench_dir": "/data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/bench/campaigns/v100_bench_layer_dvfs_mini3x3/runs/scat_p01_phi_i1/bench",
+  "run_spec": {
+    "run_id": "scat_p01_phi_i1",
+    "campaign_mode": "scattered",
+    "iteration": 1,
+    "model": "microsoft/Phi-tiny-MoE-instruct",
+    "model_key": "phi",
+    "num_hidden_layers": 32,
+    "max_num_batched_tokens": 256,
+    "max_num_seqs": 32,
+    "max_model_len": 512,
+    "gpu_memory_utilization": 0.92,
+    "dvfs": {
+      "barrier_layers": [
+        7,
+        9,
+        10,
+        14,
+        16,
+        17,
+        20,
+        26
+      ],
+      "freq_schedule_mhz": [
+        1400,
+        700,
+        700,
+        900,
+        1400,
+        1400,
+        900,
+        700
+      ],
+      "freq_at_layer": [
+        {
+          "layer": 7,
+          "mhz": 1400
+        },
+        {
+          "layer": 9,
+          "mhz": 700
+        },
+        {
+          "layer": 10,
+          "mhz": 700
+        },
+        {
+          "layer": 14,
+          "mhz": 900
+        },
+        {
+          "layer": 16,
+          "mhz": 1400
+        },
+        {
+          "layer": 17,
+          "mhz": 1400
+        },
+        {
+          "layer": 20,
+          "mhz": 900
+        },
+        {
+          "layer": 26,
+          "mhz": 700
+        }
+      ]
+    },
+    "llmservingsim": {
+      "hardware_profiles": [
+        {
+          "mhz": 700,
+          "profile_path": "profiler/perf/V100_700MHz/microsoft/Phi-tiny-MoE-instruct/fp16"
+        },
+        {
+          "mhz": 900,
+          "profile_path": "profiler/perf/V100_900MHz/microsoft/Phi-tiny-MoE-instruct/fp16"
+        },
+        {
+          "mhz": 1400,
+          "profile_path": "profiler/perf/V100_1400MHz/microsoft/Phi-tiny-MoE-instruct/fp16"
+        }
+      ],
+      "notes": "Scattered layer-boundary DVFS during a full-model dense forward. For simulation, use per-frequency profiler profiles and compare against measured exec metrics (effective_runtime_sec, energy_j)."
+    },
+    "bench": {
+      "prefill_only": true,
+      "num_reqs": 1,
+      "sps": 100,
+      "seed": 42,
+      "fix_input_length": 64,
+      "fix_output_length": 0,
+      "tick_seconds": 0.5,
+      "dtype": "float16",
+      "tp_size": 1
+    },
+    "engine": {
+      "api": "LLM",
+      "vllm_use_v1": false,
+      "worker_extension_cls": "profiler.core.hooks.extension.Extension"
+    }
+  }
+}

@@ -1,0 +1,153 @@
+{
+  "output_dir": "/data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/bench/campaigns/v100_bench_layer_dvfs_mini3x3/runs/scat_p03_qwen_i0/bench",
+  "model": "Qwen/Qwen1.5-MoE-A2.7B-Chat",
+  "num_requests": 1,
+  "timing": {
+    "started_at": "2026-06-22T14:45:50.223793Z",
+    "finished_at": "2026-06-22T14:46:07.719228Z",
+    "wall_sec": 17.495435,
+    "pause_sec": 5.526373,
+    "exec_sec": 11.969062,
+    "barrier_wait_sec_worker": 5.526373,
+    "marker_pause_sec": 3.752086,
+    "barrier_count": 5
+  },
+  "throughput": {
+    "output_tok_per_sec_wall": 0.0,
+    "total_tok_per_sec_wall": 3.658,
+    "output_tok_per_sec_exec": 0.0,
+    "total_tok_per_sec_exec": 5.347
+  },
+  "tokens": {
+    "input_tokens": 64,
+    "output_tokens": 0,
+    "total_tokens": 64
+  },
+  "energy": {
+    "energy_j": 1219.57,
+    "energy_excl_pause_j": 998.199,
+    "duration_sec": 16.565714,
+    "duration_excl_pause_sec": 12.813628,
+    "sample_count": 121,
+    "mean_power_w": 73.62,
+    "mean_power_excl_pause_w": 77.901
+  },
+  "latency": {
+    "source": "vllm_bench_requests_jsonl",
+    "bench_dir": "/data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/bench/campaigns/v100_bench_layer_dvfs_mini3x3/runs/scat_p03_qwen_i0/bench",
+    "meta": {
+      "schema_version": 1,
+      "model": "Qwen/Qwen1.5-MoE-A2.7B-Chat",
+      "vllm_version": "0.19.0",
+      "engine_kwargs": {
+        "model": "Qwen/Qwen1.5-MoE-A2.7B-Chat",
+        "tensor_parallel_size": 1,
+        "data_parallel_size": 1,
+        "enable_expert_parallel": false,
+        "max_num_seqs": 8,
+        "max_num_batched_tokens": 1024,
+        "max_model_len": 512,
+        "dtype": "float16",
+        "kv_cache_dtype": "auto",
+        "seed": 42,
+        "layer_pause": true,
+        "worker_extension_cls": "profiler.core.hooks.extension.Extension",
+        "engine_api": "LLM",
+        "prefill_only": true
+      },
+      "dataset_path": "/data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/bench/campaigns/v100_bench_layer_dvfs_mini3x3/shared/sharegpt-Qwen_Qwen1.5-MoE-A2.7B-Chat-1-sps100-seed42-ml512-fixlen64o0.jsonl",
+      "dataset_hash": "30f639e42db0e155ba0885b4e8aab55672c68c38a2bcc351219edde77886298f",
+      "num_requests": 1,
+      "started_at": "2026-06-22T14:45:50.223793Z",
+      "finished_at": "2026-06-22T14:46:07.719228Z",
+      "tick_seconds": 0.5
+    },
+    "node_meta": {},
+    "ttft": {
+      "count": 1,
+      "mean_ms": 16622.218,
+      "median_ms": 16622.218,
+      "p90_ms": 16622.218,
+      "p99_ms": 16622.218
+    },
+    "tpot": {
+      "count": 0,
+      "mean_ms": null,
+      "median_ms": null,
+      "p90_ms": null,
+      "p99_ms": null
+    },
+    "e2e_latency": {
+      "count": 1,
+      "mean_ms": 16622.218,
+      "median_ms": 16622.218,
+      "p90_ms": 16622.218,
+      "p99_ms": 16622.218
+    },
+    "per_request": [
+      {
+        "request_id": "bench-0",
+        "input_toks": 64,
+        "output_toks": 1,
+        "ttft_ms": 16622.218,
+        "tpot_ms": 0.0,
+        "e2e_ms": 16622.218
+      }
+    ]
+  },
+  "layer_pause": {
+    "session_id": "bench",
+    "watch_root": "/data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/bench/campaigns/v100_bench_layer_dvfs_mini3x3/runs/scat_p03_qwen_i0/bench",
+    "barrier_dir": "/data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/bench/campaigns/v100_bench_layer_dvfs_mini3x3/runs/scat_p03_qwen_i0/bench/dvfs_barriers/bench",
+    "layers_installed": 5,
+    "num_model_layers": 24,
+    "layer_names": [
+      "layers.0",
+      "layers.1",
+      "layers.2",
+      "layers.3",
+      "layers.4",
+      "layers.5",
+      "layers.6",
+      "layers.7",
+      "layers.8",
+      "layers.9",
+      "layers.10",
+      "layers.11",
+      "layers.12",
+      "layers.13",
+      "layers.14",
+      "layers.15",
+      "layers.16",
+      "layers.17",
+      "layers.18",
+      "layers.19",
+      "layers.20",
+      "layers.21",
+      "layers.22",
+      "layers.23"
+    ],
+    "markers_path": "/data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/bench/campaigns/v100_bench_layer_dvfs_mini3x3/runs/scat_p03_qwen_i0/bench/dvfs_markers.jsonl"
+  },
+  "dvfs": {
+    "modes": [
+      "dvfs"
+    ],
+    "freq_mhz_observed": [
+      900,
+      900,
+      1100,
+      1400,
+      900
+    ],
+    "marker_count": 5
+  },
+  "prefill_only": true,
+  "decode_max_pauses_per_pass": null,
+  "artifacts": {
+    "meta": "/data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/bench/campaigns/v100_bench_layer_dvfs_mini3x3/runs/scat_p03_qwen_i0/bench/meta.json",
+    "requests": "/data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/bench/campaigns/v100_bench_layer_dvfs_mini3x3/runs/scat_p03_qwen_i0/bench/requests.jsonl",
+    "markers": "/data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/bench/campaigns/v100_bench_layer_dvfs_mini3x3/runs/scat_p03_qwen_i0/bench/dvfs_markers.jsonl",
+    "power": "/data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/bench/campaigns/v100_bench_layer_dvfs_mini3x3/runs/scat_p03_qwen_i0/bench/gpu_power/bench.jsonl"
+  }
+}
