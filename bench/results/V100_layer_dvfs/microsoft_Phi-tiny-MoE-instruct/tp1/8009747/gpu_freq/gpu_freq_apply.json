@@ -1,0 +1,188 @@
+{
+  "action": "apply",
+  "mode": "sync",
+  "target_mhz": 1400,
+  "clocks_bin": "/usr/local/sbin/nvidia-smi-clocks",
+  "sudo": true,
+  "gpu_indices": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+  ],
+  "parallel": true,
+  "ioctl_timing": {
+    "strategy": "burst_popen",
+    "n_gpus": 7,
+    "batch_wall_ms": 450.8,
+    "per_gpu": {
+      "0": {
+        "spawn_offset_ms": 0.0,
+        "duration_ms": 444.92
+      },
+      "1": {
+        "spawn_offset_ms": 1.35,
+        "duration_ms": 443.76
+      },
+      "2": {
+        "spawn_offset_ms": 3.02,
+        "duration_ms": 442.2
+      },
+      "3": {
+        "spawn_offset_ms": 4.79,
+        "duration_ms": 441.51
+      },
+      "4": {
+        "spawn_offset_ms": 6.72,
+        "duration_ms": 443.8
+      },
+      "5": {
+        "spawn_offset_ms": 8.61,
+        "duration_ms": 442.06
+      },
+      "6": {
+        "spawn_offset_ms": 10.32,
+        "duration_ms": 440.48
+      }
+    },
+    "max_gpu_duration_ms": 444.92,
+    "sum_gpu_duration_ms": 3098.73
+  },
+  "set_results": {
+    "0": {
+      "ok": true,
+      "returncode": 0,
+      "stdout": "GPU clocks set to \"(gpuClkMin 1400, gpuClkMax 1400)\" for GPU 00000000:06:00.0\nAll done.",
+      "stderr": ""
+    },
+    "1": {
+      "ok": true,
+      "returncode": 0,
+      "stdout": "GPU clocks set to \"(gpuClkMin 1400, gpuClkMax 1400)\" for GPU 00000000:07:00.0\nAll done.",
+      "stderr": ""
+    },
+    "2": {
+      "ok": true,
+      "returncode": 0,
+      "stdout": "GPU clocks set to \"(gpuClkMin 1400, gpuClkMax 1400)\" for GPU 00000000:0A:00.0\nAll done.",
+      "stderr": ""
+    },
+    "3": {
+      "ok": true,
+      "returncode": 0,
+      "stdout": "GPU clocks set to \"(gpuClkMin 1400, gpuClkMax 1400)\" for GPU 00000000:0B:00.0\nAll done.",
+      "stderr": ""
+    },
+    "4": {
+      "ok": true,
+      "returncode": 0,
+      "stdout": "GPU clocks set to \"(gpuClkMin 1400, gpuClkMax 1400)\" for GPU 00000000:85:00.0\nAll done.",
+      "stderr": ""
+    },
+    "5": {
+      "ok": true,
+      "returncode": 0,
+      "stdout": "GPU clocks set to \"(gpuClkMin 1400, gpuClkMax 1400)\" for GPU 00000000:86:00.0\nAll done.",
+      "stderr": ""
+    },
+    "6": {
+      "ok": true,
+      "returncode": 0,
+      "stdout": "GPU clocks set to \"(gpuClkMin 1400, gpuClkMax 1400)\" for GPU 00000000:89:00.0\nAll done.",
+      "stderr": ""
+    }
+  },
+  "clocks_before": [
+    {
+      "index": 0,
+      "name": "Tesla V100-SXM2-32GB-LS",
+      "graphics_mhz": 705,
+      "max_graphics_mhz": 1440
+    },
+    {
+      "index": 1,
+      "name": "Tesla V100-SXM2-32GB-LS",
+      "graphics_mhz": 705,
+      "max_graphics_mhz": 1440
+    },
+    {
+      "index": 2,
+      "name": "Tesla V100-SXM2-32GB-LS",
+      "graphics_mhz": 705,
+      "max_graphics_mhz": 1440
+    },
+    {
+      "index": 3,
+      "name": "Tesla V100-SXM2-32GB-LS",
+      "graphics_mhz": 705,
+      "max_graphics_mhz": 1440
+    },
+    {
+      "index": 4,
+      "name": "Tesla V100-SXM2-32GB-LS",
+      "graphics_mhz": 705,
+      "max_graphics_mhz": 1440
+    },
+    {
+      "index": 5,
+      "name": "Tesla V100-SXM2-32GB-LS",
+      "graphics_mhz": 705,
+      "max_graphics_mhz": 1440
+    },
+    {
+      "index": 6,
+      "name": "Tesla V100-SXM2-32GB-LS",
+      "graphics_mhz": 135,
+      "max_graphics_mhz": 1440
+    }
+  ],
+  "clocks_after": [
+    {
+      "index": 0,
+      "name": "Tesla V100-SXM2-32GB-LS",
+      "graphics_mhz": 1402,
+      "max_graphics_mhz": 1440
+    },
+    {
+      "index": 1,
+      "name": "Tesla V100-SXM2-32GB-LS",
+      "graphics_mhz": 1402,
+      "max_graphics_mhz": 1440
+    },
+    {
+      "index": 2,
+      "name": "Tesla V100-SXM2-32GB-LS",
+      "graphics_mhz": 1402,
+      "max_graphics_mhz": 1440
+    },
+    {
+      "index": 3,
+      "name": "Tesla V100-SXM2-32GB-LS",
+      "graphics_mhz": 1402,
+      "max_graphics_mhz": 1440
+    },
+    {
+      "index": 4,
+      "name": "Tesla V100-SXM2-32GB-LS",
+      "graphics_mhz": 1402,
+      "max_graphics_mhz": 1440
+    },
+    {
+      "index": 5,
+      "name": "Tesla V100-SXM2-32GB-LS",
+      "graphics_mhz": 1402,
+      "max_graphics_mhz": 1440
+    },
+    {
+      "index": 6,
+      "name": "Tesla V100-SXM2-32GB-LS",
+      "graphics_mhz": 135,
+      "max_graphics_mhz": 1440
+    }
+  ],
+  "apply_verified": false,
+  "finished_at": "2026-06-22T08:02:30.013038Z"
+}

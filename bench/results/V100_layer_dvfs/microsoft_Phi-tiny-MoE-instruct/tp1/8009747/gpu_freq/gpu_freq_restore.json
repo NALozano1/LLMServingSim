@@ -1,0 +1,133 @@
+{
+  "action": "restore",
+  "mode": "sync",
+  "clocks_bin": "/usr/local/sbin/nvidia-smi-clocks",
+  "sudo": true,
+  "parallel": true,
+  "ioctl_timing": {
+    "strategy": "burst_popen",
+    "n_gpus": 7,
+    "batch_wall_ms": 404.22,
+    "per_gpu": {
+      "0": {
+        "spawn_offset_ms": 0.0,
+        "duration_ms": 396.51
+      },
+      "1": {
+        "spawn_offset_ms": 1.38,
+        "duration_ms": 395.3
+      },
+      "2": {
+        "spawn_offset_ms": 3.19,
+        "duration_ms": 400.46
+      },
+      "3": {
+        "spawn_offset_ms": 4.73,
+        "duration_ms": 399.1
+      },
+      "4": {
+        "spawn_offset_ms": 6.45,
+        "duration_ms": 397.51
+      },
+      "5": {
+        "spawn_offset_ms": 8.15,
+        "duration_ms": 395.97
+      },
+      "6": {
+        "spawn_offset_ms": 9.69,
+        "duration_ms": 394.53
+      }
+    },
+    "max_gpu_duration_ms": 400.46,
+    "sum_gpu_duration_ms": 2779.38
+  },
+  "reset_results": {
+    "0": {
+      "ok": true,
+      "returncode": 0,
+      "stdout": "All done.",
+      "stderr": ""
+    },
+    "1": {
+      "ok": true,
+      "returncode": 0,
+      "stdout": "All done.",
+      "stderr": ""
+    },
+    "2": {
+      "ok": true,
+      "returncode": 0,
+      "stdout": "All done.",
+      "stderr": ""
+    },
+    "3": {
+      "ok": true,
+      "returncode": 0,
+      "stdout": "All done.",
+      "stderr": ""
+    },
+    "4": {
+      "ok": true,
+      "returncode": 0,
+      "stdout": "All done.",
+      "stderr": ""
+    },
+    "5": {
+      "ok": true,
+      "returncode": 0,
+      "stdout": "All done.",
+      "stderr": ""
+    },
+    "6": {
+      "ok": true,
+      "returncode": 0,
+      "stdout": "All done.",
+      "stderr": ""
+    }
+  },
+  "clocks_after_restore": [
+    {
+      "index": 0,
+      "name": "Tesla V100-SXM2-32GB-LS",
+      "graphics_mhz": 1402,
+      "max_graphics_mhz": 1440
+    },
+    {
+      "index": 1,
+      "name": "Tesla V100-SXM2-32GB-LS",
+      "graphics_mhz": 315,
+      "max_graphics_mhz": 1440
+    },
+    {
+      "index": 2,
+      "name": "Tesla V100-SXM2-32GB-LS",
+      "graphics_mhz": 315,
+      "max_graphics_mhz": 1440
+    },
+    {
+      "index": 3,
+      "name": "Tesla V100-SXM2-32GB-LS",
+      "graphics_mhz": 315,
+      "max_graphics_mhz": 1440
+    },
+    {
+      "index": 4,
+      "name": "Tesla V100-SXM2-32GB-LS",
+      "graphics_mhz": 315,
+      "max_graphics_mhz": 1440
+    },
+    {
+      "index": 5,
+      "name": "Tesla V100-SXM2-32GB-LS",
+      "graphics_mhz": 315,
+      "max_graphics_mhz": 1440
+    },
+    {
+      "index": 6,
+      "name": "Tesla V100-SXM2-32GB-LS",
+      "graphics_mhz": 135,
+      "max_graphics_mhz": 1440
+    }
+  ],
+  "finished_at": "2026-06-22T08:02:49.015299Z"
+}

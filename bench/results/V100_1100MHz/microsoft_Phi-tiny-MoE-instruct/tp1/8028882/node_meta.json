@@ -1,0 +1,35 @@
+{
+  "hostname": "htc-g048",
+  "slurm_nodelist": "htc-g048",
+  "slurm_job_id": "8028882",
+  "hardware": "V100_1100MHz",
+  "gpu_freq_mhz": 1100,
+  "model": "microsoft/Phi-tiny-MoE-instruct",
+  "tp_size": 1,
+  "dtype": "float16",
+  "dataset": "/data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/workloads/sharegpt-microsoft_Phi-tiny-MoE-instruct-100-sps10-seed42-ml4096.jsonl",
+  "recorded_at": "2026-06-24T18:17:15.872038+00:00",
+  "bench": {
+    "schema_version": 1,
+    "model": "microsoft/Phi-tiny-MoE-instruct",
+    "vllm_version": "0.19.0",
+    "engine_kwargs": {
+      "model": "microsoft/Phi-tiny-MoE-instruct",
+      "tensor_parallel_size": 1,
+      "data_parallel_size": 1,
+      "enable_expert_parallel": false,
+      "max_num_seqs": 64,
+      "max_num_batched_tokens": 2048,
+      "max_model_len": 4096,
+      "dtype": "float16",
+      "kv_cache_dtype": "auto",
+      "seed": 42
+    },
+    "dataset_path": "/data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/workloads/sharegpt-microsoft_Phi-tiny-MoE-instruct-100-sps10-seed42-ml4096.jsonl",
+    "dataset_hash": "9a1024bfc048de1a6b755df77b21d2e6e387e82fb61f9102cd10f0a61ff646f1",
+    "num_requests": 100,
+    "started_at": "2026-06-24T18:06:01.308376Z",
+    "finished_at": "2026-06-24T18:17:13.205323Z",
+    "tick_seconds": 1.0
+  }
+}

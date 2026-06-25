@@ -1,0 +1,36 @@
+{
+  "action": "restore",
+  "mode": "sync",
+  "clocks_bin": "/usr/local/sbin/nvidia-smi-clocks",
+  "sudo": true,
+  "parallel": false,
+  "ioctl_timing": {
+    "strategy": "sequential",
+    "n_gpus": 1,
+    "batch_wall_ms": 129.61,
+    "per_gpu": {
+      "0": {
+        "duration_ms": 129.56
+      }
+    },
+    "max_gpu_duration_ms": 129.56,
+    "sum_gpu_duration_ms": 129.56
+  },
+  "reset_results": {
+    "0": {
+      "ok": true,
+      "returncode": 0,
+      "stdout": "All done.",
+      "stderr": ""
+    }
+  },
+  "clocks_after_restore": [
+    {
+      "index": 0,
+      "name": "Tesla V100-SXM2-32GB-LS",
+      "graphics_mhz": 135,
+      "max_graphics_mhz": 1440
+    }
+  ],
+  "finished_at": "2026-06-23T23:12:24.589336Z"
+}

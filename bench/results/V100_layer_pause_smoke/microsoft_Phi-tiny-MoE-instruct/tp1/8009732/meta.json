@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "model": "microsoft/Phi-tiny-MoE-instruct",
+  "vllm_version": "0.19.0",
+  "engine_kwargs": {
+    "model": "microsoft/Phi-tiny-MoE-instruct",
+    "tensor_parallel_size": 1,
+    "data_parallel_size": 1,
+    "enable_expert_parallel": false,
+    "max_num_seqs": 1,
+    "max_num_batched_tokens": 512,
+    "max_model_len": 512,
+    "dtype": "float16",
+    "kv_cache_dtype": "auto",
+    "seed": 42,
+    "layer_pause": true,
+    "worker_extension_cls": "profiler.core.hooks.extension.Extension",
+    "engine_api": "LLM"
+  },
+  "dataset_path": "/data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/workloads/sharegpt-microsoft_Phi-tiny-MoE-instruct-1-sps100-seed42-ml512-fixlen64o1.jsonl",
+  "dataset_hash": "a50be3969a196fd9b0f41cb29be13ffd1a40342fb2ea3fb3dd42c637453043ba",
+  "num_requests": 1,
+  "started_at": "2026-06-22T07:50:31.652565Z",
+  "finished_at": "2026-06-22T07:50:48.517109Z",
+  "tick_seconds": 0.5
+}

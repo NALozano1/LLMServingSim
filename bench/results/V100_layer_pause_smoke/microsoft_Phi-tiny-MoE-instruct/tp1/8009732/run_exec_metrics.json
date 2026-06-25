@@ -1,0 +1,152 @@
+{
+  "output_dir": "/data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/bench/results/V100_layer_pause_smoke/microsoft_Phi-tiny-MoE-instruct/tp1/8009732",
+  "model": "microsoft/Phi-tiny-MoE-instruct",
+  "num_requests": 1,
+  "timing": {
+    "started_at": "2026-06-22T07:50:31.652565Z",
+    "finished_at": "2026-06-22T07:50:48.517109Z",
+    "wall_sec": 16.864544,
+    "pause_sec": 8.658089,
+    "exec_sec": 8.206455,
+    "barrier_wait_sec_worker": 8.658089,
+    "marker_pause_sec": 1.813982,
+    "barrier_count": 32
+  },
+  "throughput": {
+    "output_tok_per_sec_wall": 0.059,
+    "total_tok_per_sec_wall": 3.854,
+    "output_tok_per_sec_exec": 0.122,
+    "total_tok_per_sec_exec": 7.921
+  },
+  "tokens": {
+    "input_tokens": 64,
+    "output_tokens": 1,
+    "total_tokens": 65
+  },
+  "energy": {
+    "energy_j": 6135.553,
+    "energy_excl_pause_j": 5466.14,
+    "duration_sec": 16.193324,
+    "duration_excl_pause_sec": 14.432183,
+    "sample_count": 85,
+    "mean_power_w": 378.894,
+    "mean_power_excl_pause_w": 378.747
+  },
+  "latency": {
+    "source": "vllm_bench_requests_jsonl",
+    "bench_dir": "/data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/bench/results/V100_layer_pause_smoke/microsoft_Phi-tiny-MoE-instruct/tp1/8009732",
+    "meta": {
+      "schema_version": 1,
+      "model": "microsoft/Phi-tiny-MoE-instruct",
+      "vllm_version": "0.19.0",
+      "engine_kwargs": {
+        "model": "microsoft/Phi-tiny-MoE-instruct",
+        "tensor_parallel_size": 1,
+        "data_parallel_size": 1,
+        "enable_expert_parallel": false,
+        "max_num_seqs": 1,
+        "max_num_batched_tokens": 512,
+        "max_model_len": 512,
+        "dtype": "float16",
+        "kv_cache_dtype": "auto",
+        "seed": 42,
+        "layer_pause": true,
+        "worker_extension_cls": "profiler.core.hooks.extension.Extension",
+        "engine_api": "LLM"
+      },
+      "dataset_path": "/data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/workloads/sharegpt-microsoft_Phi-tiny-MoE-instruct-1-sps100-seed42-ml512-fixlen64o1.jsonl",
+      "dataset_hash": "a50be3969a196fd9b0f41cb29be13ffd1a40342fb2ea3fb3dd42c637453043ba",
+      "num_requests": 1,
+      "started_at": "2026-06-22T07:50:31.652565Z",
+      "finished_at": "2026-06-22T07:50:48.517109Z",
+      "tick_seconds": 0.5
+    },
+    "node_meta": {},
+    "ttft": {
+      "count": 1,
+      "mean_ms": 16288.518,
+      "median_ms": 16288.518,
+      "p90_ms": 16288.518,
+      "p99_ms": 16288.518
+    },
+    "tpot": {
+      "count": 0,
+      "mean_ms": null,
+      "median_ms": null,
+      "p90_ms": null,
+      "p99_ms": null
+    },
+    "e2e_latency": {
+      "count": 1,
+      "mean_ms": 16288.518,
+      "median_ms": 16288.518,
+      "p90_ms": 16288.518,
+      "p99_ms": 16288.518
+    },
+    "per_request": [
+      {
+        "request_id": "bench-0",
+        "input_toks": 64,
+        "output_toks": 1,
+        "ttft_ms": 16288.518,
+        "tpot_ms": 0.0,
+        "e2e_ms": 16288.518
+      }
+    ]
+  },
+  "layer_pause": {
+    "session_id": "bench",
+    "watch_root": "/data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/bench/results/V100_layer_pause_smoke/microsoft_Phi-tiny-MoE-instruct/tp1/8009732",
+    "barrier_dir": "/data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/bench/results/V100_layer_pause_smoke/microsoft_Phi-tiny-MoE-instruct/tp1/8009732/dvfs_barriers/bench",
+    "layers_installed": 32,
+    "num_model_layers": 32,
+    "layer_names": [
+      "layers.0",
+      "layers.1",
+      "layers.2",
+      "layers.3",
+      "layers.4",
+      "layers.5",
+      "layers.6",
+      "layers.7",
+      "layers.8",
+      "layers.9",
+      "layers.10",
+      "layers.11",
+      "layers.12",
+      "layers.13",
+      "layers.14",
+      "layers.15",
+      "layers.16",
+      "layers.17",
+      "layers.18",
+      "layers.19",
+      "layers.20",
+      "layers.21",
+      "layers.22",
+      "layers.23",
+      "layers.24",
+      "layers.25",
+      "layers.26",
+      "layers.27",
+      "layers.28",
+      "layers.29",
+      "layers.30",
+      "layers.31"
+    ],
+    "markers_path": "/data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/bench/results/V100_layer_pause_smoke/microsoft_Phi-tiny-MoE-instruct/tp1/8009732/dvfs_markers.jsonl"
+  },
+  "dvfs": {
+    "modes": [
+      "pause_only"
+    ],
+    "freq_mhz_observed": [],
+    "marker_count": 32
+  },
+  "artifacts": {
+    "meta": "/data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/bench/results/V100_layer_pause_smoke/microsoft_Phi-tiny-MoE-instruct/tp1/8009732/meta.json",
+    "requests": "/data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/bench/results/V100_layer_pause_smoke/microsoft_Phi-tiny-MoE-instruct/tp1/8009732/requests.jsonl",
+    "markers": "/data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/bench/results/V100_layer_pause_smoke/microsoft_Phi-tiny-MoE-instruct/tp1/8009732/dvfs_markers.jsonl",
+    "power": "/data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/bench/results/V100_layer_pause_smoke/microsoft_Phi-tiny-MoE-instruct/tp1/8009732/gpu_power/bench.jsonl"
+  }
+}

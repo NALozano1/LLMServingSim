@@ -1,0 +1,35 @@
+{
+  "hostname": "htc-g049",
+  "slurm_nodelist": "htc-g049",
+  "slurm_job_id": "8007792",
+  "hardware": "V100",
+  "gpu_freq_mhz": null,
+  "model": "Qwen/Qwen1.5-MoE-A2.7B-Chat",
+  "tp_size": 1,
+  "dtype": "float16",
+  "dataset": "/data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/workloads/sharegpt-Qwen_Qwen1.5-MoE-A2.7B-Chat-50-sps10-seed42-ml512-fixlen192o64.jsonl",
+  "recorded_at": "2026-06-21T16:10:48.725567+00:00",
+  "bench": {
+    "schema_version": 1,
+    "model": "Qwen/Qwen1.5-MoE-A2.7B-Chat",
+    "vllm_version": "0.19.0",
+    "engine_kwargs": {
+      "model": "Qwen/Qwen1.5-MoE-A2.7B-Chat",
+      "tensor_parallel_size": 1,
+      "data_parallel_size": 1,
+      "enable_expert_parallel": false,
+      "max_num_seqs": 8,
+      "max_num_batched_tokens": 1024,
+      "max_model_len": 512,
+      "dtype": "float16",
+      "kv_cache_dtype": "auto",
+      "seed": 42
+    },
+    "dataset_path": "/data/engs-glass/engs2950/DVFS-MoE/LLMServingSim/workloads/sharegpt-Qwen_Qwen1.5-MoE-A2.7B-Chat-50-sps10-seed42-ml512-fixlen192o64.jsonl",
+    "dataset_hash": "2436229db4b36311f06bf8bba0ceccdc18b38aef053aea373bf10d93552ac54c",
+    "num_requests": 50,
+    "started_at": "2026-06-21T15:55:01.742829Z",
+    "finished_at": "2026-06-21T16:10:46.945731Z",
+    "tick_seconds": 1.0
+  }
+}

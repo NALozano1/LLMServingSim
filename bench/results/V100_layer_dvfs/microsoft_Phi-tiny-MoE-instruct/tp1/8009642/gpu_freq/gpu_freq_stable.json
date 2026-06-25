@@ -1,0 +1,53 @@
+{
+  "ok": false,
+  "target_mhz": 1400,
+  "tolerance_mhz": 15,
+  "stable_reads": 2,
+  "elapsed_sec": 15.106,
+  "clocks": [
+    {
+      "index": 0,
+      "name": "Tesla V100-SXM2-32GB-LS",
+      "graphics_mhz": 705,
+      "max_graphics_mhz": 1440
+    }
+  ],
+  "samples": [
+    {
+      "elapsed_sec": 14.62,
+      "ok": false,
+      "graphics_mhz": [
+        705
+      ]
+    },
+    {
+      "elapsed_sec": 14.751,
+      "ok": false,
+      "graphics_mhz": [
+        705
+      ]
+    },
+    {
+      "elapsed_sec": 14.869,
+      "ok": false,
+      "graphics_mhz": [
+        705
+      ]
+    },
+    {
+      "elapsed_sec": 14.986,
+      "ok": false,
+      "graphics_mhz": [
+        705
+      ]
+    },
+    {
+      "elapsed_sec": 15.106,
+      "ok": false,
+      "graphics_mhz": [
+        705
+      ]
+    }
+  ],
+  "error": "timeout waiting for stable graphics clocks"
+}

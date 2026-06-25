@@ -1,7 +1,7 @@
 run_id	status	arm_label	model	tp_size	num_reqs	fix_input_length	gpu_freq_mhz_target	gpu_freq_mhz_achieved	clock_verdict_ok	wall_sec	exec_sec	ttft_median_ms	ttft_mean_ms	ttft_p90_ms	energy_j	energy_excl_pause_j	mean_power_w	mean_power_excl_pause_w	slurm_job_id	hostname	recorded_at
 phi_tp1_1100mhz	completed	1100mhz	microsoft/Phi-tiny-MoE-instruct	1	50	512	1100	1102	True	167.74559	167.74559	94105.996	91038.638	154902.7	19466.629	19466.629	116.505	116.505	8030503	arc-c296	2026-06-25T01:37:06.319836+00:00
 phi_tp1_1300mhz	completed	1300mhz	microsoft/Phi-tiny-MoE-instruct	1	50	512	1300	1305	True	163.543481	163.543481	91803.752	88813.37	151123.304	22003.177	22003.177	135.169	135.169	8030504	htc-g049	2026-06-25T01:50:57.555274+00:00
-phi_tp1_1400mhz	pending																				
+phi_tp1_1400mhz	completed	1400mhz	microsoft/Phi-tiny-MoE-instruct	1	50	512	1400	1402	True	184.588906	184.588906	94007.673	96497.461	166352.362	26385.698	26385.698	143.428	143.428	8030505	htc-g049	2026-06-25T01:59:16.707124+00:00
 phi_tp1_700mhz	pending																				
 phi_tp1_900mhz	pending																				
 phi_tp1_uncapped	pending																				
