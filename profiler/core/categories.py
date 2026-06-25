@@ -84,12 +84,25 @@ def _power_of_two_grid(max_value: int) -> list[int]:
     return values
 
 
+# Above this token count the dense grid switches from a step-16 stride to
+# power-of-2 spacing. Without this, a large ``max_num_batched_tokens`` (e.g.
+# 65536 for the MoE expert sweep) would explode the dense sweep into thousands
+# of step-16 shots (~4100 at 64k) and blow the job's walltime before the MoE
+# phase runs. Dense layer cost is ~linear in tokens, so power-of-2 spacing
+# captures the high end faithfully at a fraction of the cost. Must be a power
+# of two.
+_DENSE_FINE_CEILING = 8192
+
+
 def _token_grid(max_tokens: int) -> list[int]:
     """Dense grid used for both dense and per_sequence sweeps.
 
     Fine points at the low end (where decode-sized batches live),
     coarser at the high end. Matches the shape of vLLM's typical
-    runtime load — small batches dominate.
+    runtime load — small batches dominate. Above ``_DENSE_FINE_CEILING``
+    the stride switches from step-16 to power-of-2 so a large
+    ``max_num_batched_tokens`` doesn't blow the sweep up into thousands
+    of shots.
     """
     if max_tokens < 1:
         return []
@@ -98,9 +111,15 @@ def _token_grid(max_tokens: int) -> list[int]:
     pts.extend(range(1, min(16, max_tokens + 1)))
     # 16 .. 63 — step of 4. Transition regime.
     pts.extend(range(16, min(64, max_tokens + 1), 4))
-    # 64 .. max — step of 16. Longer-chunk regime.
-    pts.extend(range(64, max_tokens + 1, 16))
-    # max might not be captured by the strided range above.
+    # 64 .. min(max, ceiling) — step of 16. Longer-chunk regime.
+    fine_max = min(max_tokens, _DENSE_FINE_CEILING)
+    pts.extend(range(64, fine_max + 1, 16))
+    # Above the fine ceiling — power-of-2 spacing up to max_tokens.
+    v = _DENSE_FINE_CEILING * 2
+    while v <= max_tokens:
+        pts.append(v)
+        v *= 2
+    # max might not be captured by the strided/power-of-2 ranges above.
     if pts[-1] != max_tokens:
         pts.append(max_tokens)
     return pts
