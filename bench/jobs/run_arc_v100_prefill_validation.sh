@@ -195,17 +195,84 @@ fi
 
 # ── Collect summary ───────────────────────────────────────────────────────────
 python3 - <<COLLECT
-import json, socket
+import json, socket, statistics
 from datetime import datetime, timezone
 from pathlib import Path
 
 out_dir = Path("${OUT_DIR}")
 results_dir = Path("${RESULTS_DIR}")
-metrics_path = out_dir / "run_exec_metrics.json"
 freq_summary = out_dir / "gpu_freq" / "gpu_freq_hold_summary.json"
+meta_path    = out_dir / "meta.json"
+reqs_path    = out_dir / "requests.jsonl"
+power_path   = out_dir / "gpu_power" / "bench.jsonl"
 
-metrics = json.loads(metrics_path.read_text()) if metrics_path.exists() else {}
 freq_data = json.loads(freq_summary.read_text()) if freq_summary.exists() else {}
+meta      = json.loads(meta_path.read_text())    if meta_path.exists()     else {}
+
+# ── Timing from meta.json ──────────────────────────────────────────────────
+wall_sec = None
+if meta.get("started_at") and meta.get("finished_at"):
+    from datetime import datetime as _dt
+    fmt = "%Y-%m-%dT%H:%M:%S.%fZ"
+    t0 = _dt.strptime(meta["started_at"], fmt)
+    t1 = _dt.strptime(meta["finished_at"], fmt)
+    wall_sec = (t1 - t0).total_seconds()
+
+timing = {"wall_sec": wall_sec, "exec_sec": wall_sec, "pause_sec": 0.0}
+
+# ── Latency from requests.jsonl ────────────────────────────────────────────
+# TTFT = (first_token_ts - queued_ts) * 1000 ms  (timestamps are monotonic seconds)
+ttft_ms_list = []
+if reqs_path.exists():
+    for line in reqs_path.read_text().splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        r = json.loads(line)
+        if r.get("first_token_ts") is not None and r.get("queued_ts") is not None:
+            ttft_ms_list.append((r["first_token_ts"] - r["queued_ts"]) * 1000.0)
+
+def _pct(xs, p):
+    if not xs: return None
+    s = sorted(xs)
+    idx = max(0, min(len(s)-1, int(len(s)*p/100)))
+    return round(s[idx], 3)
+
+ttft = {
+    "count": len(ttft_ms_list),
+    "mean_ms":   round(statistics.mean(ttft_ms_list),   3) if ttft_ms_list else None,
+    "median_ms": round(statistics.median(ttft_ms_list), 3) if ttft_ms_list else None,
+    "p90_ms":    _pct(ttft_ms_list, 90),
+    "p99_ms":    _pct(ttft_ms_list, 99),
+}
+latency = {"ttft": ttft}
+
+# ── Energy from gpu_power/bench.jsonl (GPU index 0 only = CUDA_VISIBLE_DEVICES=0) ──
+energy_j = None
+mean_power_w = None
+if power_path.exists():
+    samples = [json.loads(l) for l in power_path.read_text().splitlines() if l.strip()]
+    gpu_idx = int("${GPU_IDX:-0}")
+    powers_w, wall_ts = [], []
+    for s in samples:
+        gpus = s.get("gpus", [])
+        match = next((g for g in gpus if g.get("index") == gpu_idx), None)
+        if match and match.get("power_w") is not None:
+            powers_w.append(match["power_w"])
+            wall_ts.append(s["wall_ts"])
+    if len(powers_w) > 1:
+        energy_j = sum(
+            (powers_w[i] + powers_w[i+1]) / 2.0 * (wall_ts[i+1] - wall_ts[i])
+            for i in range(len(powers_w)-1)
+        )
+        mean_power_w = statistics.mean(powers_w)
+
+energy = {
+    "energy_j": round(energy_j, 3) if energy_j else None,
+    "energy_excl_pause_j": round(energy_j, 3) if energy_j else None,
+    "mean_power_w": round(mean_power_w, 3) if mean_power_w else None,
+    "mean_power_excl_pause_w": round(mean_power_w, 3) if mean_power_w else None,
+}
 
 summary = {
     "arm_label": "${ARM_LABEL}",
@@ -220,10 +287,10 @@ summary = {
     "hostname": socket.gethostname(),
     "recorded_at": datetime.now(timezone.utc).isoformat(),
     "status": "completed",
-    "timing": metrics.get("timing"),
-    "latency": metrics.get("latency"),
-    "energy": metrics.get("energy"),
-    "throughput": metrics.get("throughput"),
+    "timing": timing,
+    "latency": latency,
+    "energy": energy,
+    "throughput": None,
 }
 results_dir.mkdir(parents=True, exist_ok=True)
 (results_dir / "summary.json").write_text(json.dumps(summary, indent=2))
