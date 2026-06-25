@@ -192,10 +192,13 @@ def fuse_engine_kwargs(args: ProfileArgs, tp: int) -> dict[str, Any]:
         sharded_overrides[field_name] = val // tp
 
     # EP sharding for MoE: when tp > 1 (= EP size in vLLM), profile the
-    # per-rank kernel by dividing num_experts by tp and setting top_k=1.
-    # After all-to-all dispatch each arriving (token, expert) pair uses
-    # exactly one local expert slot, so top_k=1 is the correct per-rank
-    # framing. See profiler/EP_RANK_PROFILING.md.
+    # per-rank kernel by dividing num_experts by tp. The token's top_k
+    # selected experts are spread across the tp ranks, so a given rank sees
+    # on the order of top_k/tp of them — its per-rank effective top_k (and
+    # hence the minimum distinct active experts) is top_k // tp, not a flat 1.
+    # That flat-1 floor only coincides with the correct value at tp == top_k
+    # (e.g. tp=8, top_k=8); for intermediate tp it understates the per-rank
+    # active-expert count. See profiler/EP_RANK_PROFILING.md.
     if tp > 1:
         for field_name in MOE_NUM_EXPERTS_KEYS:
             if field_name in args.model_config:
@@ -211,7 +214,13 @@ def fuse_engine_kwargs(args: ProfileArgs, tp: int) -> dict[str, Any]:
                 break
         for field_name in MOE_TOP_K_KEYS:
             if field_name in args.model_config:
-                sharded_overrides[field_name] = 1
+                topk_val = args.model_config[field_name]
+                if isinstance(topk_val, int):
+                    # per-rank effective top_k = top_k / tp (the token's top_k
+                    # experts are spread across the tp ranks); floor at 1.
+                    sharded_overrides[field_name] = max(1, topk_val // tp)
+                else:
+                    sharded_overrides[field_name] = 1
                 break
 
     # 5. Sharding wins.

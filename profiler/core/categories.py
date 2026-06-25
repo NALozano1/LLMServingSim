@@ -64,6 +64,8 @@ class ExpertPoint:
     tokens: int
     activated_experts: int
     microseconds: float
+    gating_ms: float | None = None
+    expert_ms: float | None = None
 
 
 # Union alias for writer.py's benefit.
@@ -530,10 +532,16 @@ class ExpertCategory(Category):
         if not timings:
             return
         sample = timings[0]
+        # gating_ms / expert_ms come from the per-phase CUDA Event timing
+        # stashed in the sample by extension.fire() (None for older runs
+        # or if phase isolation is disabled; safe due to default=None in
+        # TimingSample).
         yield ExpertPoint(
             tokens=total_tokens,
             activated_experts=activated,
             microseconds=sample.microseconds,
+            gating_ms=sample.gating_ms,
+            expert_ms=sample.expert_ms,
         )
 
     def catalog_slice(self, arch):

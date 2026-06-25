@@ -33,7 +33,9 @@ from profiler.core.hooks.batch import Shot, assemble_scheduler_output
 from profiler.core.hooks.moe_hook import (
     ExpertRoute,
     force_moe_routing,
+    get_phase_timings_us,
     single_moe_layer,
+    _phase_reset,
 )
 from profiler.core.hooks.layer_barrier import (
     InPlaceLayerBarrier,
@@ -201,22 +203,52 @@ class Extension:
                 layer_barrier.remove()
                 layer_barrier = None
 
+        # Reset the phase-split accumulator immediately before the measured
+        # loops.  The warmup run above should NOT contribute.
+        _phase_reset()
+
         measured_t0 = time.perf_counter()
         measured_wall_start = time.time()
         barrier_wait_sec = 0.0
         try:
-            with force_moe_routing(route):
-                with layerwise_profile() as hook:
-                    for _ in range(iterations):
-                        measured_out = self.model_runner.execute_model(
-                            _fresh_batch()
-                        )
-                        if measured_out is None:
-                            self.model_runner.sample_tokens(None)
-        finally:
-            if layer_barrier is not None:
-                barrier_wait_sec = layer_barrier.barrier_wait_sec
-                layer_barrier.remove()
+            try:
+                with force_moe_routing(route):
+                    with layerwise_profile() as hook:
+                        for _ in range(iterations):
+                            measured_out = self.model_runner.execute_model(
+                                _fresh_batch()
+                            )
+                            if measured_out is None:
+                                self.model_runner.sample_tokens(None)
+            finally:
+                if layer_barrier is not None:
+                    barrier_wait_sec = layer_barrier.barrier_wait_sec
+                    layer_barrier.remove()
+        except ZeroDivisionError:
+            # vLLM's layerwise_profile.__exit__ raises ZeroDivisionError when
+            # its module_tree is empty — this happens when the forward pass
+            # runs on a non-main thread (start_tid != 1), which vLLM's profiler
+            # filters out. Observed at large MNBT (>=65536) on vLLM v1. Return
+            # empty samples so the per_sequence/dense phase degrades gracefully
+            # rather than aborting the whole profiling run.
+            log.warning(
+                "layerwise_profile captured no CUDA events (empty module_tree;"
+                " forward pass ran on a non-main thread). Returning empty"
+                " samples for kind=%s shot.",
+                kind,
+            )
+            return []
+
+        # Read per-phase CUDA-event timings collected inside hooked_forward_native.
+        # For non-MoE kinds these will be zeros (accumulator never incremented).
+        phase_gating_us_total, phase_expert_us_total, phase_calls = get_phase_timings_us()
+        # Per-call averages (matching how layerwise_profile divides by invocations).
+        if phase_calls > 0:
+            gating_ms_per_call = (phase_gating_us_total / phase_calls) / 1e3
+            expert_ms_per_call = (phase_expert_us_total / phase_calls) / 1e3
+        else:
+            gating_ms_per_call = None
+            expert_ms_per_call = None
         measured_sec = time.perf_counter() - measured_t0
         measured_wall_end = time.time()
         fire_total_sec = time.perf_counter() - fire_t0
@@ -234,6 +266,10 @@ class Extension:
                 "measured_wall_end": measured_wall_end,
                 "measurement_iterations": iterations,
                 "barrier_enabled": bool(barrier_dir),
+                # MoE phase-split timings (None for non-moe kinds).
+                "gating_ms": round(gating_ms_per_call, 4) if gating_ms_per_call is not None else None,
+                "expert_ms": round(expert_ms_per_call, 4) if expert_ms_per_call is not None else None,
+                "phase_calls": phase_calls,
             }
             out = Path(timing_path)
             out.parent.mkdir(parents=True, exist_ok=True)
@@ -246,4 +282,11 @@ class Extension:
         summary = stats["summary_stats"]
 
         samples = extract_samples(summary, slice_)
-        return [s.as_dict() for s in samples]
+        # Attach phase-split fields to every sample dict so the host can
+        # read them without a separate RPC call.  For non-MoE kinds these
+        # are None and the host ignores them.
+        sample_dicts = [s.as_dict() for s in samples]
+        for d in sample_dicts:
+            d["gating_ms"] = round(gating_ms_per_call, 4) if gating_ms_per_call is not None else None
+            d["expert_ms"] = round(expert_ms_per_call, 4) if expert_ms_per_call is not None else None
+        return sample_dicts

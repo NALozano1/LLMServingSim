@@ -53,21 +53,32 @@ class DedupSink:
     Uses dataclass field names to derive the CSV schema, so adding a
     new axis to a Point type is a zero-writer-code change.
 
-    Duplicate detection key = every field except ``microseconds``.
+    Duplicate detection key = every field except ``microseconds`` (and
+    any optional extra_value_fields such as ``gating_ms``/``expert_ms``).
     """
 
-    def __init__(self, out_path: Path, key_fields: list[str]) -> None:
+    def __init__(
+        self,
+        out_path: Path,
+        key_fields: list[str],
+        extra_value_fields: list[str] | None = None,
+    ) -> None:
         """
         Args:
             out_path: full CSV path, e.g. ``perf/.../tp1/dense.csv``.
             key_fields: the non-time field names to index by. Must be
                 a subset of the Point dataclass's field names; the
                 remaining field must be ``microseconds``.
+            extra_value_fields: additional numeric fields to accumulate
+                and average alongside ``microseconds`` (e.g. ``gating_ms``,
+                ``expert_ms`` for the MoE category). None-valued entries
+                are ignored in the average.
         """
         self.out_path = out_path
         self.key_fields = key_fields
-        # key tuple -> (running_sum, count)
-        self._bucket: dict[tuple, tuple[float, int]] = {}
+        self.extra_value_fields: list[str] = extra_value_fields or []
+        # key tuple -> (us_sum, count, {extra_field: [sum, count]})
+        self._bucket: dict[tuple, tuple[float, int, dict[str, list[float]]]] = {}
         # Track fieldnames in the order we first see them so the CSV
         # column order is deterministic (matches insertion in the
         # writer).
@@ -83,17 +94,34 @@ class DedupSink:
         if self._fieldnames is None:
             # Preserve dataclass field declaration order; put time_us
             # last regardless of where it appears in the dataclass.
-            ordered = [f for f in d.keys() if f != "microseconds"]
+            skip = {"microseconds"} | set(self.extra_value_fields)
+            ordered = [f for f in d.keys() if f not in skip]
             ordered.append("microseconds")
+            for ef in self.extra_value_fields:
+                if ef in d:
+                    ordered.append(ef)
             self._fieldnames = ordered
 
         key = tuple(d[f] for f in self.key_fields)
         us = float(d["microseconds"])
         prev = self._bucket.get(key)
         if prev is None:
-            self._bucket[key] = (us, 1)
+            extras: dict[str, list[float]] = {}
+            for ef in self.extra_value_fields:
+                v = d.get(ef)
+                if v is not None:
+                    extras[ef] = [float(v), 1.0]
+                else:
+                    extras[ef] = [0.0, 0.0]
+            self._bucket[key] = (us, 1, extras)
         else:
-            self._bucket[key] = (prev[0] + us, prev[1] + 1)
+            us_sum, count, extras = prev
+            for ef in self.extra_value_fields:
+                v = d.get(ef)
+                if v is not None:
+                    extras[ef][0] += float(v)
+                    extras[ef][1] += 1.0
+            self._bucket[key] = (us_sum + us, count + 1, extras)
 
     # ------------------------------------------------------------------
     # Resume support
@@ -147,8 +175,19 @@ class DedupSink:
                 if bad:
                     continue
                 key = tuple(key_parts)
+                # Load extra value fields from prior CSV if present.
+                extras: dict[str, list[float]] = {}
+                for ef in self.extra_value_fields:
+                    raw_v = row.get(ef)
+                    if raw_v not in (None, "", "None"):
+                        try:
+                            extras[ef] = [float(raw_v), 1.0]
+                        except (TypeError, ValueError):
+                            extras[ef] = [0.0, 0.0]
+                    else:
+                        extras[ef] = [0.0, 0.0]
                 # Single-sample bucket entry: preserve the exact value.
-                self._bucket[key] = (us, 1)
+                self._bucket[key] = (us, 1, extras)
                 count += 1
         return count
 
@@ -189,10 +228,18 @@ class DedupSink:
         # Produce rows in sort order.
         rows: list[dict[str, Any]] = []
         for key in sorted(self._bucket.keys()):
-            total_us, count = self._bucket[key]
+            bucket_entry = self._bucket[key]
+            total_us, count = bucket_entry[0], bucket_entry[1]
+            extras: dict[str, list[float]] = bucket_entry[2] if len(bucket_entry) > 2 else {}
             avg_us = total_us / count
             row = {f: v for f, v in zip(self.key_fields, key)}
             row["time_us"] = _format_time_us(avg_us)
+            for ef in self.extra_value_fields:
+                ef_data = extras.get(ef)
+                if ef_data and ef_data[1] > 0:
+                    row[ef] = _format_time_us(ef_data[0] / ef_data[1])
+                else:
+                    row[ef] = ""
             rows.append(row)
 
         assert self._fieldnames is not None
@@ -202,6 +249,11 @@ class DedupSink:
             "time_us" if f == "microseconds" else f
             for f in header
         ]
+        # Ensure extra value columns are in header even when not in
+        # fieldnames (e.g. when all values were None in this run).
+        for ef in self.extra_value_fields:
+            if ef not in header:
+                header.append(ef)
 
         with self.out_path.open("w", newline="", encoding="utf-8") as f:
             writer = csv.DictWriter(f, fieldnames=header)
@@ -235,16 +287,29 @@ def sink_for(category: Category, out_dir: Path) -> DedupSink:
     """Build a DedupSink pre-configured for a given category's schema."""
     csv_path = out_dir / category.sink_filename
     key_fields = _KEY_FIELDS_BY_CATEGORY[category.name]
-    return DedupSink(out_path=csv_path, key_fields=key_fields)
+    extra_value_fields = _EXTRA_VALUE_FIELDS_BY_CATEGORY.get(category.name)
+    return DedupSink(
+        out_path=csv_path,
+        key_fields=key_fields,
+        extra_value_fields=extra_value_fields,
+    )
 
 
 # The only place where category→key-field mapping is specified. Adding
 # a new Point type means adding a line here.
+# NOTE: moe key fields are the identity axes (tokens, activated_experts);
+# microseconds / gating_ms / expert_ms are value columns, not key columns.
 _KEY_FIELDS_BY_CATEGORY: dict[str, list[str]] = {
     "dense": ["layer", "tokens"],
     "per_sequence": ["layer", "sequences"],
     "attention": ["prefill_chunk", "kv_prefill", "n_decode", "kv_decode"],
     "moe": ["tokens", "activated_experts"],
+}
+
+# Extra numeric value columns to accumulate/average alongside microseconds.
+# Only categories that produce phase-split timings need entries here.
+_EXTRA_VALUE_FIELDS_BY_CATEGORY: dict[str, list[str]] = {
+    "moe": ["gating_ms", "expert_ms"],
 }
 
 

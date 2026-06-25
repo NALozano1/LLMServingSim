@@ -36,10 +36,16 @@ class TimingSample:
     (which can happen e.g. if a decoder has more than one layer and we
     forgot to set hf_overrides.num_hidden_layers=1) each sample
     represents the *per-call* cost.
+
+    ``gating_ms`` and ``expert_ms`` are MoE-only phase-split timings
+    (in milliseconds) from CUDA Event instrumentation in moe_hook.py.
+    Both are None for non-MoE profile categories.
     """
 
     layer: str
     microseconds: float
+    gating_ms: float | None = None
+    expert_ms: float | None = None
 
     def as_dict(self) -> dict[str, Any]:
         return asdict(self)

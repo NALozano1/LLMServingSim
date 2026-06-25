@@ -25,12 +25,52 @@ monkey-patch to match renamed or restructured symbols.
 
 from __future__ import annotations
 
+import threading
 from contextlib import contextmanager
 from dataclasses import dataclass
 from functools import wraps
 from typing import Iterator
 
 import torch
+
+# ---------------------------------------------------------------------------
+# Thread-local accumulator for per-phase CUDA event timings
+# ---------------------------------------------------------------------------
+
+_phase_local = threading.local()
+
+
+def _phase_reset() -> None:
+    """Reset the per-shot phase accumulator.
+
+    Call before each timed forward to start fresh.
+    """
+    _phase_local.gating_us_sum = 0.0
+    _phase_local.expert_us_sum = 0.0
+    _phase_local.calls = 0
+
+
+def _phase_record(gating_us: float, expert_us: float) -> None:
+    """Accumulate one MoE call's phase timings (microseconds)."""
+    if not hasattr(_phase_local, "calls"):
+        _phase_reset()
+    _phase_local.gating_us_sum += gating_us
+    _phase_local.expert_us_sum += expert_us
+    _phase_local.calls += 1
+
+
+def get_phase_timings_us() -> tuple[float, float, int]:
+    """Return (gating_us_total, expert_us_total, n_calls) since last reset.
+
+    Safe to call even if _phase_reset() was never called — returns zeros.
+    """
+    if not hasattr(_phase_local, "calls"):
+        return 0.0, 0.0, 0
+    return (
+        _phase_local.gating_us_sum,
+        _phase_local.expert_us_sum,
+        _phase_local.calls,
+    )
 
 
 @dataclass
@@ -192,6 +232,13 @@ def force_moe_routing(route: ExpertRoute | None) -> Iterator[None]:
         # than swapping select_experts wholesale because
         # select_experts does normalization / validation around
         # _compute_routing that we still want to run.
+        #
+        # PHASE ISOLATION: We additionally instrument hooked_select_experts
+        # with CUDA Event timers to isolate gating time from expert-compute
+        # time. The timings are stashed in a thread-local accumulator so
+        # that fire() can read them after the layerwise_profile context
+        # exits (the profiler's own hook records wall-clock totals for the
+        # whole FusedMoE module; we record per-phase splits here in parallel).
         original_select_experts = self.router.select_experts
         original_compute_routing = self.router._compute_routing
 
@@ -219,7 +266,57 @@ def force_moe_routing(route: ExpertRoute | None) -> Iterator[None]:
 
         self.router.select_experts = hooked_select_experts
         try:
-            return original_forward_native(self, hidden_states, router_logits)
+            # ---------- PHASE-ISOLATED CUDA EVENT TIMING ----------
+            # We run two pairs of CUDA Events:
+            #   (ev_gate_start, ev_gate_end)   — gating phase
+            #   (ev_exp_start,  ev_exp_end)    — expert compute phase
+            #
+            # The trick: we intercept forward_native by splitting the
+            # call into the two logical phases ourselves.  forward_native
+            # internally does:
+            #   1. topk_weights, topk_ids = self.router.select_experts(...)  [GATING]
+            #   2. hidden = fused_experts(hidden_states, ...)                [EXPERT COMPUTE]
+            # rather than replicate that logic we wrap select_experts again
+            # at the instance level to capture the gating boundary.
+            #
+            # Strategy: use torch.cuda.Event pairs. Record gate_start before
+            # select_experts, gate_end after; exp_start immediately after,
+            # exp_end after the full forward_native returns.  The difference
+            # (forward_native total − gating) gives expert_us; directly
+            # measuring gating gives gating_us.
+            #
+            # NOTE: torch.cuda.Event.elapsed_time() returns milliseconds.
+            # We convert to microseconds for consistency with the rest of
+            # the profiler (TimingSample.microseconds, writer time_us).
+            ev_gate_start = torch.cuda.Event(enable_timing=True)
+            ev_gate_end   = torch.cuda.Event(enable_timing=True)
+            ev_exp_end    = torch.cuda.Event(enable_timing=True)
+
+            # Wrap select_experts one more time to bookend gating.
+            inner_select = self.router.select_experts
+
+            def timed_select_experts(*a, **kw):
+                ev_gate_start.record()
+                result = inner_select(*a, **kw)
+                ev_gate_end.record()
+                return result
+
+            self.router.select_experts = timed_select_experts
+            try:
+                result = original_forward_native(self, hidden_states, router_logits)
+            finally:
+                self.router.select_experts = inner_select
+
+            ev_exp_end.record()
+            torch.cuda.synchronize()
+
+            # elapsed_time returns ms → convert to us
+            gating_us = ev_gate_start.elapsed_time(ev_gate_end) * 1e3
+            total_us  = ev_gate_start.elapsed_time(ev_exp_end)  * 1e3
+            expert_us = max(0.0, total_us - gating_us)
+
+            _phase_record(gating_us, expert_us)
+            return result
         finally:
             self.router.select_experts = original_select_experts
 
