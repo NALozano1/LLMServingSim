@@ -219,6 +219,8 @@ def _fire_single_shot(
         TimingSample(
             layer=d["layer"],
             microseconds=float(d["microseconds"]),
+            gating_ms=d.get("gating_ms"),
+            expert_ms=d.get("expert_ms"),
         )
         for d in timings_dicts
     ]
@@ -339,6 +341,8 @@ def _fire_one_category(
                 dvfs_pause=dvfs_pause,
                 sink=sink,
             )
+            if sink is not None:
+                sink.flush()
             bar.advance(1)
 
     if dvfs_pause and not dvfs_host_poller_enabled():
