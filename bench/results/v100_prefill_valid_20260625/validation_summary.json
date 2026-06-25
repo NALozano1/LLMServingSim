@@ -1,0 +1,181 @@
+{
+  "campaign_dir": "bench/campaigns/v100_prefill_valid_20260625",
+  "total_runs": 12,
+  "completed": 2,
+  "pending": 10,
+  "failed": 0,
+  "by_model": {
+    "microsoft/Phi-tiny-MoE-instruct": [
+      {
+        "clock_label": "1100mhz",
+        "target_mhz": 1100,
+        "achieved_mhz": 1102,
+        "clock_ok": true,
+        "ttft_median_ms": 94105.996,
+        "ttft_p90_ms": 154902.7,
+        "energy_excl_pause_j": 19466.629,
+        "mean_power_excl_pause_w": 116.505
+      },
+      {
+        "clock_label": "1300mhz",
+        "target_mhz": 1300,
+        "achieved_mhz": 1305,
+        "clock_ok": true,
+        "ttft_median_ms": 91803.752,
+        "ttft_p90_ms": 151123.304,
+        "energy_excl_pause_j": 22003.177,
+        "mean_power_excl_pause_w": 135.169
+      }
+    ],
+    "phi_tp1_1400mhz": [
+      {
+        "clock": "?",
+        "status": "pending"
+      }
+    ],
+    "phi_tp1_700mhz": [
+      {
+        "clock": "?",
+        "status": "pending"
+      }
+    ],
+    "phi_tp1_900mhz": [
+      {
+        "clock": "?",
+        "status": "pending"
+      }
+    ],
+    "phi_tp1_uncapped": [
+      {
+        "clock": "?",
+        "status": "pending"
+      }
+    ],
+    "qwen_tp4_1100mhz": [
+      {
+        "clock": "?",
+        "status": "pending"
+      }
+    ],
+    "qwen_tp4_1300mhz": [
+      {
+        "clock": "?",
+        "status": "pending"
+      }
+    ],
+    "qwen_tp4_1400mhz": [
+      {
+        "clock": "?",
+        "status": "pending"
+      }
+    ],
+    "qwen_tp4_700mhz": [
+      {
+        "clock": "?",
+        "status": "pending"
+      }
+    ],
+    "qwen_tp4_900mhz": [
+      {
+        "clock": "?",
+        "status": "pending"
+      }
+    ],
+    "qwen_tp4_uncapped": [
+      {
+        "clock": "?",
+        "status": "pending"
+      }
+    ]
+  },
+  "all_rows": [
+    {
+      "run_id": "phi_tp1_1100mhz",
+      "status": "completed",
+      "arm_label": "1100mhz",
+      "model": "microsoft/Phi-tiny-MoE-instruct",
+      "tp_size": 1,
+      "num_reqs": 50,
+      "fix_input_length": 512,
+      "gpu_freq_mhz_target": 1100,
+      "gpu_freq_mhz_achieved": 1102,
+      "clock_verdict_ok": true,
+      "wall_sec": 167.74559,
+      "exec_sec": 167.74559,
+      "ttft_median_ms": 94105.996,
+      "ttft_mean_ms": 91038.638,
+      "ttft_p90_ms": 154902.7,
+      "energy_j": 19466.629,
+      "energy_excl_pause_j": 19466.629,
+      "mean_power_w": 116.505,
+      "mean_power_excl_pause_w": 116.505,
+      "slurm_job_id": "8030503",
+      "hostname": "arc-c296",
+      "recorded_at": "2026-06-25T01:37:06.319836+00:00"
+    },
+    {
+      "run_id": "phi_tp1_1300mhz",
+      "status": "completed",
+      "arm_label": "1300mhz",
+      "model": "microsoft/Phi-tiny-MoE-instruct",
+      "tp_size": 1,
+      "num_reqs": 50,
+      "fix_input_length": 512,
+      "gpu_freq_mhz_target": 1300,
+      "gpu_freq_mhz_achieved": 1305,
+      "clock_verdict_ok": true,
+      "wall_sec": 163.543481,
+      "exec_sec": 163.543481,
+      "ttft_median_ms": 91803.752,
+      "ttft_mean_ms": 88813.37,
+      "ttft_p90_ms": 151123.304,
+      "energy_j": 22003.177,
+      "energy_excl_pause_j": 22003.177,
+      "mean_power_w": 135.169,
+      "mean_power_excl_pause_w": 135.169,
+      "slurm_job_id": "8030504",
+      "hostname": "htc-g049",
+      "recorded_at": "2026-06-25T01:50:57.555274+00:00"
+    },
+    {
+      "run_id": "phi_tp1_1400mhz",
+      "status": "pending"
+    },
+    {
+      "run_id": "phi_tp1_700mhz",
+      "status": "pending"
+    },
+    {
+      "run_id": "phi_tp1_900mhz",
+      "status": "pending"
+    },
+    {
+      "run_id": "phi_tp1_uncapped",
+      "status": "pending"
+    },
+    {
+      "run_id": "qwen_tp4_1100mhz",
+      "status": "pending"
+    },
+    {
+      "run_id": "qwen_tp4_1300mhz",
+      "status": "pending"
+    },
+    {
+      "run_id": "qwen_tp4_1400mhz",
+      "status": "pending"
+    },
+    {
+      "run_id": "qwen_tp4_700mhz",
+      "status": "pending"
+    },
+    {
+      "run_id": "qwen_tp4_900mhz",
+      "status": "pending"
+    },
+    {
+      "run_id": "qwen_tp4_uncapped",
+      "status": "pending"
+    }
+  ]
+}
