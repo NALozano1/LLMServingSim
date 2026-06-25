@@ -213,6 +213,9 @@ Collect: `python3 bench/jobs/collect_bench_layer_campaign_results.py bench/campa
 | 2026-06-24 | Async barrier marker bug found + fixed: calib runner was killing the host poller immediately after the container exited, before the Python marker-write block completed. Fixed with a 30 s drain wait (polling `dvfs_markers.jsonl` for expected marker count) before sending SIGTERM. |
 | 2026-06-25 | Prefill-only sim-accuracy validation matrix: `run_arc_v100_prefill_validation.sh` + `submit_prefill_validation_matrix.sh`. Phi tp1 + Qwen3-30B tp4 at {uncapped, 700, 900, 1100, 1300, 1400} MHz on g049. No layer-pause; clock-locked + audited; `gpu_power` on. Tier-1 (no-DVFS uncapped) + Tier-2 (per-clock accuracy) for LLMServingSim validation. `collect_prefill_validation_results.py` aggregates results. |
 | 2026-06-25 | Fixed `--sps` omission in prefill validation dataset generator call (was always required); resubmitted all 12 validation jobs (8030500–8030511). |
+| 2026-06-25 | Fixed `bench_prefill_only_enabled` scope bug in `bench/core/runner.py`: import was placed in `_drive`'s local scope but the call site is inside `_one()`, a closure in `_submit_all()` — a separate top-level function. Moved import to top of `_submit_all`. Commit `f876f194`. Re-queued 3 failed Phi 512-tok runs as 8030549–8030551. |
+| 2026-06-25 | Populated `profiler/perf/V100/Qwen/Qwen3-30B/fp16/tp4/moe.csv` from dvfs-policy tp4 uncapped run (tokens 1–4096, ae 2–32). Commit `c6e47d37`. |
+| 2026-06-25 | Added Phi 256-tok validation campaign (`v100_prefill_valid_256tok_20260625`, jobs 8030529–8030535): profiler trace max is 256 tokens — this campaign stays within range for a clean attention extrapolation check. |
 
 ---
 
