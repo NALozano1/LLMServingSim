@@ -1,0 +1,60 @@
+{
+  "results": [
+    {
+      "campaign": "v100_tcalib_slim_async",
+      "run_id": "tcalib_n001_phi_i00",
+      "model_key": "phi",
+      "dvfs_apply_mode": "async",
+      "n_transitions": 1,
+      "exec_sec": 6.868299,
+      "wall_sec": 7.589033,
+      "barrier_wait_sec_worker": 0.720734,
+      "per_barrier_sec": 0.7207,
+      "exec_overhead_vs_baseline_sec": null,
+      "wall_overhead_vs_baseline_sec": null,
+      "baseline_exec_sec": null,
+      "marker_count": 0,
+      "barrier_count": 0,
+      "ttft_ms": 6933.324,
+      "freq_schedule_mhz": [
+        700
+      ],
+      "barrier_layers": [
+        24
+      ]
+    },
+    {
+      "campaign": "v100_tcalib_slim_sync",
+      "run_id": "tcalib_n001_phi_i00",
+      "model_key": "phi",
+      "dvfs_apply_mode": "sync",
+      "n_transitions": 1,
+      "exec_sec": 8.220379,
+      "wall_sec": 25.821874,
+      "barrier_wait_sec_worker": 17.601495,
+      "per_barrier_sec": 17.6015,
+      "exec_overhead_vs_baseline_sec": null,
+      "wall_overhead_vs_baseline_sec": null,
+      "baseline_exec_sec": null,
+      "marker_count": 1,
+      "barrier_count": 1,
+      "ttft_ms": 24056.491,
+      "freq_schedule_mhz": [
+        700
+      ],
+      "barrier_layers": [
+        24
+      ]
+    }
+  ],
+  "missing_runs": [
+    {
+      "run_id": "tcalib_n000_phi_i00",
+      "campaign": "v100_tcalib_slim_async"
+    },
+    {
+      "run_id": "tcalib_n000_phi_i00",
+      "campaign": "v100_tcalib_slim_sync"
+    }
+  ]
+}
