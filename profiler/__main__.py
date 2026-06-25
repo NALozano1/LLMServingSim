@@ -163,6 +163,12 @@ def _add_common_flags(p: argparse.ArgumentParser) -> None:
                         "the uniform sweep is already done and you want "
                         "to add (or refresh) skew.csv without redoing "
                         "the rest.")
+    p.add_argument("--only-moe", action="store_true", default=False,
+                   dest="only_moe",
+                   help="Skip dense/per_sequence/attention categories and "
+                        "run ONLY the MoE expert profiling step (moe.csv). "
+                        "Use when dense data already exists and only MoE "
+                        "timing at new clock frequencies is needed.")
     p.add_argument("--force", action="store_true", default=False,
                    dest="force",
                    help="Wipe existing CSVs and re-profile from scratch. "
@@ -336,6 +342,7 @@ def _build_profile_args(
         skew_kp_factor=getattr(ns, "skew_kp_factor", 2.0),
         skew_kvs_factor=getattr(ns, "skew_kvs_factor", 2.0),
         only_skew=getattr(ns, "only_skew", False),
+        only_moe=getattr(ns, "only_moe", False),
         force=getattr(ns, "force", False),
         hf_overrides=(
             {"num_hidden_layers": ns.num_hidden_layers}

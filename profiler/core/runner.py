@@ -439,6 +439,12 @@ def run_full(
         try:
             if not args.only_skew:
                 for category in categories_for(arch, tp):
+                    if args.only_moe and category.name != "moe":
+                        log.info(
+                            "only_moe mode: skipping %s category",
+                            category.name,
+                        )
+                        continue
                     _fire_one_category(
                         llm, category, arch, args, limits, tp, tp_root,
                     )

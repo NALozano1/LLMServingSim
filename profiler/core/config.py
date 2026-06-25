@@ -418,6 +418,13 @@ class ProfileArgs:
     attention sweep has already been done and you want to add skew
     data without reprofiling from scratch."""
 
+    only_moe: bool = False
+    """If True, skip dense/per_sequence/attention categories and run
+    ONLY the MoE expert (moe.csv) profiling step. Use when dense data
+    already exists (e.g. from a baseline run) and only MoE timing at
+    new frequencies is needed — avoids the quadratic-attention cost of
+    the full dense sweep at large MNBT values."""
+
     force: bool = False
     """If True, wipe existing CSVs before profiling rather than
     resuming. Default (False) preloads existing rows and skips shots

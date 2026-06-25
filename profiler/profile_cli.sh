@@ -36,6 +36,7 @@ Options:
   --variant <name>
   --skip-skew               Skip heterogeneous-decode skew sweep
   --only-skew               Run skew sweep only
+  --only-moe                Run MoE expert profiling only (skip dense/attention)
   --force                   Wipe CSVs and re-profile
   --verbose                 DEBUG + vLLM stdout
   --silent                  Warnings only
@@ -68,6 +69,7 @@ while [[ $# -gt 0 ]]; do
     --variant) VARIANT="$2"; shift 2 ;;
     --skip-skew) SKIP_SKEW=1; shift ;;
     --only-skew) ONLY_SKEW=1; shift ;;
+    --only-moe) ONLY_MOE=1; shift ;;
     --force) FORCE=1; shift ;;
     --verbose) VERBOSITY="--verbose"; shift ;;
     --silent) VERBOSITY="--silent"; shift ;;
