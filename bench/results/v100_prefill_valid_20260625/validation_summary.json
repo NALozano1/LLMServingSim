@@ -1,11 +1,31 @@
 {
   "campaign_dir": "bench/campaigns/v100_prefill_valid_20260625",
   "total_runs": 12,
-  "completed": 3,
-  "pending": 9,
+  "completed": 6,
+  "pending": 6,
   "failed": 0,
   "by_model": {
     "microsoft/Phi-tiny-MoE-instruct": [
+      {
+        "clock_label": "700mhz",
+        "target_mhz": 700,
+        "achieved_mhz": 705,
+        "clock_ok": true,
+        "ttft_median_ms": 144387.349,
+        "ttft_p90_ms": 256664.736,
+        "energy_excl_pause_j": 24394.172,
+        "mean_power_excl_pause_w": 87.171
+      },
+      {
+        "clock_label": "900mhz",
+        "target_mhz": 900,
+        "achieved_mhz": 900,
+        "clock_ok": true,
+        "ttft_median_ms": 98393.99,
+        "ttft_p90_ms": 161952.039,
+        "energy_excl_pause_j": 18093.122,
+        "mean_power_excl_pause_w": 103.772
+      },
       {
         "clock_label": "1100mhz",
         "target_mhz": 1100,
@@ -35,24 +55,16 @@
         "ttft_p90_ms": 166352.362,
         "energy_excl_pause_j": 26385.698,
         "mean_power_excl_pause_w": 143.428
-      }
-    ],
-    "phi_tp1_700mhz": [
+      },
       {
-        "clock": "?",
-        "status": "pending"
-      }
-    ],
-    "phi_tp1_900mhz": [
-      {
-        "clock": "?",
-        "status": "pending"
-      }
-    ],
-    "phi_tp1_uncapped": [
-      {
-        "clock": "?",
-        "status": "pending"
+        "clock_label": "uncapped",
+        "target_mhz": null,
+        "achieved_mhz": null,
+        "clock_ok": null,
+        "ttft_median_ms": 93896.612,
+        "ttft_p90_ms": 166167.958,
+        "energy_excl_pause_j": 27315.487,
+        "mean_power_excl_pause_w": 148.081
       }
     ],
     "qwen_tp4_1100mhz": [
@@ -167,15 +179,75 @@
     },
     {
       "run_id": "phi_tp1_700mhz",
-      "status": "pending"
+      "status": "completed",
+      "arm_label": "700mhz",
+      "model": "microsoft/Phi-tiny-MoE-instruct",
+      "tp_size": 1,
+      "num_reqs": 50,
+      "fix_input_length": 512,
+      "gpu_freq_mhz_target": 700,
+      "gpu_freq_mhz_achieved": 705,
+      "clock_verdict_ok": true,
+      "wall_sec": 280.194051,
+      "exec_sec": 280.194051,
+      "ttft_median_ms": 144387.349,
+      "ttft_mean_ms": 148169.03,
+      "ttft_p90_ms": 256664.736,
+      "energy_j": 24394.172,
+      "energy_excl_pause_j": 24394.172,
+      "mean_power_w": 87.171,
+      "mean_power_excl_pause_w": 87.171,
+      "slurm_job_id": "8030550",
+      "hostname": "htc-g049",
+      "recorded_at": "2026-06-25T04:39:37.782422+00:00"
     },
     {
       "run_id": "phi_tp1_900mhz",
-      "status": "pending"
+      "status": "completed",
+      "arm_label": "900mhz",
+      "model": "microsoft/Phi-tiny-MoE-instruct",
+      "tp_size": 1,
+      "num_reqs": 50,
+      "fix_input_length": 512,
+      "gpu_freq_mhz_target": 900,
+      "gpu_freq_mhz_achieved": 900,
+      "clock_verdict_ok": true,
+      "wall_sec": 174.631352,
+      "exec_sec": 174.631352,
+      "ttft_median_ms": 98393.99,
+      "ttft_mean_ms": 95168.131,
+      "ttft_p90_ms": 161952.039,
+      "energy_j": 18093.122,
+      "energy_excl_pause_j": 18093.122,
+      "mean_power_w": 103.772,
+      "mean_power_excl_pause_w": 103.772,
+      "slurm_job_id": "8030551",
+      "hostname": "htc-g049",
+      "recorded_at": "2026-06-25T04:51:01.052125+00:00"
     },
     {
       "run_id": "phi_tp1_uncapped",
-      "status": "pending"
+      "status": "completed",
+      "arm_label": "uncapped",
+      "model": "microsoft/Phi-tiny-MoE-instruct",
+      "tp_size": 1,
+      "num_reqs": 50,
+      "fix_input_length": 512,
+      "gpu_freq_mhz_target": null,
+      "gpu_freq_mhz_achieved": null,
+      "clock_verdict_ok": null,
+      "wall_sec": 184.804515,
+      "exec_sec": 184.804515,
+      "ttft_median_ms": 93896.612,
+      "ttft_mean_ms": 96396.676,
+      "ttft_p90_ms": 166167.958,
+      "energy_j": 27315.487,
+      "energy_excl_pause_j": 27315.487,
+      "mean_power_w": 148.081,
+      "mean_power_excl_pause_w": 148.081,
+      "slurm_job_id": "8030549",
+      "hostname": "htc-g049",
+      "recorded_at": "2026-06-25T04:26:19.855991+00:00"
     },
     {
       "run_id": "qwen_tp4_1100mhz",
