@@ -206,7 +206,7 @@ Collect: `python3 bench/jobs/collect_bench_layer_campaign_results.py bench/campa
 
 | Date | Note |
 |------|------|
-| 2026-06-22 | Prefill-only bench layer pause + DVFS validated on V100; 78-run campaign submitted |
+| 2026-06-22 | Prefill-only bench layer pause + DVFS validated on V100; 78-run campaign submitted (NOTE: 74/78 runs empty — see below) |
 | 2026-06-22 | Decode support: `DVFS_DECODE_MAX_PAUSES_PER_PASS`, decode smoke job |
 | 2026-06-24 | Transition calib (`run_arc_v100_bench_transition_calib.sh`): measures DVFS barrier overhead in sync vs async mode. `barrier_wait_sec_worker` is the per-barrier blocking time seen by the vLLM worker thread. Sync n=1: 17.3 s (dominated by clock settle). Async n=1: 0.7 s (dispatch returns before clock settles — worker unblocked immediately). |
 | 2026-06-24 | Node heterogeneity confirmed: g049 (12 h interactive) is the only interactive node that honours `sudo nvidia-smi-clocks`. g048 does not bind. H100 on short partition (`htc-g060`) binds; L40S and V100-PCIE on short do not. |
@@ -216,6 +216,8 @@ Collect: `python3 bench/jobs/collect_bench_layer_campaign_results.py bench/campa
 | 2026-06-25 | Fixed `bench_prefill_only_enabled` scope bug in `bench/core/runner.py`: import was placed in `_drive`'s local scope but the call site is inside `_one()`, a closure in `_submit_all()` — a separate top-level function. Moved import to top of `_submit_all`. Commit `f876f194`. Re-queued 3 failed Phi 512-tok runs as 8030549–8030551. |
 | 2026-06-25 | Populated `profiler/perf/V100/Qwen/Qwen3-30B/fp16/tp4/moe.csv` from dvfs-policy tp4 uncapped run (tokens 1–4096, ae 2–32). Commit `c6e47d37`. |
 | 2026-06-25 | Added Phi 256-tok validation campaign (`v100_prefill_valid_256tok_20260625`, jobs 8030529–8030535): profiler trace max is 256 tokens — this campaign stays within range for a clean attention extrapolation check. |
+| 2026-06-25 | **78-run layer DVFS campaign (v100_bench_layer_dvfs_20260622) — SUPERSEDED.** 74/78 runs empty: jobs dispatched before we knew g049 is the only clock-locking node — all other V100 nodes returned `freq_apply_ok=false`. Only `scat_p01_{phi,qwen}_i{0..2}` (4 runs) have data. Campaign replaced by `v100_prefill_valid_20260625` (cleaner, g049-pinned). Do not rerun. |
+| 2026-06-25 | Added sim vs hardware comparison pipeline: `compute_dvfs_scale_factors.py` (reads hardware TSV, outputs per-arm dvfs_scale), `run_sim_validation_sweep.sh` (nserver15/Docker sim sweep), `compare_sim_vs_hardware.py` (comparison table). `analyze_transition_calib.py` reads tcalib campaigns and reports async vs sync barrier overhead. |
 
 ---
 
