@@ -9,8 +9,7 @@ __pycache__/
 # Ignore pkl files
 *.pkl
 
-# Ignore bench results
-bench/results/
+# Ignore large raw bench output; aggregated summaries in bench/results/ ARE committed
 bench/campaigns/
 bench/jobs/logs/
 

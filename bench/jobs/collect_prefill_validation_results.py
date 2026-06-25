@@ -67,6 +67,10 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("campaign_dir", type=Path)
     ap.add_argument("--json", action="store_true", help="print JSON to stdout instead of TSV")
+    ap.add_argument(
+        "--stage-to", type=Path, metavar="RESULTS_DIR",
+        help="also write TSV + summary JSON to RESULTS_DIR/<campaign_name>/ for git commit",
+    )
     args = ap.parse_args()
 
     campaign_dir = args.campaign_dir
@@ -138,6 +142,22 @@ def main() -> None:
             ok = "Y" if t.get("clock_ok") else ("?" if t.get("clock_ok") is None else "N")
             print(f"    {t.get('clock_label','?'):<12} {t.get('achieved_mhz') or '---':>10}"
                   f" {t.get('ttft_median_ms') or '---':>12} {t.get('energy_excl_pause_j') or '---':>14} {ok:>4}")
+
+    if args.stage_to:
+        stage_dir = args.stage_to / campaign_dir.name
+        stage_dir.mkdir(parents=True, exist_ok=True)
+        stage_tsv = stage_dir / "validation_results.tsv"
+        stage_json = stage_dir / "validation_summary.json"
+        with stage_tsv.open("w", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=fieldnames, delimiter="\t", extrasaction="ignore")
+            writer.writeheader()
+            writer.writerows(rows)
+        stage_json.write_text(json.dumps(out, indent=2), encoding="utf-8")
+        print(f"\nStaged for git commit:")
+        print(f"  {stage_tsv}")
+        print(f"  {stage_json}")
+        print(f"\nTo push results:")
+        print(f"  cd <repo_root> && git add bench/results/ && git commit -m 'results: {campaign_dir.name}'")
 
     if args.json:
         print(json.dumps(out, indent=2))
