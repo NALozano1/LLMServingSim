@@ -30,9 +30,17 @@ CAMPAIGN_DIR="${CAMPAIGN_DIR:-${REPO_ROOT}/bench/campaigns/v100_prefill_valid_${
 FREQ_LIST="${FREQ_LIST:- 700 900 1100 1300 1400}"  # leading space = uncapped slot
 FREQ_ARRAY=("" ${FREQ_LIST})                        # first element = uncapped
 
-# Walltime per run (startup ~5 min + inference)
+# Walltime per run (boot + inference).
+# Phi-tiny-MoE tp1: ~7 min boot + ~3 min inference.
+# Qwen3-30B tp4: ~30 min boot + ~10 min inference (OBSERVED timeout at 00:30:00).
+# Qwen3-30B tp2: similar boot to tp4 (2 GPUs but 30GB each vs 15GB at tp4).
+# Qwen1.5-MoE tp1: ~8 min boot + ~3 min inference.
+# Llama-3.1-8B tp1: ~5 min boot + ~2 min inference.
 PHI_TIME="${PHI_TIME:-00:20:00}"
-QWEN_TIME="${QWEN_TIME:-00:30:00}"
+QWEN_TIME="${QWEN_TIME:-01:00:00}"
+QWEN15_TIME="${QWEN15_TIME:-00:25:00}"
+LLAMA8B_TIME="${LLAMA8B_TIME:-00:20:00}"
+QWEN30BTP2_TIME="${QWEN30BTP2_TIME:-01:00:00}"
 
 mkdir -p "${CAMPAIGN_DIR}/shared" "${JOBS_ROOT}/logs"
 
