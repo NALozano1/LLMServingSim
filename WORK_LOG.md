@@ -208,6 +208,11 @@ Collect: `python3 bench/jobs/collect_bench_layer_campaign_results.py bench/campa
 |------|------|
 | 2026-06-22 | Prefill-only bench layer pause + DVFS validated on V100; 78-run campaign submitted |
 | 2026-06-22 | Decode support: `DVFS_DECODE_MAX_PAUSES_PER_PASS`, decode smoke job |
+| 2026-06-24 | Transition calib (`run_arc_v100_bench_transition_calib.sh`): measures DVFS barrier overhead in sync vs async mode. `barrier_wait_sec_worker` is the per-barrier blocking time seen by the vLLM worker thread. Sync n=1: 17.3 s (dominated by clock settle). Async n=1: 0.7 s (dispatch returns before clock settles — worker unblocked immediately). |
+| 2026-06-24 | Node heterogeneity confirmed: g049 (12 h interactive) is the only interactive node that honours `sudo nvidia-smi-clocks`. g048 does not bind. H100 on short partition (`htc-g060`) binds; L40S and V100-PCIE on short do not. |
+| 2026-06-24 | Async barrier marker bug found + fixed: calib runner was killing the host poller immediately after the container exited, before the Python marker-write block completed. Fixed with a 30 s drain wait (polling `dvfs_markers.jsonl` for expected marker count) before sending SIGTERM. |
+| 2026-06-25 | Prefill-only sim-accuracy validation matrix: `run_arc_v100_prefill_validation.sh` + `submit_prefill_validation_matrix.sh`. Phi tp1 + Qwen3-30B tp4 at {uncapped, 700, 900, 1100, 1300, 1400} MHz on g049. No layer-pause; clock-locked + audited; `gpu_power` on. Tier-1 (no-DVFS uncapped) + Tier-2 (per-clock accuracy) for LLMServingSim validation. `collect_prefill_validation_results.py` aggregates results. |
+| 2026-06-25 | Fixed `--sps` omission in prefill validation dataset generator call (was always required); resubmitted all 12 validation jobs (8030500–8030511). |
 
 ---
 

@@ -389,6 +389,7 @@ async def _drive(args: argparse.Namespace, requests: list[dict], output_dir: Pat
         uninstall_layer_pause,
     )
     from bench.core.stat_logger import BenchStatLogger
+    from vllm_layer_pause.config import bench_prefill_only_enabled
 
     repo_root = Path(__file__).resolve().parents[2]
     poller_proc = None
@@ -535,12 +536,21 @@ async def _submit_all(engine, requests: list[dict], SamplingParams, TokensPrompt
             # blocks vLLM's async-scheduling early-exit (see vllm/v1/engine/
             # async_llm.py:async-scheduling block) so n_out is exactly fixed.
             n_out = int(req["output_toks"])
-            sp = SamplingParams(
-                min_tokens=n_out,
-                max_tokens=n_out,
-                ignore_eos=True,
-                temperature=0.0,
-            )
+            if bench_prefill_only_enabled() or n_out <= 0:
+                # vLLM requires max_tokens>=1; prefill_only stops after 1 token.
+                sp = SamplingParams(
+                    max_tokens=1,
+                    min_tokens=1,
+                    ignore_eos=True,
+                    temperature=0.0,
+                )
+            else:
+                sp = SamplingParams(
+                    min_tokens=n_out,
+                    max_tokens=n_out,
+                    ignore_eos=True,
+                    temperature=0.0,
+                )
             prompt = TokensPrompt(prompt_token_ids=list(req["input_tok_ids"]))
             request_id = f"bench-{idx}"
 
