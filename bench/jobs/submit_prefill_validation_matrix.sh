@@ -1,15 +1,17 @@
 #!/usr/bin/env bash
 # Submit the Tier-1 / Tier-2 sim-accuracy validation prefill matrix.
 #
-# Runs: Phi (tp1) + Qwen3-30B (tp8) at {uncapped, 700, 900, 1100, 1300, 1400} MHz.
+# Runs: Phi (tp1) + Qwen3-30B (tp4) + Qwen1.5-MoE (tp1) + Llama-3.1-8B (tp1) +
+#       Qwen3-30B-tp2 at {uncapped, 700, 900, 1100, 1300, 1400} MHz.
 # All pinned to htc-g049 (verified locking node).
 # No layer-pause; prefill-only; power-on; clock audited.
 #
 # Usage (from LLMServingSim/):
 #   bash bench/jobs/submit_prefill_validation_matrix.sh
 #   DRY_RUN=1 bash bench/jobs/submit_prefill_validation_matrix.sh
-#   MODELS=phi bash bench/jobs/submit_prefill_validation_matrix.sh   # phi only
-#   MODELS=qwen bash bench/jobs/submit_prefill_validation_matrix.sh  # qwen only
+#   MODELS=phi bash bench/jobs/submit_prefill_validation_matrix.sh           # phi only
+#   MODELS=qwen bash bench/jobs/submit_prefill_validation_matrix.sh          # qwen tp4 only
+#   MODELS="qwen15moe llama8b qwen30btp2" bash bench/jobs/...               # new models
 #
 set -euo pipefail
 
@@ -39,6 +41,7 @@ MANIFEST="${CAMPAIGN_DIR}/manifest.tsv"
 
 submit_one() {
   local model_key="$1" model="$2" tp="$3" clk="$4" walltime="$5" gpus="$6"
+  local extra_env="${7:-}"   # optional extra "export VAR=VAL" lines for the wrap
   local clk_label
   if [[ -z "${clk}" ]]; then
     clk_label="uncapped"
@@ -98,6 +101,7 @@ export CAMPAIGN_DIR='${CAMPAIGN_DIR}'
 export ARM_LABEL='${clk_label}'
 ${freq_env:+export ${freq_env}}
 ${fix_input_env:+export ${fix_input_env}}
+${extra_env:+${extra_env}}
 bash '${JOBS_ROOT}/run_arc_v100_prefill_validation.sh'")
   jid="${jid_raw%%;*}"
 
@@ -118,14 +122,46 @@ for model_key in ${MODELS}; do
     phi)
       model="microsoft/Phi-tiny-MoE-instruct"
       tp=1; gpus=1; walltime="${PHI_TIME}"
+      extra_env=""
       MAX_MODEL_LEN=2048 MAX_NUM_SEQS=8 MAX_NUM_BATCHED_TOKENS=4096 \
       GPU_MEMORY_UTILIZATION=0.92
       ;;
     qwen)
       model="Qwen/Qwen3-30B-A3B-Instruct-2507"
       tp=4; gpus=4; walltime="${QWEN_TIME}"
+      extra_env=""
       MAX_MODEL_LEN=4096 MAX_NUM_SEQS=8 MAX_NUM_BATCHED_TOKENS=8192 \
       GPU_MEMORY_UTILIZATION=0.92
+      ;;
+    qwen15moe)
+      # Qwen1.5-MoE-A2.7B-Chat: 14.3B params, ~29GB fp16 — tight, use 0.95
+      # Profiler tables: V100 + V100_700/900/1100/1300MHz (moe.csv present)
+      model="Qwen/Qwen1.5-MoE-A2.7B-Chat"
+      tp=1; gpus=1; walltime="${QWEN15_TIME:-00:25:00}"
+      extra_env="export GPU_MEMORY_UTILIZATION=0.95
+export MAX_MODEL_LEN=4096
+export MAX_NUM_SEQS=8
+export MAX_NUM_BATCHED_TOKENS=8192"
+      ;;
+    llama8b)
+      # Llama-3.1-8B: 8B dense, ~16GB fp16 — fits comfortably on 1 V100
+      # Profiler tables: V100/fp16/tp1 (attention+dense); no per-clock profiles
+      model="meta-llama/Llama-3.1-8B"
+      tp=1; gpus=1; walltime="${LLAMA8B_TIME:-00:20:00}"
+      extra_env="export GPU_MEMORY_UTILIZATION=0.92
+export MAX_MODEL_LEN=4096
+export MAX_NUM_SEQS=8
+export MAX_NUM_BATCHED_TOKENS=8192"
+      ;;
+    qwen30btp2)
+      # Qwen3-30B-A3B tp2: 60GB total / 2 GPUs = 30GB each — tight, use 0.95
+      # Profiler tables: V100/fp16/tp2 (attention+dense); no moe.csv, no per-clock
+      model="Qwen/Qwen3-30B-A3B-Instruct-2507"
+      tp=2; gpus=2; walltime="${QWEN30BTP2_TIME:-00:35:00}"
+      extra_env="export GPU_MEMORY_UTILIZATION=0.95
+export MAX_MODEL_LEN=4096
+export MAX_NUM_SEQS=8
+export MAX_NUM_BATCHED_TOKENS=8192"
       ;;
     *)
       echo "Unknown model_key: ${model_key}" >&2
@@ -135,7 +171,7 @@ for model_key in ${MODELS}; do
   echo "  model=${model_key} (${model})  tp=${tp}  gpus=${gpus}" >&2
 
   for clk in "${FREQ_ARRAY[@]}"; do
-    submit_one "${model_key}" "${model}" "${tp}" "${clk}" "${walltime}" "${gpus}"
+    submit_one "${model_key}" "${model}" "${tp}" "${clk}" "${walltime}" "${gpus}" "${extra_env}"
     sleep 0.3
   done
 done
