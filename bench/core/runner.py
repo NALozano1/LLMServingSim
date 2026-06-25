@@ -389,7 +389,6 @@ async def _drive(args: argparse.Namespace, requests: list[dict], output_dir: Pat
         uninstall_layer_pause,
     )
     from bench.core.stat_logger import BenchStatLogger
-    from vllm_layer_pause.config import bench_prefill_only_enabled
 
     repo_root = Path(__file__).resolve().parents[2]
     poller_proc = None
@@ -519,6 +518,7 @@ async def _drive(args: argparse.Namespace, requests: list[dict], output_dir: Pat
 
 async def _submit_all(engine, requests: list[dict], SamplingParams, TokensPrompt) -> list[dict]:
     """Schedule each request at its arrival offset, gather metrics."""
+    from vllm_layer_pause.config import bench_prefill_only_enabled
     loop = asyncio.get_event_loop()
     t0_loop = loop.time()
     completed = [0]  # boxed so the inner closure can mutate
