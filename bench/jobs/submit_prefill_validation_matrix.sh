@@ -67,6 +67,11 @@ submit_one() {
     freq_env="GPU_FREQ_MHZ=${clk}"
   fi
 
+  local fix_input_env=""
+  if [[ -n "${FIX_INPUT_LENGTH:-}" ]]; then
+    fix_input_env="FIX_INPUT_LENGTH=${FIX_INPUT_LENGTH}"
+  fi
+
   local jid_raw jid
   jid_raw=$(sbatch -M htc --parsable \
     --clusters=htc \
@@ -92,6 +97,7 @@ export OUT_DIR='${out_dir}'
 export CAMPAIGN_DIR='${CAMPAIGN_DIR}'
 export ARM_LABEL='${clk_label}'
 ${freq_env:+export ${freq_env}}
+${fix_input_env:+export ${fix_input_env}}
 bash '${JOBS_ROOT}/run_arc_v100_prefill_validation.sh'")
   jid="${jid_raw%%;*}"
 
