@@ -176,11 +176,19 @@ PY
     fi
   fi
 
+  # Compute GPU count from the max tensor-parallel degree so tp4 jobs get 4 GPUs.
+  local _max_tp=1
+  local _tp_val
+  IFS=',' read -ra _tp_vals <<< "${TP_DEGREES:-1}"
+  for _tp_val in "${_tp_vals[@]}"; do
+    (( _tp_val > _max_tp )) && _max_tp="${_tp_val}"
+  done
+
   jid_raw=$(sbatch --parsable \
     --clusters=htc \
     --account=engs-glass \
     --partition="${PARTITION}" \
-    --gres=gpu:v100:1 \
+    --gres=gpu:v100:${_max_tp} \
     --nodes=1 \
     --ntasks=1 \
     --cpus-per-task=16 \

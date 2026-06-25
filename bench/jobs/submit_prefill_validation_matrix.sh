@@ -130,16 +130,18 @@ for model_key in ${MODELS}; do
     phi)
       model="microsoft/Phi-tiny-MoE-instruct"
       tp=1; gpus=1; walltime="${PHI_TIME}"
-      extra_env=""
-      MAX_MODEL_LEN=2048 MAX_NUM_SEQS=8 MAX_NUM_BATCHED_TOKENS=4096 \
-      GPU_MEMORY_UTILIZATION=0.92
+      extra_env="export GPU_MEMORY_UTILIZATION=0.92
+export MAX_MODEL_LEN=2048
+export MAX_NUM_SEQS=64
+export MAX_NUM_BATCHED_TOKENS=4096"
       ;;
     qwen)
       model="Qwen/Qwen3-30B-A3B-Instruct-2507"
       tp=4; gpus=4; walltime="${QWEN_TIME}"
-      extra_env=""
-      MAX_MODEL_LEN=4096 MAX_NUM_SEQS=8 MAX_NUM_BATCHED_TOKENS=8192 \
-      GPU_MEMORY_UTILIZATION=0.92
+      extra_env="export GPU_MEMORY_UTILIZATION=0.92
+export MAX_MODEL_LEN=4096
+export MAX_NUM_SEQS=64
+export MAX_NUM_BATCHED_TOKENS=8192"
       ;;
     qwen15moe)
       # Qwen1.5-MoE-A2.7B-Chat: 14.3B params, ~29GB fp16 — tight, use 0.95
@@ -148,7 +150,7 @@ for model_key in ${MODELS}; do
       tp=1; gpus=1; walltime="${QWEN15_TIME:-00:25:00}"
       extra_env="export GPU_MEMORY_UTILIZATION=0.95
 export MAX_MODEL_LEN=4096
-export MAX_NUM_SEQS=8
+export MAX_NUM_SEQS=64
 export MAX_NUM_BATCHED_TOKENS=8192"
       ;;
     llama8b)
@@ -158,7 +160,7 @@ export MAX_NUM_BATCHED_TOKENS=8192"
       tp=1; gpus=1; walltime="${LLAMA8B_TIME:-00:20:00}"
       extra_env="export GPU_MEMORY_UTILIZATION=0.92
 export MAX_MODEL_LEN=4096
-export MAX_NUM_SEQS=8
+export MAX_NUM_SEQS=64
 export MAX_NUM_BATCHED_TOKENS=8192"
       ;;
     qwen30btp2)
@@ -168,7 +170,7 @@ export MAX_NUM_BATCHED_TOKENS=8192"
       tp=2; gpus=2; walltime="${QWEN30BTP2_TIME:-00:35:00}"
       extra_env="export GPU_MEMORY_UTILIZATION=0.95
 export MAX_MODEL_LEN=4096
-export MAX_NUM_SEQS=8
+export MAX_NUM_SEQS=64
 export MAX_NUM_BATCHED_TOKENS=8192"
       ;;
     *)
