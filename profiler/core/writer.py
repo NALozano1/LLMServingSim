@@ -19,6 +19,7 @@ import csv
 import datetime
 import os
 import platform
+import re
 import subprocess
 from dataclasses import asdict
 from pathlib import Path
@@ -367,6 +368,30 @@ def _geometric_spec(values) -> Any:
     return core if prefix is None else f"{prefix}, {core}"
 
 
+_TP_DIR_RE = re.compile(r'^tp(\d+)$')
+
+
+def _on_disk_tp_dirs(variant_root: Path) -> set[int]:
+    """Return the set of TP degrees that already have a ``tp{N}/``
+    directory under *variant_root*.
+
+    Only directories whose names match exactly ``tp<integer>`` are
+    included (e.g. ``tp1``, ``tp4``).  Used by :func:`persist_meta` to
+    union on-disk TPs with the current session's ``args.tp_degrees`` so
+    that a tp4-only re-run does not clobber the tp1 metadata written by a
+    prior session.
+    """
+    found: set[int] = set()
+    if not variant_root.is_dir():
+        return found
+    for entry in variant_root.iterdir():
+        if entry.is_dir():
+            m = _TP_DIR_RE.match(entry.name)
+            if m:
+                found.add(int(m.group(1)))
+    return found
+
+
 def _skew_fit_block(variant_root: Path, tp_degrees: list[int]) -> dict:
     """Fit alpha per TP from each tp{N}/skew.csv and return a meta
     block. Empty / missing skew.csv → ``{"enabled": False}``.
@@ -592,6 +617,14 @@ def persist_meta(
     except (TypeError, ValueError):
         eff_msq = 256
 
+    # Union the session's tp_degrees with whatever tp{N}/ directories
+    # already exist on disk.  This ensures that a tp4-only follow-up
+    # session (which legitimately skips tp1 profiling because tp1/ was
+    # written by a prior job) does not narrow the recorded tp_degrees
+    # list or lose the tp1 skew-fit entry from meta.yaml.
+    # In the normal single-session case the union is a no-op.
+    effective_tps = sorted(set(args.tp_degrees) | _on_disk_tp_dirs(variant_root))
+
     meta = {
         "profiler_version": profiler_version,
         "vllm_version": _vllm_version(),
@@ -603,7 +636,7 @@ def persist_meta(
         "architecture_sha256": architecture_hash(arch_path),
         "model": args.model,
         "variant": args.effective_variant,
-        "tp_degrees": args.tp_degrees,
+        "tp_degrees": effective_tps,
         "engine_effective": _stringify(engine_effective),
         # Attention-grid shape knobs + compact spec of the values the
         # sweep actually visited. Simulator uses the knobs to recognise
@@ -611,7 +644,7 @@ def persist_meta(
         "attention_grid": _attention_grid_spec(args, eff_mnbt, eff_msq),
         "measurement_iterations": args.measurement_iterations,
         "skew_profile": _skew_meta_block(args),
-        "skew_fit": _skew_fit_block(variant_root, args.tp_degrees),
+        "skew_fit": _skew_fit_block(variant_root, effective_tps),
     }
     variant_root.mkdir(parents=True, exist_ok=True)
     out = variant_root / "meta.yaml"
@@ -655,15 +688,32 @@ def replicate_tp_stable(
     variant_root: Path,
     arch: Architecture,
     tp_degrees: list[int],
+    *,
+    require_tp1: bool = False,
 ) -> None:
     """For layers marked ``tp_stable``, copy their rows from tp1/ into
     every other tp{N}/.
 
     Attention and MoE are never marked tp_stable (their kernel cost
     genuinely varies with TP), so only dense / per_sequence apply.
+
+    Args:
+        require_tp1: When ``True`` and tp1/ is missing, or the stable
+            source CSVs (``tp1/dense.csv``, ``tp1/per_sequence.csv``)
+            lack the expected tp_stable rows for this arch, raise a
+            ``RuntimeError`` naming the missing path instead of logging
+            a warning and returning silently.  Use this for tp-higher-
+            only sessions where the on-disk tp1/ must already be
+            complete (produced by a prior/sibling tp1 run).  Defaults
+            to ``False`` to preserve all existing-caller behaviour.
     """
     tp1_dir = variant_root / "tp1"
     if not tp1_dir.is_dir():
+        if require_tp1:
+            raise RuntimeError(
+                f"tp_stable replication requires tp1/ but it is absent: "
+                f"{tp1_dir}"
+            )
         log.warning("tp1/ missing; skipping tp_stable replication")
         return
 
@@ -673,6 +723,39 @@ def replicate_tp_stable(
     stable_seq = {
         name for name, e in arch.catalog.per_sequence.items() if e.tp_stable
     }
+
+    if require_tp1:
+        # Validate that the source CSVs contain all expected tp_stable layers.
+        if stable_dense:
+            dense_src = tp1_dir / "dense.csv"
+            if not dense_src.exists():
+                raise RuntimeError(
+                    f"tp_stable replication requires {dense_src} "
+                    f"but it is absent; re-run a tp1 session first"
+                )
+            present = {r["layer"] for r in _read_csv_rows(dense_src)}
+            missing = stable_dense - present
+            if missing:
+                raise RuntimeError(
+                    f"tp1/dense.csv is missing tp_stable layers "
+                    f"{sorted(missing)!r}; cannot replicate into higher-TP "
+                    f"folders — re-run a tp1 session first"
+                )
+        if stable_seq:
+            seq_src = tp1_dir / "per_sequence.csv"
+            if not seq_src.exists():
+                raise RuntimeError(
+                    f"tp_stable replication requires {seq_src} "
+                    f"but it is absent; re-run a tp1 session first"
+                )
+            present = {r["layer"] for r in _read_csv_rows(seq_src)}
+            missing = stable_seq - present
+            if missing:
+                raise RuntimeError(
+                    f"tp1/per_sequence.csv is missing tp_stable layers "
+                    f"{sorted(missing)!r}; cannot replicate into higher-TP "
+                    f"folders — re-run a tp1 session first"
+                )
 
     for tp in tp_degrees:
         if tp == 1:

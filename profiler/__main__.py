@@ -85,8 +85,10 @@ def _add_common_flags(p: argparse.ArgumentParser) -> None:
     p.add_argument(
         "--tp",
         default="1",
-        help="Comma-separated TP degrees to sweep, e.g. '1,2,4'. "
-             "Must include 1. Default: '1'.",
+        help="Comma-separated TP degrees to sweep, e.g. '1,2,4' or '4'. "
+             "Need not include 1; a tp1-free session reuses an existing "
+             "on-disk tp1/ for tp_stable replication and raises loudly "
+             "if that directory is absent or incomplete. Default: '1'.",
     )
     p.add_argument(
         "--variant",
@@ -308,11 +310,24 @@ def _resolve_model(model: str, root: Path) -> tuple[Path, str]:
 
 
 def _parse_tp(tp_str: str) -> list[int]:
+    """Parse a comma-separated list of TP degrees.
+
+    Rules:
+    - Must contain at least one value.
+    - Every value must be a positive integer (>= 1).
+    - Need not include 1.  A tp1-free session reuses an existing on-disk
+      tp1/ directory for tp_stable layer replication; the profiler raises
+      loudly at session end when that directory is absent or incomplete.
+    """
     tps = [int(x.strip()) for x in tp_str.split(",") if x.strip()]
     if not tps:
         raise ValueError("--tp must contain at least one value")
-    if 1 not in tps:
-        raise ValueError("--tp must include 1")
+    bad = [t for t in tps if t < 1]
+    if bad:
+        raise ValueError(
+            "--tp values must be positive integers; got: "
+            + ", ".join(str(t) for t in bad)
+        )
     return tps
 
 

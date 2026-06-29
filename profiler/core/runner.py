@@ -462,9 +462,15 @@ def run_full(
 
     # After every tp has run, copy tp_stable rows from tp1 into the rest.
     # Skip when only_skew=True (nothing new to replicate).
+    # When tp1 was NOT profiled in this session, reuse the on-disk tp1/
+    # produced by a prior/sibling run and raise loudly if it is absent
+    # or incomplete (anti-taint invariant).
     if not args.only_skew:
         with log.stage("replicating tp_stable layers across TP folders"):
-            replicate_tp_stable(variant_root, arch, args.tp_degrees)
+            replicate_tp_stable(
+                variant_root, arch, args.tp_degrees,
+                require_tp1=1 not in args.tp_degrees,
+            )
 
     if last_engine_kwargs is None:
         last_engine_kwargs = {}
