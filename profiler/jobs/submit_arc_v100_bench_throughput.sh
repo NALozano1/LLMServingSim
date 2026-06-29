@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
-# Submit V100 tp1 vLLM throughput benchmark (default: Phi-mini-MoE).
+# Submit V100 tp1 vLLM throughput benchmark (default: Qwen1.5-MoE).
 #
 #   ./profiler/jobs/submit_arc_v100_bench_throughput.sh
-#   MODEL=microsoft/Phi-tiny-MoE-instruct ./profiler/jobs/submit_arc_v100_bench_throughput.sh
 #   MODEL=Qwen/Qwen1.5-MoE-A2.7B-Chat V100_BENCH_PRESET=qwen15-v100-tight ./profiler/jobs/submit_arc_v100_bench_throughput.sh
 #
 set -euo pipefail
@@ -21,7 +20,7 @@ source "${COMMON}"
 mkdir -p "${ROOT}/profiler/jobs/logs" "${ROOT}/profiler/jobs/rendered" \
   "${ROOT}/bench/results/V100"
 
-MODEL="${MODEL:-microsoft/Phi-mini-MoE-instruct}"
+MODEL="${MODEL:-Qwen/Qwen1.5-MoE-A2.7B-Chat}"
 SAFE="$(echo "${MODEL}" | tr '/:' '__' | tr -cd 'A-Za-z0-9_-')"
 TIME="${TIME:-02:00:00}"
 NUM_REQS="${NUM_REQS:-100}"

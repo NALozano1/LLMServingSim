@@ -10,7 +10,6 @@ source "${_ENGS2950_ROOT}/shared/scripts/load_hf_token.sh"
 
 V100_MATRIX_MODELS=(
   "meta-llama/Llama-3.1-8B"
-  "microsoft/Phi-mini-MoE-instruct"
   "Qwen/Qwen3-30B-A3B-Instruct-2507"
   "mistralai/Mixtral-8x7B-v0.1"
   "Qwen/Qwen3-32B"

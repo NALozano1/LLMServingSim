@@ -42,7 +42,7 @@ def generate_bench_campaign(
 
     permutations: list[dict] = []
     for perm_idx in range(1, num_scattered_permutations + 1):
-        for model_key in ("phi", "qwen"):
+        for model_key in ("qwen",):
             permutations.append(_make_scattered_perm(rng, model_key, perm_idx))
 
     run_specs: list[dict] = []
@@ -191,7 +191,7 @@ def _add_fixed_runs(
     bench_common: dict,
     iterations: int,
 ) -> None:
-    for model_key in ("phi", "qwen"):
+    for model_key in ("qwen",):
         for mhz in FIXED_FREQS_MHZ:
             for iteration in range(iterations):
                 fixed = _make_fixed_spec(model_key, mhz, iteration)

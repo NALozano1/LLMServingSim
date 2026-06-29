@@ -29,7 +29,6 @@ profiler/                     Python package — `python -m profiler ...`
     qwen3.yaml
     qwen3_moe.yaml
     mixtral.yaml
-    phimoe.yaml
   power/                      nvidia-smi / IPMI power-logging helpers
   perf/                       output root (one folder per hw/model/variant)
   profile.sh                  editable user-run script — edit MODEL/HARDWARE/… then run
@@ -379,7 +378,7 @@ them from there.
 `models/<model_type>.yaml` describes one vLLM model family's class
 structure — embedding, layernorm, qkv_proj, attention, etc. The file
 name equals the HuggingFace `model_type` value (`llama`, `qwen3`,
-`qwen3_moe`, `mixtral`, `phimoe`). Catalog entries bind a canonical
+`qwen3_moe`, `mixtral`). Catalog entries bind a canonical
 name to a vLLM class, with an optional `within:` parent to
 disambiguate duplicate class names:
 
@@ -417,7 +416,7 @@ to other tp folders by the writer.
    (Or let the profiler auto-download on first run if `HF_TOKEN` is
    set in the container.)
 2. **If the model's `model_type` is already supported** (llama / qwen3
-   / qwen3_moe / mixtral / phimoe), you're done — edit `MODEL=` in
+   / qwen3_moe / mixtral), you're done — edit `MODEL=` in
    `profiler/profile.sh` and run.
 3. **If it's a new architecture family** (e.g., `gemma2`, `deepseek_v3`):
    * Create `models/<model_type>.yaml` mapping the new family's vLLM

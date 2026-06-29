@@ -5,13 +5,6 @@
   "seed": 20260616,
   "path": "bench_layer_boundary_prefill",
   "models": {
-    "phi": {
-      "model": "microsoft/Phi-tiny-MoE-instruct",
-      "num_hidden_layers": 32,
-      "max_num_batched_tokens": 256,
-      "max_num_seqs": 32,
-      "attention_max_kv": 256
-    },
     "qwen": {
       "model": "Qwen/Qwen1.5-MoE-A2.7B-Chat",
       "num_hidden_layers": 24,
@@ -34,7 +27,7 @@
   "num_scattered_permutations": 3,
   "iterations_per_run": 3,
   "include_fixed": false,
-  "total_runs": 18,
-  "scattered_runs": 18,
+  "total_runs": 9,
+  "scattered_runs": 9,
   "fixed_runs": 0
 }

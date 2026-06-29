@@ -83,7 +83,6 @@ Model-specific profiling code is located in `models/`:
 
 - `llama.py` — Llama architecture (Llama-3.1-8B, Llama-3.1-70B)
 - `mixtral.py` — Mixtral-8x7B (MoE)
-- `phimoe.py` — Phi-mini-MoE-instruct (MoE)
 
 ## Adding a new model or hardware
 

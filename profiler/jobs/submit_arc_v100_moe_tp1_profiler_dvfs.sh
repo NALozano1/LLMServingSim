@@ -1,13 +1,12 @@
 #!/usr/bin/env bash
 # V100 tp1 LLMServingSim profiler at default + DVFS freqs (700–1300 MHz, step 200).
 #
-# Default models: Phi-tiny-MoE + Qwen1.5-MoE (bench-validated on 1× V100 tp1).
+# Default model: Qwen1.5-MoE (bench-validated on 1× V100 tp1).
 # Outputs (importable under profiler/perf/):
 #   profiler/perf/V100/<MODEL>/fp16/tp1/...
 #   profiler/perf/V100_<MHz>/<MODEL>/fp16/tp1/...
 #
 #   ./profiler/jobs/submit_arc_v100_moe_tp1_profiler_dvfs.sh
-#   MODELS='microsoft/Phi-mini-MoE-instruct' ./profiler/jobs/submit_arc_v100_moe_tp1_profiler_dvfs.sh
 #
 set -euo pipefail
 
@@ -30,7 +29,7 @@ source "${COMMON}"
 mkdir -p "${ROOT}/profiler/jobs/logs" "${ROOT}/profiler/jobs/rendered" \
   "${ROOT}/profiler/jobs/checkpoints" "${ROOT}/profiler/perf"
 
-MODELS="${MODELS:-microsoft/Phi-tiny-MoE-instruct Qwen/Qwen1.5-MoE-A2.7B-Chat}"
+MODELS="${MODELS:-Qwen/Qwen1.5-MoE-A2.7B-Chat}"
 TIME="${TIME:-03:00:00}"
 JOB_NAME_PREFIX="${JOB_NAME_PREFIX:-llmsim_prof_moe_tp1}"
 MANIFEST="${ROOT}/profiler/jobs/checkpoints/moe_tp1_profiler_dvfs_jobs.tsv"

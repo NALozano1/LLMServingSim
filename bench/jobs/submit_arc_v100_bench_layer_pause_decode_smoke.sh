@@ -2,7 +2,7 @@
 # Submit prefill+decode layer-pause smoke (max 1 pause per decode forward).
 #
 #   export HF_TOKEN=...
-#   MODEL=microsoft/Phi-tiny-MoE-instruct ./bench/jobs/submit_arc_v100_bench_layer_pause_decode_smoke.sh
+#   bash ./bench/jobs/submit_arc_v100_bench_layer_pause_decode_smoke.sh
 #
 set -euo pipefail
 
@@ -16,7 +16,7 @@ source "${ARC_COMMON}"
 
 mkdir -p "${ROOT}/bench/jobs/logs" "${ROOT}/profiler/jobs/rendered"
 
-MODEL="${MODEL:-microsoft/Phi-tiny-MoE-instruct}"
+MODEL="${MODEL:-Qwen/Qwen1.5-MoE-A2.7B-Chat}"
 TIME="${TIME:-01:00:00}"
 JOB_NAME="llmsim_bench_layer_pause_decode_smoke"
 rendered="${ROOT}/profiler/jobs/rendered/${JOB_NAME}.sbatch"

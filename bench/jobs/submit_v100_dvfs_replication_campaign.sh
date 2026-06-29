@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Submit 10 real-vLLM bench runs (Phi-tiny + Qwen1.5-MoE) with DVFS permutations.
+# Submit 5 real-vLLM bench runs (Qwen1.5-MoE) with DVFS permutations.
 #
 # TTFT/TPOT come from live bench requests.jsonl — NOT from LLMServingSim synthesis.
 # Each run writes sim_replication.json with the matching simulator command + profile path.
@@ -37,11 +37,6 @@ from pathlib import Path
 
 campaign = Path("${CAMPAIGN_DIR}")
 runs = [
-    ("r01_phi_default", "microsoft/Phi-tiny-MoE-instruct", "default", None, None, "phi-tiny-fixlen"),
-    ("r02_phi_700", "microsoft/Phi-tiny-MoE-instruct", "fixed", 700, None, "phi-tiny-fixlen"),
-    ("r03_phi_1100", "microsoft/Phi-tiny-MoE-instruct", "fixed", 1100, None, "phi-tiny-fixlen"),
-    ("r04_phi_700_1300", "microsoft/Phi-tiny-MoE-instruct", "mid_switch", None, [700, 1300], "phi-tiny-fixlen"),
-    ("r05_phi_1300_700", "microsoft/Phi-tiny-MoE-instruct", "mid_switch", None, [1300, 700], "phi-tiny-fixlen"),
     ("r06_qwen_default", "Qwen/Qwen1.5-MoE-A2.7B-Chat", "default", None, None, "qwen15-v100-tight"),
     ("r07_qwen_700", "Qwen/Qwen1.5-MoE-A2.7B-Chat", "fixed", 700, None, "qwen15-v100-tight"),
     ("r08_qwen_1100", "Qwen/Qwen1.5-MoE-A2.7B-Chat", "fixed", 1100, None, "qwen15-v100-tight"),
@@ -49,11 +44,6 @@ runs = [
     ("r10_qwen_900_1300", "Qwen/Qwen1.5-MoE-A2.7B-Chat", "mid_switch", None, [900, 1300], "qwen15-v100-tight"),
 ]
 
-phi = dict(
-    max_model_len=4096, max_num_seqs=64, max_num_batched_tokens=2048,
-    sharegpt_fix_len=1, fix_input_length=128, fix_output_length=128,
-    gpu_memory_utilization=0.92,
-)
 qwen = dict(
     max_model_len=512, max_num_seqs=8, max_num_batched_tokens=1024,
     sharegpt_fix_len=1, fix_input_length=192, fix_output_length=64,
@@ -62,7 +52,7 @@ qwen = dict(
 
 specs = []
 for run_id, model, mode, mhz, sched, preset in runs:
-    p = qwen if "Qwen" in model else phi
+    p = qwen
     if mode == "default":
         hardware = "V100"
     elif mode == "fixed":
@@ -100,9 +90,9 @@ PY
 cat > "${CAMPAIGN_DIR}/README.md" <<'EOF'
 # V100 DVFS replication campaign
 
-Real vLLM throughput benches (`python -m bench run`) for Phi-tiny-MoE and
-Qwen1.5-MoE-A2.7B at default boost and locked DVFS frequencies (700–1300 MHz),
-including mid-run frequency switches.
+Real vLLM throughput benches (`python -m bench run`) for Qwen1.5-MoE-A2.7B
+at default boost and locked DVFS frequencies (700–1300 MHz), including
+mid-run frequency switches.
 
 ## Metrics source
 
@@ -255,14 +245,13 @@ PY
 {
   echo "=== V100 DVFS replication campaign ==="
   echo "CAMPAIGN_DIR=${CAMPAIGN_DIR}"
-  echo "Runs: 10 (Phi-tiny x5 + Qwen1.5 x5)"
+  echo "Runs: 5 (Qwen1.5 x5)"
 } | tee "${SUBMIT_LOG}"
 
 arc_wait_htc_interactive_slot interactive || true
 
 prev=""
-for run_id in r01_phi_default r02_phi_700 r03_phi_1100 r04_phi_700_1300 r05_phi_1300_700 \
-                r06_qwen_default r07_qwen_700 r08_qwen_1100 r09_qwen_700_1100 r10_qwen_900_1300; do
+for run_id in r06_qwen_default r07_qwen_700 r08_qwen_1100 r09_qwen_700_1100 r10_qwen_900_1300; do
   prev="$(submit_run "${run_id}" "${prev}")"
 done
 

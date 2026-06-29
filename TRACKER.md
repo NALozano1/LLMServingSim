@@ -37,14 +37,14 @@ findings. Feature + fixes committed & pushed.
 _Last touched: 2026-06-22_
 
 The existing `profiler/perf/V100*` tables are **corrupted**: clock lock didn't
-hold (700→~1102, 900→~1402, Qwen 1100 MoE throttled to 817). Phi locked cleanly;
+hold (700→~1102, 900→~1402, Qwen 1100 MoE throttled to 817).
 Qwen 700/900/1100 are mislabeled. Blocks any trustworthy energy/throughput
 validation.
 
 - Fix shipped: pre/post-flight clock verification in `profiler/jobs/run_arc_v100_profile.sh`
   (`GPU_FREQ_VERIFY_STRICT`, ±100MHz) + `profiler/jobs/audit_gpu_clocks.py` gate.
-- **Needs (on ARC):** re-profile V100 (≥ Qwen 700/900/1100, ideally all clocks ×
-  both models) with the gate active. Submit via `profiler/jobs/submit_arc_v100_moe_tp1_profiler_dvfs.sh`.
+- **Needs (on ARC):** re-profile V100 (≥ Qwen 700/900/1100, ideally all clocks)
+  with the gate active. Submit via `profiler/jobs/submit_arc_v100_moe_tp1_profiler_dvfs.sh`.
 - Audit existing/new captures: `python3 profiler/jobs/audit_gpu_clocks.py profiler/perf/V100_*`.
 
 **Next:** ARC re-profile run; then re-import and re-run sim sweep.
@@ -60,7 +60,7 @@ sync). Comparison is stamped `PROFILES_SUSPECT` until #2 is done.
 - **Folder:** `validation/layer_boundary_dvfs/` (README = full setup; `comparison.{md,csv}` = output).
 - **Tool:** `python3 scripts/validate_dvfs_vs_hardware.py --bench-runs <synced ARC>/runs`.
 - Anchor: real ~600 J (GPU-only, user recollection) vs sim 415 J GPU / 1220 J system / ~3 s, single Qwen prefill.
-- **Need from ARC:** per `run_id` (`scat_p0X_{phi,qwen}_iN`) a `summary.json`/`run_exec_metrics.json` with `exec_sec` + GPU energy (`energy_excl_pause_j` pref).
+- **Need from ARC:** per `run_id` (`scat_p0X_qwen_iN`) a `summary.json`/`run_exec_metrics.json` with `exec_sec` + GPU energy (`energy_excl_pause_j` pref).
 
 **Next:** on data arrival — confirm energy basis (GPU-only; exec vs wall), run the tool, review per-permutation error. Real validation only after #2.
 

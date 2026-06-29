@@ -29,11 +29,10 @@ permutation (throughput is derived — the workload is a single prefill).
 | Workload | single 64-token **prefill**, 1 request, output 0 (prefill-only) |
 | Dataset | ShareGPT fixed-length, seed 42 (`...-fixlen64o0.jsonl`) |
 | `max_num_batched_tokens` | 256 |
-| `max_num_seqs` | phi = 32, qwen = 8 |
+| `max_num_seqs` | 8 |
 
 | Model key | Model | Decoder layers |
 |-----------|-------|----------------|
-| `phi` | `microsoft/Phi-tiny-MoE-instruct` | 32 |
 | `qwen` | `Qwen/Qwen1.5-MoE-A2.7B-Chat` | 24 |
 
 ### Real hardware (ground truth) — ARC HTC V100
@@ -52,9 +51,9 @@ permutation (throughput is derived — the workload is a single prefill).
 
 ```
 python -m serving \
-  --cluster-config <cluster_{phi,qwen}_moe_dvfs.json>  \
+  --cluster-config <cluster_qwen_moe_dvfs.json>         \
   --dataset <shared/sharegpt-...-fixlen64o0.jsonl>      \
-  --dtype float16 --max-num-seqs <32|8> --max-num-batched-tokens 256 --num-reqs 1 \
+  --dtype float16 --max-num-seqs 8 --max-num-batched-tokens 256 --num-reqs 1 \
   --no-enable-prefix-caching --no-enable-chunked-prefill \
   --forward-segments per_block \
   --dvfs-layer-schedule <perm>.json
@@ -70,11 +69,8 @@ python -m serving \
 
 | perm | model | barrier layers → MHz |
 |------|-------|----------------------|
-| p01 | phi  | 7→1400, 9→700, 10→700, 14→900, 16→1400, 17→1400, 20→900, 26→700 |
 | p01 | qwen | 1→1100, 19→900, 20→1400, 22→1400 |
-| p02 | phi  | 1→700, 18→1100, 27→900 |
 | p02 | qwen | 2→1100, 9→900 |
-| p03 | phi  | 3→700, 12→900, 14→1400, 15→1400, 16→1100, 17→1400 |
 | p03 | qwen | 0→900, 1→900, 9→1100, 18→1400, 22→900 |
 
 3 iterations each (`i0/i1/i2`); the simulator is deterministic so iterations
@@ -137,6 +133,3 @@ real anchor sits between the sim's GPU-only (415 J) and total-system (1220 J).
 | p01 | qwen | 3.23 | 1000 |
 | p02 | qwen | 3.07 | 960 |
 | p03 | qwen | 3.10 | 640 |
-| p01 | phi | 0.87 | 340 |
-| p02 | phi | 0.95 | 330 |
-| p03 | phi | 0.85 | 250 |

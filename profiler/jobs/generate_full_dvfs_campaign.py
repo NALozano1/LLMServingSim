@@ -16,13 +16,6 @@ except ImportError:  # pragma: no cover
     yaml = None  # type: ignore
 
 MODELS: dict[str, dict[str, Any]] = {
-    "phi": {
-        "model": "microsoft/Phi-tiny-MoE-instruct",
-        "num_hidden_layers": 32,
-        "max_num_batched_tokens": 256,
-        "max_num_seqs": 32,
-        "attention_max_kv": 256,
-    },
     "qwen": {
         "model": "Qwen/Qwen1.5-MoE-A2.7B-Chat",
         "num_hidden_layers": 24,
@@ -129,7 +122,7 @@ def generate_campaign(
 
     permutations: list[dict[str, Any]] = []
     for perm_idx in range(1, NUM_SCATTERED_PERMUTATIONS + 1):
-        for model_key in ("phi", "qwen"):
+        for model_key in ("qwen",):
             permutations.append(_make_scattered_perm(rng, model_key, perm_idx))
 
     run_specs: list[dict[str, Any]] = []
@@ -189,7 +182,7 @@ def generate_campaign(
             }
             sim_path.write_text(_yaml_dump(sim_body), encoding="utf-8")
 
-    for model_key in ("phi", "qwen"):
+    for model_key in ("qwen",):
         for mhz in FIXED_FREQS_MHZ:
             for iteration in range(ITERATIONS):
                 fixed = _make_fixed_spec(model_key, mhz, iteration)

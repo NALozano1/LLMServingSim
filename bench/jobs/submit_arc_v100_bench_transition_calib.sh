@@ -10,7 +10,7 @@
 #   ./bench/jobs/submit_arc_v100_bench_transition_calib.sh
 #
 # Key env overrides:
-#   MODEL=phi|qwen                     (default: phi)
+#   MODEL=qwen                         (default: qwen)
 #   TRANSITION_COUNTS=0,1,2,4,8,16,32  (default; must include 0)
 #   ITERATIONS=3                        repeats per arm
 #   APPLY_MODE=async|sync               DVFS apply mode for armed arms
@@ -30,7 +30,7 @@ ARC_COMMON="/data/engs-glass/engs2950/shared/gpu_address_tracing/jobs/launchers/
 # shellcheck source=/dev/null
 source "${ARC_COMMON}"
 
-MODEL="${MODEL:-phi}"
+MODEL="${MODEL:-qwen}"
 TRANSITION_COUNTS="${TRANSITION_COUNTS:-0,1,2,4,8,16,32}"
 ITERATIONS="${ITERATIONS:-3}"
 APPLY_MODE="${APPLY_MODE:-async}"

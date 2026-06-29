@@ -19,7 +19,7 @@ HF_CACHE_ROOT="${HF_CACHE_ROOT:-${ENGS_GLASS}/infra/hf_cache}"
 CONTAINER_RUNTIME="${CONTAINER_RUNTIME:-apptainer}"
 VLLM_IMAGE="${VLLM_IMAGE:-docker://vllm/vllm-openai:v0.19.0}"
 
-MODEL="${MODEL:-microsoft/Phi-tiny-MoE-instruct}"
+MODEL="${MODEL:-Qwen/Qwen1.5-MoE-A2.7B-Chat}"
 TP_SIZE="${TP_SIZE:-1}"
 DTYPE="${DTYPE:-float16}"
 NUM_REQS="${NUM_REQS:-1}"

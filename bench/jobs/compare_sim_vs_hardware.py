@@ -13,7 +13,7 @@ Usage:
         bench/results/sim_sweep/
 
 Tier 1: uncapped arms — absolute sim accuracy without any DVFS scaling.
-Tier 2: clocked arms  — Phi uses per-clock traces; Qwen uses --dvfs-scale.
+Tier 2: clocked arms  — Qwen uses --dvfs-scale.
 """
 
 from __future__ import annotations

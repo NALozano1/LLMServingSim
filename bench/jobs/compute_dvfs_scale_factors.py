@@ -5,7 +5,7 @@ Reads bench/results/<campaign>/validation_results.tsv and writes
 dvfs_scale_factors.json alongside it. Scale = ttft_clock / ttft_uncapped.
 
 Used by run_sim_validation_sweep.sh to set --dvfs-scale for Qwen tp4 arms
-(which lack per-clock profiler traces) and as a reference for Phi tp1.
+(which lack per-clock profiler traces).
 
 Usage:
     python3 bench/jobs/compute_dvfs_scale_factors.py \\
@@ -27,11 +27,9 @@ def load_tsv(path):
 
 
 def model_key(row):
-    """Return a short key like 'phi_tp1' or 'qwen_tp4'."""
+    """Return a short key like 'qwen_tp4'."""
     model = row.get("model") or ""
     tp = row.get("tp_size") or "1"
-    if "Phi" in model or "phi" in model.lower():
-        return f"phi_tp{tp}"
     if "Qwen" in model or "qwen" in model.lower():
         return f"qwen_tp{tp}"
     run_id = row.get("run_id", "")

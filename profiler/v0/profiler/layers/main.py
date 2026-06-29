@@ -106,12 +106,8 @@ def _create_past_key_values(config, kv_len, device):
         from transformers.models.mixtral.modeling_mixtral import MixtralRotaryEmbedding
         rope = MixtralRotaryEmbedding(config, device=device)
         cos, sin = rope(dummy_x, position_ids)
-    elif "phimoe" in config.model_type:
-        from transformers.models.phimoe.modeling_phimoe import PhimoeRotaryEmbedding
-        rope = PhimoeRotaryEmbedding(config)
-        cos, sin = rope(dummy_x, kv_len)
     else:
-        raise NotImplementedError("Only LLaMA, Mixtral, Phi-MoE models are supported in profiling. We will add more models soon.")
+        raise NotImplementedError("Only LLaMA, Mixtral models are supported in profiling. We will add more models soon.")
 
     cache = DynamicCache()
     for layer_idx in range(num_layers):
@@ -159,13 +155,8 @@ def run_profile(
         # If you want to collect router stats during profiling, turn this on
         config.collect_router_stats = True
         model = MixtralForCausalLM(config)
-    elif 'phimoe' in config.model_type:
-        from models.phimoe import PhimoeForCausalLM
-        # If you want to collect router stats during profiling, turn this on
-        config.collect_router_stats = False
-        model = PhimoeForCausalLM(config)
     else:
-        raise NotImplementedError("Only LLaMA, Mixtral, Phi-MoE models are supported in profiling. We will add more models soon.")
+        raise NotImplementedError("Only LLaMA, Mixtral models are supported in profiling. We will add more models soon.")
     
     model.eval()
     model.to(config.dtype)
@@ -229,7 +220,7 @@ def run_profile(
 
 
         profile_keys = ["embedding", "input_layernorm", "q_proj", "k_proj", "v_proj", "rope", "attn", "o_proj", "post_layernorm", "gate_proj", "up_proj", "act_fn", "down_proj", "final_layernorm", "lm_head"]
-        if 'mixtral' in config.model_type or 'phimoe' in config.model_type:
+        if 'mixtral' in config.model_type:
             profile_keys += ["gate", "expert.w1", "expert.w2", "expert.w3"]
 
         for key, value in time_stats.items():
@@ -253,15 +244,15 @@ def run_profile(
         lm_head = results.get((input_len, kv_len, "lm_head"), 0.0)
         if 'llama' in config.model_type:
             block_components = ["input_layernorm", "q_proj", "k_proj", "v_proj", "rope", "attn", "o_proj", "post_layernorm", "gate_proj", "up_proj", "act_fn", "down_proj"]
-        elif 'mixtral' in config.model_type or 'phimoe' in config.model_type:
-            block_components = ["input_layernorm", "q_proj", "k_proj", "v_proj", "rope", "attn", "o_proj", "post_layernorm", "gate"]       
+        elif 'mixtral' in config.model_type:
+            block_components = ["input_layernorm", "q_proj", "k_proj", "v_proj", "rope", "attn", "o_proj", "post_layernorm", "gate"]
         else:
-            raise NotImplementedError("Only LLaMA, Mixtral, Phi-MoE models are supported in profiling. We will add more models soon.")
+            raise NotImplementedError("Only LLaMA, Mixtral models are supported in profiling. We will add more models soon.")
         
         per_block_time = sum(results.get((input_len, kv_len, comp), 0.0) for comp in block_components)
 
         # Runs experts sequentially in huggungface implementation
-        if 'mixtral' in config.model_type or 'phimoe' in config.model_type:
+        if 'mixtral' in config.model_type:
             moe_components = ["expert.w1", "expert.w2", "expert.w3", "act_fn"]
             n_tok = max(input_len // config.num_local_experts // tp_size, 1)
             for moe_comp in moe_components:

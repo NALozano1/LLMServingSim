@@ -83,7 +83,7 @@ does not work, and what it means for existing profiler/bench data. Appended to a
   (`audit_gpu_clocks.py`) remains the authoritative gate.
 
 ### 4. THE REAL PROBLEM — lock doesn't hold under load (validation job 8021298)
-- Single bench, Phi-tiny @ requested 1100 MHz. Fix let it run past apply. Under load,
+- Single bench at requested 1100 MHz. Fix let it run past apply. Under load,
   read from `gpu_power/bench.jsonl`:
   ```
   UNDER-LOAD graphics_mhz: median=1440 min=1440 max=1440   (target=1100)   [55/55 samples]

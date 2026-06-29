@@ -14,7 +14,7 @@ Usage:
     python3 bench/jobs/generate_transition_calib_sweep.py \\
         --repo /data/engs-glass/engs2950/DVFS-MoE/LLMServingSim \\
         --out-dir bench/campaigns/v100_transition_calib_<stamp> \\
-        [--model phi|qwen|<hf-id>] \\
+        [--model qwen|<hf-id>] \\
         [--transition-counts 0,1,2,4,8,16,32] \\
         [--iterations 3] \\
         [--seed 20260624] \\
@@ -35,14 +35,6 @@ _REPO = Path(__file__).resolve().parents[2]
 
 # Model catalogue (same subset as 78-run campaign).
 _MODELS: dict[str, dict] = {
-    "phi": {
-        "hf_id": "microsoft/Phi-tiny-MoE-instruct",
-        "num_hidden_layers": 32,
-        "max_num_batched_tokens": 512,
-        "max_model_len": 512,
-        "max_num_seqs": 1,
-        "gpu_memory_utilization": 0.92,
-    },
     "qwen": {
         "hf_id": "Qwen/Qwen1.5-MoE-A2.7B-Chat",
         "num_hidden_layers": 24,
@@ -207,9 +199,9 @@ def main() -> int:
     )
     ap.add_argument(
         "--model",
-        default="phi",
-        help="Model key (phi|qwen) or a full HF model ID. "
-             "Custom IDs use phi defaults for engine settings. (default: phi)",
+        default="qwen",
+        help="Model key (qwen) or a full HF model ID. "
+             "Custom IDs use qwen defaults for engine settings. (default: qwen)",
     )
     ap.add_argument(
         "--transition-counts",
@@ -248,12 +240,12 @@ def main() -> int:
     model_key = args.model
     if model_key not in _MODELS:
         if "/" in model_key or model_key.startswith("microsoft") or model_key.startswith("Qwen"):
-            # Treat as full HF id; map to phi defaults.
+            # Treat as full HF id; map to qwen defaults.
             custom_id = model_key
-            _MODELS["custom"] = {**_MODELS["phi"], "hf_id": custom_id}
+            _MODELS["custom"] = {**_MODELS["qwen"], "hf_id": custom_id}
             model_key = "custom"
         else:
-            ap.error(f"Unknown model key '{args.model}'. Use phi, qwen, or a full HF model id.")
+            ap.error(f"Unknown model key '{args.model}'. Use qwen, or a full HF model id.")
 
     transition_counts = [int(x.strip()) for x in args.transition_counts.split(",")]
     if 0 not in transition_counts:

@@ -3,7 +3,7 @@
 The profiler pairs **two independent pieces of state** at every run:
 
 1. ``Architecture`` — static vLLM class catalog describing one model
-   family (llama3 / qwen3 / qwen3-moe / mixtral / phi-moe / ...).
+   family (llama3 / qwen3 / qwen3-moe / mixtral / ...).
    Stored as a yaml under ``profiler/models/``. Shared
    between profiler and (future) trace_generator.
 
@@ -48,12 +48,12 @@ SHARD_FIELDS: list[str] = [
 # families spell these differently; we probe all variants and use the
 # first hit.
 MOE_NUM_EXPERTS_KEYS: tuple[str, ...] = (
-    "num_local_experts",     # Mixtral, PhiMoE
+    "num_local_experts",     # Mixtral
     "num_experts",            # Qwen3 MoE
     "n_routed_experts",       # DeepSeek V2/V3
 )
 MOE_TOP_K_KEYS: tuple[str, ...] = (
-    "num_experts_per_tok",    # Mixtral, PhiMoE, Qwen3 MoE
+    "num_experts_per_tok",    # Mixtral, Qwen3 MoE
     "num_experts_per_token",  # some variants
     "moe_k",                  # edge cases
 )

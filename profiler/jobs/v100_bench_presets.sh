@@ -7,8 +7,6 @@
 # Override any value after sourcing, or set V100_BENCH_PRESET=default to skip.
 #
 # Models:
-#   microsoft/Phi-mini-MoE-instruct   — proven full-context bench on V100
-#   microsoft/Phi-tiny-MoE-instruct   — smaller SlimMoE (3.8B total / 1.1B active)
 #   Qwen/Qwen1.5-MoE-A2.7B-Chat       — needs qwen15-v100-tight (weights ~31 GiB fp16)
 #
 # shellcheck shell=bash

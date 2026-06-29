@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Submit the Tier-1 / Tier-2 sim-accuracy validation prefill matrix.
 #
-# Runs: Phi (tp1) + Qwen3-30B (tp4) + Qwen1.5-MoE (tp1) + Llama-3.1-8B (tp1) +
+# Runs: Qwen3-30B (tp4) + Qwen1.5-MoE (tp1) + Llama-3.1-8B (tp1) +
 #       Qwen3-30B-tp2 at {uncapped, 700, 900, 1100, 1300, 1400} MHz.
 # All pinned to htc-g049 (verified locking node).
 # No layer-pause; prefill-only; power-on; clock audited.
@@ -9,7 +9,6 @@
 # Usage (from LLMServingSim/):
 #   bash bench/jobs/submit_prefill_validation_matrix.sh
 #   DRY_RUN=1 bash bench/jobs/submit_prefill_validation_matrix.sh
-#   MODELS=phi bash bench/jobs/submit_prefill_validation_matrix.sh           # phi only
 #   MODELS=qwen bash bench/jobs/submit_prefill_validation_matrix.sh          # qwen tp4 only
 #   MODELS="qwen15moe llama8b qwen30btp2" bash bench/jobs/...               # new models
 #
@@ -20,7 +19,7 @@ ENGS_GLASS="/data/engs-glass/engs2950"
 JOBS_ROOT="${REPO_ROOT}/bench/jobs"
 DRY_RUN="${DRY_RUN:-0}"
 NODELIST="${NODELIST:-htc-g049}"
-MODELS="${MODELS:-phi qwen}"  # space-separated subset; default: both
+MODELS="${MODELS:-qwen}"  # space-separated subset
 
 # Campaign dir — unique per submission date
 CAMPAIGN_TAG="$(date +%Y%m%d)"
@@ -31,12 +30,10 @@ FREQ_LIST="${FREQ_LIST:- 700 900 1100 1300 1400}"  # leading space = uncapped sl
 FREQ_ARRAY=("" ${FREQ_LIST})                        # first element = uncapped
 
 # Walltime per run (boot + inference).
-# Phi-tiny-MoE tp1: ~7 min boot + ~3 min inference.
 # Qwen3-30B tp4: ~30 min boot + ~10 min inference (OBSERVED timeout at 00:30:00).
 # Qwen3-30B tp2: similar boot to tp4 (2 GPUs but 30GB each vs 15GB at tp4).
 # Qwen1.5-MoE tp1: ~8 min boot + ~3 min inference.
 # Llama-3.1-8B tp1: ~5 min boot + ~2 min inference.
-PHI_TIME="${PHI_TIME:-00:20:00}"
 QWEN_TIME="${QWEN_TIME:-01:00:00}"
 QWEN15_TIME="${QWEN15_TIME:-00:45:00}"    # boots in ~20 min; need 45 min for inference buffer
 LLAMA8B_TIME="${LLAMA8B_TIME:-00:20:00}"
@@ -127,14 +124,6 @@ echo "" >&2
 
 for model_key in ${MODELS}; do
   case "${model_key}" in
-    phi)
-      model="microsoft/Phi-tiny-MoE-instruct"
-      tp=1; gpus=1; walltime="${PHI_TIME}"
-      extra_env="export GPU_MEMORY_UTILIZATION=0.92
-export MAX_MODEL_LEN=2048
-export MAX_NUM_SEQS=64
-export MAX_NUM_BATCHED_TOKENS=4096"
-      ;;
     qwen)
       model="Qwen/Qwen3-30B-A3B-Instruct-2507"
       tp=4; gpus=4; walltime="${QWEN_TIME}"

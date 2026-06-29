@@ -25,7 +25,6 @@ PERF_ROOT = _REPO / "profiler" / "perf"
 POWER_ROOT = _REPO / "profiler" / "power" / "data"
 
 REFERENCE_MODELS = (
-    "microsoft/Phi-tiny-MoE-instruct",
     "Qwen/Qwen1.5-MoE-A2.7B-Chat",
 )
 

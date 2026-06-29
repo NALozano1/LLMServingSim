@@ -2,7 +2,7 @@
 # Verify configs/model/<HF id>.json exists and profiler/models/<model_type>.yaml resolves.
 #
 #   ./profiler/scripts/verify_model_arch.sh
-#   ./profiler/scripts/verify_model_arch.sh microsoft/Phi-tiny-MoE-instruct Qwen/Qwen1.5-MoE-A2.7B-Chat
+#   ./profiler/scripts/verify_model_arch.sh Qwen/Qwen1.5-MoE-A2.7B-Chat
 #
 set -euo pipefail
 
@@ -11,7 +11,6 @@ cd "${ROOT}"
 
 if [[ $# -eq 0 ]]; then
   set -- \
-    microsoft/Phi-tiny-MoE-instruct \
     Qwen/Qwen1.5-MoE-A2.7B-Chat
 fi
 

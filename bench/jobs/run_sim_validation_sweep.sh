@@ -8,7 +8,6 @@
 # Runs LLMServingSim for each (model, clock) validation arm and saves CSVs to
 # bench/results/sim_sweep/<run_id>.csv for comparison against hardware TTFT.
 #
-# Phi tp1: uses per-clock profiler traces (V100_700MHz, V100_900MHz, …)
 # Qwen tp4: only uncapped traces exist at tp4; clocked arms use --dvfs-scale
 #            read from bench/results/<CAMPAIGN>/dvfs_scale_factors.json
 #
@@ -30,7 +29,6 @@ SWEEP_DIR="${SWEEP_DIR:-${REPO_ROOT}/bench/results/sim_sweep}"
 TMP_CFG_DIR="${TMP_CFG_DIR:-/tmp/llmsim_sim_sweep_cfgs}"
 SCALE_JSON="${RESULTS_DIR}/dvfs_scale_factors.json"
 
-PHI_MODEL="microsoft/Phi-tiny-MoE-instruct"
 QWEN_MODEL="Qwen/Qwen3-30B-A3B-Instruct-2507"
 DTYPE="float16"
 BLOCK_SIZE=16
@@ -45,17 +43,7 @@ mkdir -p "${SWEEP_DIR}" "${TMP_CFG_DIR}"
 # ---------------------------------------------------------------------------
 # Generate datasets (fixed-length, matching the hardware bench workloads)
 # ---------------------------------------------------------------------------
-PHI_DATASET="${SWEEP_DIR}/sharegpt_phi_512tok.jsonl"
 QWEN_DATASET="${SWEEP_DIR}/sharegpt_qwen_512tok.jsonl"
-
-if [[ ! -f "${PHI_DATASET}" ]]; then
-  echo "[sweep] Generating Phi 512-tok dataset…"
-  python3 -m workloads.generators sharegpt \
-    --model "${PHI_MODEL}" \
-    --num-reqs "${N_REQS}" --sps "${SPS}" --seed "${SEED}" \
-    --fix-len --fix-input-length "${FIX_INPUT}" --fix-output-length "${FIX_OUTPUT}" \
-    --output "${PHI_DATASET}"
-fi
 
 if [[ ! -f "${QWEN_DATASET}" ]]; then
   echo "[sweep] Generating Qwen 512-tok dataset…"
@@ -100,8 +88,7 @@ run_one() {
   echo "[sweep] ${run_id}  hardware=${hardware}  tp=${tp_size}${extra_args:+  ${extra_args}}"
 
   # Determine model from run_id prefix
-  local model="${PHI_MODEL}"
-  [[ "${run_id}" == qwen* ]] && model="${QWEN_MODEL}"
+  local model="${QWEN_MODEL}"
 
   python3 "${REPO_ROOT}/scripts/generate_cluster_config.py" \
     --hardware "${hardware}" \
@@ -122,19 +109,6 @@ run_one() {
 
   echo "[sweep] DONE ${run_id} -> ${out}"
 }
-
-# ---------------------------------------------------------------------------
-# Phi tp1 — per-clock traces available for all arms
-# ---------------------------------------------------------------------------
-echo ""
-echo "=== Phi tp1 (per-clock profiler traces) ==="
-
-run_one "phi_tp1_uncapped"  "V100"        1 "${PHI_DATASET}"
-run_one "phi_tp1_700mhz"    "V100_700MHz"  1 "${PHI_DATASET}"
-run_one "phi_tp1_900mhz"    "V100_900MHz"  1 "${PHI_DATASET}"
-run_one "phi_tp1_1100mhz"   "V100_1100MHz" 1 "${PHI_DATASET}"
-run_one "phi_tp1_1300mhz"   "V100_1300MHz" 1 "${PHI_DATASET}"
-run_one "phi_tp1_1400mhz"   "V100_1400MHz" 1 "${PHI_DATASET}"
 
 # ---------------------------------------------------------------------------
 # Qwen tp4 — uncapped uses traces; clocked arms use --dvfs-scale

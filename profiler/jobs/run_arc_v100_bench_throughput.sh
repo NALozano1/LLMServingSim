@@ -1,10 +1,8 @@
 #!/usr/bin/env bash
 # Real vLLM throughput benchmark on ARC V100 (tp1) via python -m bench run.
 #
-# Default model: microsoft/Phi-mini-MoE-instruct (fits easily on 32GB V100).
-# Smaller MoE: microsoft/Phi-tiny-MoE-instruct (3.8B total / 1.1B active).
-# Qwen1.5-MoE needs the qwen15-v100-tight preset (auto-applied); see
-# profiler/jobs/v100_bench_presets.sh.
+# Default model: Qwen/Qwen1.5-MoE-A2.7B-Chat (needs qwen15-v100-tight preset,
+# auto-applied); see profiler/jobs/v100_bench_presets.sh.
 # Generates a ShareGPT JSONL workload, then replays it through vLLM.
 #
 # Outputs: bench/results/V100/<safe_model>/tp1/<jobid>/
@@ -23,7 +21,7 @@ HF_CACHE_ROOT="${HF_CACHE_ROOT:-${ENGS_GLASS}/infra/hf_cache}"
 CONTAINER_RUNTIME="${CONTAINER_RUNTIME:-apptainer}"
 VLLM_IMAGE="${VLLM_IMAGE:-docker://vllm/vllm-openai:v0.19.0}"
 
-MODEL="${MODEL:-microsoft/Phi-mini-MoE-instruct}"
+MODEL="${MODEL:-Qwen/Qwen1.5-MoE-A2.7B-Chat}"
 TP_SIZE="${TP_SIZE:-1}"
 DTYPE="${DTYPE:-float16}"
 NUM_REQS="${NUM_REQS:-100}"
