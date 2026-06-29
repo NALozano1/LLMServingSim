@@ -129,7 +129,24 @@ export APPTAINER_TMPDIR="${JOBS_ROOT}/apptainer_tmp/${JOB_TAG}"
 
 # shellcheck source=/dev/null
 source "${GPU_FREQ_LIB}"
-trap 'gpu_freq_lock_trap_restore "${FREQ_META_DIR}"' EXIT
+
+# ── Clock hold poller state ───────────────────────────────────────────────────
+# Mirrors the pattern in bench/jobs/run_arc_v100_prefill_validation.sh.
+HOLD_PID=""
+_cleanup() {
+  if [[ -n "${HOLD_PID:-}" ]]; then
+    touch "${FREQ_META_DIR}/gpu_freq_hold.stop" 2>/dev/null || true
+    for _ in $(seq 1 20); do
+      kill -0 "${HOLD_PID}" 2>/dev/null || break
+      sleep 0.5
+    done
+    kill "${HOLD_PID}" 2>/dev/null || true
+    wait "${HOLD_PID}" 2>/dev/null || true
+    HOLD_PID=""
+  fi
+  gpu_freq_lock_force_restore "${FREQ_META_DIR}" 2>/dev/null || true
+}
+trap '_cleanup' EXIT
 
 echo "=== LLMServingSim profiler (ARC / engs-glass) ==="
 echo "REPO_ROOT=$REPO_ROOT"
@@ -162,6 +179,27 @@ if [[ -n "${GPU_FREQ_MHZ:-}" ]]; then
     echo "WARN: could not read back GPU clock via nvidia-smi;" \
          "relying on post-flight under-load audit." >&2
   fi
+fi
+
+# ── Clock hold poller (HOST-side, outside apptainer) ─────────────────────────
+# A single one-shot apply loses the lock once the V100 goes under heavy load.
+# This background poller continuously re-applies the lock for the entire
+# profiling run, exactly as bench/jobs/run_arc_v100_prefill_validation.sh does.
+# Only started when GPU_FREQ_MHZ is set (no-op for bare V100 / uncapped runs).
+if [[ -n "${GPU_FREQ_MHZ:-}" ]]; then
+  # Compute the GPU index range to hold: 0..max_tp-1.
+  # TP_DEGREES may be a comma-separated list (e.g. "1,4"); use the maximum so
+  # all GPUs that will be active during any TP sweep are covered.
+  _MAX_TP=1
+  IFS=',' read -ra _TP_ARR <<< "${TP_DEGREES}"
+  for _tp in "${_TP_ARR[@]}"; do
+    (( _tp > _MAX_TP )) && _MAX_TP="${_tp}"
+  done
+  _HOLD_GPUS="$(seq -s, 0 $((_MAX_TP - 1)))"
+  CUDA_VISIBLE_DEVICES="${_HOLD_GPUS}" python3 "${GPU_FREQ_LOCK_PY}" hold \
+    --mhz "${GPU_FREQ_MHZ}" --out-dir "${FREQ_META_DIR}" &
+  HOLD_PID=$!
+  echo "[dvfs] hold poller pid=${HOLD_PID} target=${GPU_FREQ_MHZ} MHz gpus=${_HOLD_GPUS}"
 fi
 
 if [[ -z "${HF_TOKEN:-}" ]]; then
@@ -219,6 +257,14 @@ while true; do
 done
 if [[ "${_container_rc}" -ne 0 ]]; then
   exit "${_container_rc}"
+fi
+
+# Stop the clock hold poller now that the workload has finished.
+if [[ -n "${GPU_FREQ_MHZ:-}" && -n "${HOLD_PID:-}" ]]; then
+  touch "${FREQ_META_DIR}/gpu_freq_hold.stop" 2>/dev/null || true
+  wait "${HOLD_PID}" 2>/dev/null || true
+  HOLD_PID=""
+  echo "[dvfs] hold poller stopped; summary at ${FREQ_META_DIR}/gpu_freq_hold_summary.json"
 fi
 
 export SLURM_JOB_ACCOUNT="${OLD_ACCOUNT}"
