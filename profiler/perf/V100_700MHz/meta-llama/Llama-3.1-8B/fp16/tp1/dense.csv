@@ -1,0 +1,10 @@
+layer,tokens,time_us
+act_fn,2048,318.25
+down_proj,2048,5489.9
+embedding,2048,38.176
+final_layernorm,2048,130.997
+gate_up_proj,2048,10277.8
+layernorm,2048,110.677
+o_proj,2048,1775.33
+qkv_proj,2048,2243.42
+rotary_emb,2048,124.949
