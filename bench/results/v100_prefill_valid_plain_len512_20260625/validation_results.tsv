@@ -1,0 +1,3 @@
+run_id	status	arm_label	model	tp_size	num_reqs	fix_input_length	gpu_freq_mhz_target	gpu_freq_mhz_achieved	clock_verdict_ok	wall_sec	exec_sec	ttft_median_ms	ttft_mean_ms	ttft_p90_ms	energy_j	energy_excl_pause_j	mean_power_w	mean_power_excl_pause_w	slurm_job_id	hostname	recorded_at
+llama8b_tp1_700mhz	completed	700mhz	meta-llama/Llama-3.1-8B	1	50	512	700	705	True	13.380716	13.380716	7374.63	7343.776	10946.924	1376.791	1376.791	109.386	109.386	8034917	htc-g049	2026-06-26T05:46:16.697365+00:00
+llama8b_tp1_900mhz	completed	900mhz	meta-llama/Llama-3.1-8B	1	50	512	900	900	True	9.472966	9.472966	5595.38	5416.824	8240.662	1227.444	1227.444	137.565	137.565	8034918	htc-g049	2026-06-26T05:58:20.551481+00:00

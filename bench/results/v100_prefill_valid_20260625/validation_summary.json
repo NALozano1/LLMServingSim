@@ -1,8 +1,8 @@
 {
   "campaign_dir": "bench/campaigns/v100_prefill_valid_20260625",
-  "total_runs": 12,
+  "total_runs": 7,
   "completed": 6,
-  "pending": 6,
+  "pending": 1,
   "failed": 0,
   "by_model": {
     "microsoft/Phi-tiny-MoE-instruct": [
@@ -65,36 +65,6 @@
         "ttft_p90_ms": 166167.958,
         "energy_excl_pause_j": 27315.487,
         "mean_power_excl_pause_w": 148.081
-      }
-    ],
-    "qwen_tp4_1100mhz": [
-      {
-        "clock": "?",
-        "status": "pending"
-      }
-    ],
-    "qwen_tp4_1300mhz": [
-      {
-        "clock": "?",
-        "status": "pending"
-      }
-    ],
-    "qwen_tp4_1400mhz": [
-      {
-        "clock": "?",
-        "status": "pending"
-      }
-    ],
-    "qwen_tp4_700mhz": [
-      {
-        "clock": "?",
-        "status": "pending"
-      }
-    ],
-    "qwen_tp4_900mhz": [
-      {
-        "clock": "?",
-        "status": "pending"
       }
     ],
     "qwen_tp4_uncapped": [
@@ -248,26 +218,6 @@
       "slurm_job_id": "8030549",
       "hostname": "htc-g049",
       "recorded_at": "2026-06-25T04:26:19.855991+00:00"
-    },
-    {
-      "run_id": "qwen_tp4_1100mhz",
-      "status": "pending"
-    },
-    {
-      "run_id": "qwen_tp4_1300mhz",
-      "status": "pending"
-    },
-    {
-      "run_id": "qwen_tp4_1400mhz",
-      "status": "pending"
-    },
-    {
-      "run_id": "qwen_tp4_700mhz",
-      "status": "pending"
-    },
-    {
-      "run_id": "qwen_tp4_900mhz",
-      "status": "pending"
     },
     {
       "run_id": "qwen_tp4_uncapped",

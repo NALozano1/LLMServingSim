@@ -137,7 +137,7 @@ def main() -> None:
         print(f"    {'clock':<12} {'achieved':>10} {'ttft_med_ms':>12} {'energy_excl_j':>14} {'ok':>4}")
         for t in table:
             if "status" in t and t.get("status") != "completed":
-                print(f"    {t.get('clock','?'):<12}  ({t['status']})")
+                print(f"    {t.get('clock') or '?':<12}  ({t['status']})")
                 continue
             ok = "Y" if t.get("clock_ok") else ("?" if t.get("clock_ok") is None else "N")
             print(f"    {t.get('clock_label','?'):<12} {t.get('achieved_mhz') or '---':>10}"

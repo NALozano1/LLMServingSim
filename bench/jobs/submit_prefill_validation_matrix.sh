@@ -38,7 +38,7 @@ FREQ_ARRAY=("" ${FREQ_LIST})                        # first element = uncapped
 # Llama-3.1-8B tp1: ~5 min boot + ~2 min inference.
 PHI_TIME="${PHI_TIME:-00:20:00}"
 QWEN_TIME="${QWEN_TIME:-01:00:00}"
-QWEN15_TIME="${QWEN15_TIME:-00:25:00}"
+QWEN15_TIME="${QWEN15_TIME:-00:45:00}"    # boots in ~20 min; need 45 min for inference buffer
 LLAMA8B_TIME="${LLAMA8B_TIME:-00:20:00}"
 QWEN30BTP2_TIME="${QWEN30BTP2_TIME:-01:00:00}"
 
@@ -164,14 +164,14 @@ export MAX_NUM_SEQS=64
 export MAX_NUM_BATCHED_TOKENS=8192"
       ;;
     qwen30btp2)
-      # Qwen3-30B-A3B tp2: 60GB total / 2 GPUs = 30GB each — tight, use 0.95
-      # Profiler tables: V100/fp16/tp2 (attention+dense); no moe.csv, no per-clock
+      # Qwen3-30B-A3B tp2: ~60GB weights / 2 GPUs = ~30GB each, leaving ~2GB for KV cache.
+      # OOM at max_model_len=4096/max_num_seqs=64; reduce both to leave room for KV cache.
       model="Qwen/Qwen3-30B-A3B-Instruct-2507"
-      tp=2; gpus=2; walltime="${QWEN30BTP2_TIME:-00:35:00}"
+      tp=2; gpus=2; walltime="${QWEN30BTP2_TIME:-01:00:00}"
       extra_env="export GPU_MEMORY_UTILIZATION=0.95
-export MAX_MODEL_LEN=4096
-export MAX_NUM_SEQS=64
-export MAX_NUM_BATCHED_TOKENS=8192"
+export MAX_MODEL_LEN=2048
+export MAX_NUM_SEQS=8
+export MAX_NUM_BATCHED_TOKENS=2048"
       ;;
     *)
       echo "Unknown model_key: ${model_key}" >&2

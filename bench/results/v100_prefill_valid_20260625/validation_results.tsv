@@ -5,9 +5,4 @@ phi_tp1_1400mhz	completed	1400mhz	microsoft/Phi-tiny-MoE-instruct	1	50	512	1400	
 phi_tp1_700mhz	completed	700mhz	microsoft/Phi-tiny-MoE-instruct	1	50	512	700	705	True	280.194051	280.194051	144387.349	148169.03	256664.736	24394.172	24394.172	87.171	87.171	8030550	htc-g049	2026-06-25T04:39:37.782422+00:00
 phi_tp1_900mhz	completed	900mhz	microsoft/Phi-tiny-MoE-instruct	1	50	512	900	900	True	174.631352	174.631352	98393.99	95168.131	161952.039	18093.122	18093.122	103.772	103.772	8030551	htc-g049	2026-06-25T04:51:01.052125+00:00
 phi_tp1_uncapped	completed	uncapped	microsoft/Phi-tiny-MoE-instruct	1	50	512				184.804515	184.804515	93896.612	96396.676	166167.958	27315.487	27315.487	148.081	148.081	8030549	htc-g049	2026-06-25T04:26:19.855991+00:00
-qwen_tp4_1100mhz	pending																				
-qwen_tp4_1300mhz	pending																				
-qwen_tp4_1400mhz	pending																				
-qwen_tp4_700mhz	pending																				
-qwen_tp4_900mhz	pending																				
 qwen_tp4_uncapped	pending																				

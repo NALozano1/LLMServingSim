@@ -55,6 +55,22 @@
     {
       "run_id": "tcalib_n000_phi_i00",
       "campaign": "v100_tcalib_slim_sync"
+    },
+    {
+      "run_id": "tcalib_n000_phi_i00",
+      "campaign": "v100_tcalib_n0_async_20260625"
+    },
+    {
+      "run_id": "tcalib_n000_phi_i00",
+      "campaign": "v100_tcalib_n0_sync_20260625"
+    },
+    {
+      "run_id": "tcalib_n000_phi_i00",
+      "campaign": "v100_tcalib_n1_async_verify_20260625"
+    },
+    {
+      "run_id": "tcalib_n001_phi_i00",
+      "campaign": "v100_tcalib_n1_async_verify_20260625"
     }
   ]
 }

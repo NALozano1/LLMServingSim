@@ -1,0 +1,81 @@
+{
+  "campaign_dir": "bench/campaigns/v100_prefill_valid_newmodels_20260625",
+  "total_runs": 2,
+  "completed": 2,
+  "pending": 0,
+  "failed": 0,
+  "by_model": {
+    "meta-llama/Llama-3.1-8B": [
+      {
+        "clock_label": "700mhz",
+        "target_mhz": 700,
+        "achieved_mhz": 705,
+        "clock_ok": true,
+        "ttft_median_ms": 7093.384,
+        "ttft_p90_ms": 11437.906,
+        "energy_excl_pause_j": 1520.45,
+        "mean_power_excl_pause_w": 108.375
+      },
+      {
+        "clock_label": "900mhz",
+        "target_mhz": 900,
+        "achieved_mhz": 900,
+        "clock_ok": true,
+        "ttft_median_ms": 4300.073,
+        "ttft_p90_ms": 7948.315,
+        "energy_excl_pause_j": 1319.283,
+        "mean_power_excl_pause_w": 128.333
+      }
+    ]
+  },
+  "all_rows": [
+    {
+      "run_id": "llama8b_tp1_700mhz",
+      "status": "completed",
+      "arm_label": "700mhz",
+      "model": "meta-llama/Llama-3.1-8B",
+      "tp_size": 1,
+      "num_reqs": 50,
+      "fix_input_length": 512,
+      "gpu_freq_mhz_target": 700,
+      "gpu_freq_mhz_achieved": 705,
+      "clock_verdict_ok": true,
+      "wall_sec": 14.453908,
+      "exec_sec": 14.453908,
+      "ttft_median_ms": 7093.384,
+      "ttft_mean_ms": 7023.627,
+      "ttft_p90_ms": 11437.906,
+      "energy_j": 1520.45,
+      "energy_excl_pause_j": 1520.45,
+      "mean_power_w": 108.375,
+      "mean_power_excl_pause_w": 108.375,
+      "slurm_job_id": "8030617",
+      "hostname": "htc-g049",
+      "recorded_at": "2026-06-25T07:57:22.562097+00:00"
+    },
+    {
+      "run_id": "llama8b_tp1_900mhz",
+      "status": "completed",
+      "arm_label": "900mhz",
+      "model": "meta-llama/Llama-3.1-8B",
+      "tp_size": 1,
+      "num_reqs": 50,
+      "fix_input_length": 512,
+      "gpu_freq_mhz_target": 900,
+      "gpu_freq_mhz_achieved": 900,
+      "clock_verdict_ok": true,
+      "wall_sec": 11.035839,
+      "exec_sec": 11.035839,
+      "ttft_median_ms": 4300.073,
+      "ttft_mean_ms": 4622.447,
+      "ttft_p90_ms": 7948.315,
+      "energy_j": 1319.283,
+      "energy_excl_pause_j": 1319.283,
+      "mean_power_w": 128.333,
+      "mean_power_excl_pause_w": 128.333,
+      "slurm_job_id": "8030618",
+      "hostname": "htc-g049",
+      "recorded_at": "2026-06-25T08:09:58.301432+00:00"
+    }
+  ]
+}
