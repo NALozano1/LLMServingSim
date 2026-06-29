@@ -3,6 +3,10 @@
 Running notes for setup and experiments on **nserver15** (`~/DVFS_MoE/LLMServingSim`).
 Update this file as we try new configs/runs.
 
+> **2026-06-29 session handoff:** see `../HANDOFF_2026-06-29.md` (DVFS-MoE root) — DVFS perf-table
+> taint finding + re-profiling in flight (jobs 8073243, 8073323–27, 8073346–50, 8073489–93),
+> Phi models dropped (commit `df5ec30e`, data archived), prefill campaign held, open decisions.
+
 ---
 
 ## Environment
@@ -206,6 +210,7 @@ Collect: `python3 bench/jobs/collect_bench_layer_campaign_results.py bench/campa
 
 | Date | Note |
 |------|------|
+| 2026-06-29 | **Qwen3-30B moe-only-force freq re-profile submitted** — corrected sweep for tainted moe.csv tables. `ONLY_MOE=1 FORCE=1 TP_DEGREES=1` at 700/900/1100/1300/1400 MHz. New jobs **8074466–8074470** (6h limit, sequential chain). Script fixes: (1) `v100_matrix_common.sh` now exports `ONLY_MOE`/`FORCE` in CMD heredoc, `v100_freq_list` always includes MAX endpoint, DRY_RUN moved inside `v100_matrix_submit_profile_job` so it renders files for inspection; (2) `run_arc_v100_profile.sh` builds `--only-moe`/`--force` flag arrays and embeds them in the apptainer command, runs container in background + signal-aware wait loop; (3) `submit_arc_v100_profile_freq_matrix.sh` default TIME raised to 11:30:00; (4) sbatch now passes `--requeue --signal=B:USR1@300` for all freq-sweep jobs — USR1 trap in runner requeues long full-profile jobs to resume from partial CSVs (disabled for ONLY_MOE). Llama jobs 8073489–93 untouched. |
 | 2026-06-22 | Prefill-only bench layer pause + DVFS validated on V100; 78-run campaign submitted (NOTE: 74/78 runs empty — see below) |
 | 2026-06-22 | Decode support: `DVFS_DECODE_MAX_PAUSES_PER_PASS`, decode smoke job |
 | 2026-06-24 | Transition calib (`run_arc_v100_bench_transition_calib.sh`): measures DVFS barrier overhead in sync vs async mode. `barrier_wait_sec_worker` is the per-barrier blocking time seen by the vLLM worker thread. Sync n=1: 17.3 s (dominated by clock settle). Async n=1: 0.7 s (dispatch returns before clock settles — worker unblocked immediately). |

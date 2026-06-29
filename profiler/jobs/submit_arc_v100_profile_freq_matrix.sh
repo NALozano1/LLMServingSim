@@ -44,7 +44,7 @@ JOB_NAME_PREFIX="${JOB_NAME_PREFIX:-llmsim_prof_v100}"
 PROJECT="${PROJECT:-engs2950}"
 PARTITION="interactive"
 DATA_OUTPUT="${DATA_OUTPUT:-${ROOT}/profiler/perf}"
-TIME="${TIME:-03:00:00}"
+TIME="${TIME:-11:30:00}"
 
 TP_DEGREES="${TP_DEGREES:-1,2,4}"
 SKIP_COMPLETE="${SKIP_COMPLETE:-1}"
@@ -110,11 +110,6 @@ for MODEL in "${MODEL_LIST[@]}"; do
     fi
 
     echo "SUBMIT ${MODEL} @ ${mhz}MHz -> ${hardware} (replicas=${N_GPU_REPLICAS})" | tee -a "${SUBMIT_LOG}"
-    if [[ "${DRY_RUN}" == "1" ]]; then
-      prev_jid="dry_${mhz}_$(v100_matrix_safe_name "${MODEL}")"
-      submitted=$((submitted + N_GPU_REPLICAS))
-      continue
-    fi
 
     for (( _rep=0; _rep < N_GPU_REPLICAS; _rep++ )); do
       _rep_arg=$([[ "${N_GPU_REPLICAS}" -gt 1 ]] && echo "${_rep}" || echo "")

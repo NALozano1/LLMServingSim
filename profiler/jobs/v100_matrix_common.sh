@@ -59,14 +59,21 @@ v100_hardware_label() {
 }
 
 # MHz values for locked reruns (excludes default-boost baseline tag V100).
+# Always includes MAX even when MAX is not on the step grid (e.g. step=200
+# from 700 with max=1400 gives 700/900/1100/1300/1400, not just 700..1300).
 v100_freq_list() {
   local min="${V100_FREQ_MIN_MHZ}"
   local max="${V100_FREQ_MAX_MHZ}"
   local step="${V100_FREQ_STEP_MHZ}"
-  local mhz
+  local mhz last=0
   for ((mhz = min; mhz <= max; mhz += step)); do
     echo "$mhz"
+    last=$mhz
   done
+  # Emit max if it wasn't reached by the loop (off-grid endpoint).
+  if [[ "$last" -ne "$max" && "$max" -gt "$min" ]]; then
+    echo "$max"
+  fi
 }
 
 # True when meta.yaml exists (full TP sweep done for that hardware tag).
@@ -140,6 +147,8 @@ export MAX_NUM_BATCHED_TOKENS='${MAX_NUM_BATCHED_TOKENS:-2048}'
 export MAX_NUM_SEQS='${MAX_NUM_SEQS:-256}'
 export ATTENTION_MAX_KV='${ATTENTION_MAX_KV:-8192}'
 export MEASUREMENT_ITERATIONS='${MEASUREMENT_ITERATIONS:-3}'
+export ONLY_MOE='${ONLY_MOE:-}'
+export FORCE='${FORCE:-}'
 bash "${RUNNER}"
 EOF
   printf '%s' "${CMD}" > "${cmd_frag}"
@@ -183,27 +192,39 @@ PY
     (( _tp_val > _max_tp )) && _max_tp="${_tp_val}"
   done
 
-  jid_raw=$(sbatch --parsable \
-    --clusters=htc \
-    --account=engs-glass \
-    --partition="${PARTITION}" \
-    --gres=gpu:v100:${_max_tp} \
-    --nodes=1 \
-    --ntasks=1 \
-    --cpus-per-task=16 \
-    --mem=64G \
-    --time="${TIME}" \
-    --job-name="${job_name}" \
-    --mail-user="${MAIL_USER:-alex.lozano@eng.ox.ac.uk}" \
-    --mail-type=BEGIN,END,FAIL \
-    --output="${ROOT}/profiler/jobs/logs/${job_name}_%j.out" \
-    --error="${ROOT}/profiler/jobs/logs/${job_name}_%j.err" \
-    "${dep_args[@]}" \
-    "${rendered}")
-  jid="${jid_raw%%;*}"
+  local _status
+  if [[ "${DRY_RUN:-0}" == "1" ]]; then
+    # DRY_RUN: render files for inspection but do not call sbatch.
+    jid="dry_${gpu_freq_mhz:-base}_$(v100_matrix_safe_name "${model}${rep_suffix}")"
+    echo "  [DRY_RUN] cmd_frag=${cmd_frag}" >&2
+    echo "  [DRY_RUN] rendered=${rendered}" >&2
+    _status="dry_run"
+  else
+    jid_raw=$(sbatch --parsable \
+      --clusters=htc \
+      --account=engs-glass \
+      --partition="${PARTITION}" \
+      --gres=gpu:v100:${_max_tp} \
+      --nodes=1 \
+      --ntasks=1 \
+      --cpus-per-task=16 \
+      --mem=64G \
+      --time="${TIME}" \
+      --job-name="${job_name}" \
+      --mail-user="${MAIL_USER:-alex.lozano@eng.ox.ac.uk}" \
+      --mail-type=BEGIN,END,FAIL \
+      --output="${ROOT}/profiler/jobs/logs/${job_name}_%j.out" \
+      --error="${ROOT}/profiler/jobs/logs/${job_name}_%j.err" \
+      --requeue \
+      --signal=B:USR1@300 \
+      "${dep_args[@]}" \
+      "${rendered}")
+    jid="${jid_raw%%;*}"
+    _status="submitted"
+  fi
 
-  printf '%s\t%s\t%s\t%s\t%s\tsubmitted\n' \
-    "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "${jid}" "${model}" "${hardware}" "${gpu_freq_mhz:-default}" \
+  printf '%s\t%s\t%s\t%s\t%s\t%s\n' \
+    "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "${jid}" "${model}" "${hardware}" "${gpu_freq_mhz:-default}" "${_status}" \
     >> "${MANIFEST}"
 
   {

@@ -79,6 +79,37 @@ case "${VERBOSITY}" in
   --verbose|--silent) VERBOSITY_FLAG=("${VERBOSITY}") ;;
 esac
 
+ONLY_MOE_FLAG=()
+[[ -n "${ONLY_MOE:-}" && "${ONLY_MOE}" != "0" ]] && ONLY_MOE_FLAG=(--only-moe)
+
+FORCE_FLAG=()
+[[ -n "${FORCE:-}" && "${FORCE}" != "0" ]] && FORCE_FLAG=(--force)
+
+# ── Checkpoint-and-requeue trap (full-profile jobs only) ──────────────────────
+# Slurm fires SIGUSR1 to the batch step 300 s before the time limit
+# (configured via --signal=B:USR1@300 in the sbatch invocation).  We
+# immediately request a requeue so the job goes back to PENDING; when the
+# current instance finishes (or is hard-killed at the limit), Slurm starts a
+# fresh run that resumes from the partial CSVs (skip-already-measured rows).
+#
+# Skipped for moe-only jobs (ONLY_MOE set): they finish quickly and don't need
+# automatic checkpointing.  The trap installs only when ONLY_MOE is absent or 0.
+_REQUEUE_ON_EXIT=0
+if [[ -z "${ONLY_MOE:-}" || "${ONLY_MOE}" == "0" ]]; then
+  _usr1_handler() {
+    echo "=== USR1: ~5 min to time limit; requeueing ${SLURM_JOB_ID:-<no jobid>} for continuation ===" >&2
+    _REQUEUE_ON_EXIT=1
+    if [[ -n "${SLURM_JOB_ID:-}" ]]; then
+      scontrol requeue "${SLURM_JOB_ID}" \
+        && echo "Requeue requested for job ${SLURM_JOB_ID}. Resuming from partial CSVs on restart." >&2 \
+        || echo "WARN: scontrol requeue failed (job may already be completing)" >&2
+    else
+      echo "WARN: SLURM_JOB_ID unset; cannot requeue automatically" >&2
+    fi
+  }
+  trap '_usr1_handler' USR1
+fi
+
 mkdir -p \
   "${SCRATCH}/t" \
   "${SCRATCH}/h" \
@@ -140,6 +171,9 @@ fi
 OLD_ACCOUNT="${SLURM_JOB_ACCOUNT:-}"
 unset SLURM_JOB_ACCOUNT
 
+# Run container in background so the USR1 trap can fire while it is running.
+# (Bash only processes signal traps between commands; backgrounding + wait makes
+# the wait built-in interruptible so signals are delivered promptly.)
 "$CONTAINER_RUNTIME" exec --cleanenv --nv \
   -B "${REPO_ROOT}:${REPO_ROOT}" \
   -B "${HF_CACHE_ROOT}:${HF_CACHE_ROOT}" \
@@ -168,7 +202,24 @@ unset SLURM_JOB_ACCOUNT
     --attention-max-kv "'"${ATTENTION_MAX_KV}"'" \
     --measurement-iterations "'"${MEASUREMENT_ITERATIONS}"'" \
     '"${SKIP_SKEW_FLAG[*]}"' \
-    '"${VERBOSITY_FLAG[*]}"''
+    '"${VERBOSITY_FLAG[*]}"' \
+    '"${ONLY_MOE_FLAG[*]}"' \
+    '"${FORCE_FLAG[*]}"'' &
+_CONTAINER_PID=$!
+
+# Wait for the container, re-looping if interrupted mid-wait by a signal (e.g.
+# USR1 from Slurm).  When bash's wait built-in is interrupted by a signal the
+# trap runs, then wait returns 128+signum even though the child is still alive;
+# kill -0 distinguishes "still running" from "exited non-zero".
+_container_rc=0
+while true; do
+  wait "${_CONTAINER_PID}" && { _container_rc=0; break; } || _container_rc=$?
+  # Container still alive → wait was interrupted by a signal; loop to re-wait.
+  kill -0 "${_CONTAINER_PID}" 2>/dev/null || break
+done
+if [[ "${_container_rc}" -ne 0 ]]; then
+  exit "${_container_rc}"
+fi
 
 export SLURM_JOB_ACCOUNT="${OLD_ACCOUNT}"
 
