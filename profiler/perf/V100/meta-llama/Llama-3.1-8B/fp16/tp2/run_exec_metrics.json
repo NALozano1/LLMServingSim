@@ -1,0 +1,19 @@
+{
+  "shot_count": 7410,
+  "measured_sec": 4337.727042,
+  "measured_exec_sec": 4337.727042,
+  "barrier_wait_sec": 0.0,
+  "marker_pause_sec": 0.0,
+  "warmup_sec": 104.220725,
+  "fire_total_sec": 4442.433726,
+  "fire_exec_sec": 4442.433726,
+  "rpc_wall_sec": 4739.767571,
+  "energy_j": 168166.813,
+  "energy_excl_pause_j": 168166.813,
+  "effective_runtime_sec": 4337.727042,
+  "effective_energy_j": 168166.813,
+  "pause_overhead_sec": 0.0,
+  "pause_overhead_frac": 0.0,
+  "category": "attention",
+  "tp": 2
+}
