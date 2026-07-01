@@ -101,6 +101,30 @@ def target_mhz_from_hw_tag(hw_tag: str) -> int | None:
     return int(m.group(1)) if m else None
 
 
+def resolve_target_mhz(hw_tag: str) -> int | None:
+    """Resolve the profiling target clock from hw_tag, then GPU_FREQ_MHZ env var.
+
+    Priority:
+      1. MHz suffix encoded in the hardware tag: "V100_900MHz" → 900.
+         This is the normal path when run_arc_v100_profile.sh auto-names
+         HARDWARE as "V100_${GPU_FREQ_MHZ}MHz".
+      2. GPU_FREQ_MHZ environment variable: set by the launcher when a clock
+         lock is requested.  HARDWARE may be pre-exported as a bare tag (e.g.
+         ``HARDWARE=V100 GPU_FREQ_MHZ=900``) so the MHz suffix is absent from
+         the hw_tag.  This fallback recovers the target in that case.
+      3. None — genuinely uncapped / boost run (no lock requested).
+
+    Never returns 0 or a negative value; malformed env strings are ignored.
+    """
+    from_tag = target_mhz_from_hw_tag(hw_tag)
+    if from_tag is not None:
+        return from_tag
+    env_val = os.environ.get("GPU_FREQ_MHZ", "").strip()
+    if env_val.isdigit() and int(env_val) > 0:
+        return int(env_val)
+    return None
+
+
 def clock_ok_for(
     achieved_mhz: float | None,
     target_mhz: int | None,
@@ -173,7 +197,11 @@ def build_capture_records(
     p_hz = compute_power_hz(power_samples_list)
 
     # ---- clock provenance -----------------------------------------------
-    target_mhz = target_mhz_from_hw_tag(args.hardware)
+    # resolve_target_mhz checks the hw_tag first, then falls back to the
+    # GPU_FREQ_MHZ env var.  This handles the case where HARDWARE was
+    # pre-exported without a MHz suffix (e.g. HARDWARE=V100) while the
+    # launcher simultaneously set GPU_FREQ_MHZ=900 to lock the clock.
+    target_mhz = resolve_target_mhz(args.hardware)
     c_ok = clock_ok_for(achieved_mhz, target_mhz)
 
     # ---- energy from exec_record ----------------------------------------

@@ -8,8 +8,10 @@ from __future__ import annotations
 
 import json
 import math
+import os
 import sys
 import tempfile
+import unittest.mock
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -34,9 +36,11 @@ from profiler.core.capture import (
     build_capture_records,
     clock_ok_for,
     load_captures,
+    resolve_target_mhz,
     target_mhz_from_hw_tag,
     write_audit_json,
 )
+from profiler.core.exec_metrics import compute_shot_exec_metrics
 
 
 # -----------------------------------------------------------------------
@@ -784,3 +788,253 @@ class TestF8Integration:
         loaded = load_captures(tmp_path / "captures.jsonl")
         assert len(loaded) == 1
         assert loaded[0].has_power is True
+
+
+# -----------------------------------------------------------------------
+# FIX #1 — resolve_target_mhz: GPU_FREQ_MHZ env-var fallback
+# -----------------------------------------------------------------------
+
+class TestResolveTargetMhz:
+    """resolve_target_mhz threads the target clock even when the hw tag is bare.
+
+    Root cause of the bug: run_arc_v100_profile.sh sets
+    ``HARDWARE="${HARDWARE:-V100_${GPU_FREQ_MHZ}MHz}"`` only when HARDWARE is
+    NOT already exported.  When HARDWARE=V100 is pre-set and GPU_FREQ_MHZ=900,
+    the MHz suffix is absent from the tag and target_mhz_from_hw_tag returns
+    None.  resolve_target_mhz falls back to the env var to recover the target.
+    """
+
+    def test_hw_tag_with_mhz_suffix_parsed_directly(self):
+        assert resolve_target_mhz("V100_900MHz") == 900
+        assert resolve_target_mhz("V100_1100MHz") == 1100
+        assert resolve_target_mhz("H100_1410MHz") == 1410
+
+    def test_env_var_fallback_when_hw_tag_is_bare(self):
+        with unittest.mock.patch.dict(os.environ, {"GPU_FREQ_MHZ": "900"}):
+            assert resolve_target_mhz("V100") == 900
+
+    def test_env_var_fallback_with_other_bare_tags(self):
+        with unittest.mock.patch.dict(os.environ, {"GPU_FREQ_MHZ": "1100"}):
+            assert resolve_target_mhz("A100") == 1100
+
+    def test_hw_tag_wins_over_gpu_freq_mhz_env(self):
+        """When hw_tag carries MHz, it takes precedence over the env var."""
+        with unittest.mock.patch.dict(os.environ, {"GPU_FREQ_MHZ": "900"}):
+            assert resolve_target_mhz("V100_1100MHz") == 1100
+
+    def test_returns_none_when_no_tag_and_no_env(self):
+        env_without_freq = {k: v for k, v in os.environ.items() if k != "GPU_FREQ_MHZ"}
+        with unittest.mock.patch.dict(os.environ, env_without_freq, clear=True):
+            assert resolve_target_mhz("V100") is None
+            assert resolve_target_mhz("H100") is None
+
+    def test_ignores_invalid_env_value(self):
+        with unittest.mock.patch.dict(os.environ, {"GPU_FREQ_MHZ": "notanumber"}):
+            assert resolve_target_mhz("V100") is None
+
+    def test_ignores_zero_env_value(self):
+        with unittest.mock.patch.dict(os.environ, {"GPU_FREQ_MHZ": "0"}):
+            assert resolve_target_mhz("V100") is None
+
+
+class TestBuildCaptureRecordsEnvTarget:
+    """build_capture_records sets target_mhz + clock_ok from GPU_FREQ_MHZ env."""
+
+    def test_target_mhz_and_clock_ok_from_env_when_hw_tag_bare(self, tmp_path):
+        """When hardware="V100" (bare) and GPU_FREQ_MHZ=900, target_mhz=900, clock_ok set."""
+        power_samples = [
+            _make_gpu_sample(0.0, 200.0, 900, 80.0),
+            _make_gpu_sample(0.1, 210.0, 895, 85.0),
+        ]
+        pp = tmp_path / "shot.jsonl"
+        _write_power_jsonl(pp, power_samples)
+        timings = [_FakeTimingSample(layer="moe_block", microseconds=617000.0)]
+        args = _FakeArgs(hardware="V100")   # bare tag — no MHz suffix
+        exec_rec = {
+            "energy_j": 5.0,
+            "power": {"total": {"mean_power_w": 100.0, "sample_count": 2}},
+        }
+
+        with unittest.mock.patch.dict(os.environ, {"GPU_FREQ_MHZ": "900"}):
+            recs = build_capture_records(
+                shot_key="moe_8_4",
+                category_name="moe",
+                shot=_FakeShot(requests=[(8, 0)], experts={"activated": 4}),
+                timings=timings,
+                arch=None,
+                tp=1,
+                args=args,
+                exec_record=exec_rec,
+                power_path=pp,
+            )
+
+        r = recs[0]
+        # target_mhz must be read from env, NOT left as None
+        assert r.target_mhz == 900
+        # achieved clocks: 900, 895 → median 897.5; |897.5 - 900| = 2.5 ≤ 25
+        assert r.clock_ok is True
+
+    def test_target_mhz_none_when_no_tag_and_no_env(self, tmp_path):
+        """Bare tag + no GPU_FREQ_MHZ → target_mhz=None (genuinely uncapped run)."""
+        power_samples = [_make_gpu_sample(0.0, 200.0, 1100, 80.0)]
+        pp = tmp_path / "shot.jsonl"
+        _write_power_jsonl(pp, power_samples)
+        timings = [_FakeTimingSample(layer="moe_block", microseconds=500.0)]
+        args = _FakeArgs(hardware="V100")
+        env_without_freq = {k: v for k, v in os.environ.items() if k != "GPU_FREQ_MHZ"}
+
+        with unittest.mock.patch.dict(os.environ, env_without_freq, clear=True):
+            recs = build_capture_records(
+                shot_key="moe_4_2",
+                category_name="moe",
+                shot=_FakeShot(requests=[(4, 0)], experts={"activated": 2}),
+                timings=timings,
+                arch=None,
+                tp=1,
+                args=args,
+                exec_record={"energy_j": None, "power": {}},
+                power_path=pp,
+            )
+
+        r = recs[0]
+        assert r.target_mhz is None
+        assert r.clock_ok is None   # no target → verdict deferred
+
+    def test_audit_json_reflects_env_target(self, tmp_path):
+        """write_audit_json uses the env-sourced target so verdict is meaningful."""
+        # Simulate a run where GPU_FREQ_MHZ=900, HARDWARE="V100" (bare tag),
+        # and the GPU actually held 900 MHz.
+        rec = CaptureRecord(
+            device="V100", model="test/m", tp=1, dtype="fp16",
+            category="moe", layer=None, tokens=8, activated_experts=4,
+            target_mhz=900, achieved_mhz=900.0, clock_ok=True,
+            latency_us=617000.0, latency_std_us=None, iterations=3,
+            energy_j=5.0, mean_power_w=100.0, power_samples=20,
+            power_hz=23.0, idle_power_w=45.0,
+            job_id="local", timestamp="2026-07-01T00:00:00+00:00",
+        )
+        append_capture_records(tmp_path, [rec])
+        audit = write_audit_json(tmp_path, target_mhz=900)
+        assert audit["verdict_ok"] is True
+        assert audit["target_mhz"] == 900
+        assert "no target clock" not in audit["verdict_reason"]
+
+
+# -----------------------------------------------------------------------
+# FIX #2 — energy window: power clipped to compute window, not full span
+# -----------------------------------------------------------------------
+
+class TestEnergyComputeWindowBoundary:
+    """energy_j must be integrated over [measured_wall_start, measured_wall_end].
+
+    Root cause: in extension.py the worker previously set measured_wall_end
+    AFTER layerwise_profile.__exit__() post-processed Kineto data, adding
+    ~0.3–0.7 s of non-compute time.  The fix moves measured_wall_end to
+    immediately after the measurement loop (inside the with-block), so the
+    window covers only the timed compute iterations.
+
+    These tests verify that exec_metrics._clip_samples_to_window correctly
+    restricts integration to the declared [start, end] window, so that once
+    extension.py emits tight timestamps the energy figure is accurate.
+    """
+
+    def test_energy_clips_to_measured_wall_window(self):
+        """Samples outside [measured_wall_start, measured_wall_end] are excluded."""
+        # Timeline:
+        #   t=0.00: power sampler starts (idle — GPU not yet computing)
+        #   t=0.50: measured_wall_start (compute begins)
+        #   t=2.35: measured_wall_end   (compute ends, 1.85 s window)
+        #   t=2.55: power sampler stops (profiler post-processing / idle)
+        idle_w = 50.0
+        compute_w = 200.0
+        pre_idle = [_make_gpu_sample(t, idle_w, 900, 2.0) for t in [0.0, 0.25]]
+        compute_samples = [
+            _make_gpu_sample(t, compute_w, 900, 80.0)
+            for t in [0.50, 1.00, 1.50, 2.00, 2.35]
+        ]
+        post_samples = [_make_gpu_sample(2.55, idle_w, 900, 2.0)]
+        all_samples = pre_idle + compute_samples + post_samples
+
+        fire_timing = {
+            "measured_wall_start": 0.50,
+            "measured_wall_end": 2.35,     # tight window (post-fix value)
+            "measured_sec": 2.55,           # inflated (includes profiler overhead)
+            "warmup_sec": 0.30,
+            "fire_total_sec": 3.0,
+            "barrier_wait_sec": 0.0,
+        }
+
+        result = compute_shot_exec_metrics(
+            fire_timing,
+            shot_markers=[],
+            power_samples=all_samples,
+        )
+
+        # Full-window integration (pre-bug): would include idle power outside compute.
+        full_energy = integrate_power_joules(all_samples)["energy_j"]
+        # Clipped-window integration (post-fix): only compute samples.
+        assert result["energy_j"] is not None
+        assert result["energy_j"] < full_energy, (
+            "energy_j should be lower when clipped to the compute window; "
+            "pre-idle and post-sampling samples add ~50 W × 0.7 s ≈ 35 J"
+        )
+
+        # The clipped duration must be close to 1.85 s (0.50 → 2.35).
+        dur = result["power"]["total"]["duration_sec"]
+        assert dur == pytest.approx(1.85, abs=0.05), (
+            f"clipped duration {dur:.3f}s should be ~1.85s (compute window)"
+        )
+
+    def test_clipped_energy_approximately_correct(self):
+        """Energy over the compute window is close to P × dt at constant power."""
+        # Constant 200 W over 1.85 s → expect ~370 J.
+        compute_w = 200.0
+        ts = [0.50 + i * (1.85 / 4) for i in range(5)]  # 5 samples spanning 1.85 s
+        compute_samples = [_make_gpu_sample(t, compute_w, 900, 80.0) for t in ts]
+        # Add idle bookends outside the window.
+        samples = (
+            [_make_gpu_sample(0.0, 50.0, 900, 2.0)]
+            + compute_samples
+            + [_make_gpu_sample(3.0, 50.0, 900, 2.0)]
+        )
+
+        fire_timing = {
+            "measured_wall_start": 0.50,
+            "measured_wall_end": ts[-1],   # = 2.35
+            "measured_sec": 3.0,
+            "warmup_sec": 0.30,
+            "fire_total_sec": 3.5,
+            "barrier_wait_sec": 0.0,
+        }
+
+        result = compute_shot_exec_metrics(
+            fire_timing,
+            shot_markers=[],
+            power_samples=samples,
+        )
+
+        expected_j = compute_w * 1.85   # 370 J
+        assert result["energy_j"] == pytest.approx(expected_j, rel=0.02), (
+            f"expected ~{expected_j:.0f} J, got {result['energy_j']:.1f} J"
+        )
+
+    def test_no_clip_when_wall_timestamps_absent(self):
+        """When measured_wall_start/end are absent, all power samples are integrated."""
+        samples = [
+            _make_gpu_sample(0.0, 200.0, 900, 80.0),
+            _make_gpu_sample(1.0, 200.0, 900, 80.0),
+        ]
+        fire_timing = {
+            # deliberately omit measured_wall_start / measured_wall_end
+            "measured_sec": 1.0,
+            "warmup_sec": 0.0,
+            "fire_total_sec": 1.0,
+            "barrier_wait_sec": 0.0,
+        }
+        result = compute_shot_exec_metrics(
+            fire_timing,
+            shot_markers=[],
+            power_samples=samples,
+        )
+        # Without clipping, the full 2-sample window (1 s at 200 W = 200 J) is used.
+        assert result["energy_j"] == pytest.approx(200.0, rel=0.001)

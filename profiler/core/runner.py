@@ -43,6 +43,7 @@ from profiler.core.exec_metrics import (
 from profiler.core.capture import (
     append_capture_records,
     build_capture_records,
+    resolve_target_mhz,
     target_mhz_from_hw_tag,
     write_audit_json,
     write_preliminary_audit_json,
@@ -428,7 +429,9 @@ def _fire_one_category(
             )
 
     # Write run-level clock audit sidecar from captures accumulated above.
-    _target_mhz = target_mhz_from_hw_tag(args.hardware)
+    # Use resolve_target_mhz so the audit reflects the actual lock target even
+    # when HARDWARE was pre-exported without a MHz suffix (see capture.py).
+    _target_mhz = resolve_target_mhz(args.hardware)
     audit_result = write_audit_json(out_dir, target_mhz=_target_mhz)
     if not audit_result.get("verdict_ok"):
         log.warning(

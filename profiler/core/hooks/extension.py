@@ -42,6 +42,11 @@ from profiler.core.hooks.layer_barrier import (
     discover_transformer_layers,
 )
 from profiler.core.hooks.timings import extract_samples
+from profiler.core import logger as log
+
+# Module-level flag so the layerwise_profile monkeypatch (applied inside
+# fire() after the local vllm import) is applied exactly once per process.
+_LAYERWISE_PROFILE_PATCHED: bool = False
 
 
 class Extension:
@@ -189,7 +194,76 @@ class Extension:
         # execute_model N times here yields the per-call mean — the
         # cheap statistical fix for DVFS / boost-clock jitter that
         # single-sample measurements don't mitigate.
-        from vllm.profiler.layerwise_profile import layerwise_profile
+        from vllm.profiler.layerwise_profile import (
+            layerwise_profile,
+            LayerwiseProfileResults,
+            _ModuleTreeNode,
+        )
+        from vllm.profiler.utils import event_has_module, event_torch_op_stack_trace
+
+        # ---- one-time monkeypatch ----------------------------------------
+        # vLLM's LayerwiseProfileResults._build_module_tree filters events by
+        # ``event.start_tid != 1`` (original comment: "For the tensor parallel
+        # case for now only look at task 1").  In vLLM v1's EngineCore
+        # architecture the model-runner forward is dispatched to a background
+        # executor thread whose start_tid is NOT 1, so _module_tree ends up
+        # empty for every profiling shot except whichever one happens to run on
+        # the main thread during JIT initialisation (typically the max-token
+        # compiled size).  An empty _module_tree causes _total_cuda_time() to
+        # return 0 and _build_stats_trees() to raise ZeroDivisionError in
+        # __exit__, which the caller (below) catches and returns [] — silently
+        # dropping all per-layer data for those shots.
+        #
+        # Fix: replace _build_module_tree with a version that collects events
+        # from ALL threads.  This is safe because the profiler always boots
+        # vLLM with tensor_parallel_size=1 (see engine.py fuse_engine_kwargs),
+        # so there is exactly one forward thread and all nn.Module events
+        # belong to the model forward we want to measure.  The timing values
+        # are unchanged: we still read cuda_time_us / invocations from the
+        # same Kineto event fields.
+        global _LAYERWISE_PROFILE_PATCHED
+        if not _LAYERWISE_PROFILE_PATCHED:
+            def _build_module_tree_all_tids(self) -> None:
+                """Patched _build_module_tree: no start_tid filter."""
+                self._module_tree = []
+                event_tree = self._kineto_results.experimental_event_tree()
+
+                def _df_traversal(event, curr_node=None):
+                    # Removed: ``if event.start_tid != 1: return``
+                    if event_has_module(event):
+                        node = _ModuleTreeNode(event=event, parent=curr_node)
+                        if curr_node:
+                            curr_node.children.append(node)
+                        else:
+                            self._module_tree.append(node)
+                        curr_node = node
+
+                    is_leaf = event.children is None or len(event.children) == 0
+                    if is_leaf and curr_node:
+                        node = _ModuleTreeNode(
+                            event=event,
+                            parent=curr_node,
+                            trace=event_torch_op_stack_trace(
+                                event,
+                                until=lambda x: event_has_module(x),
+                            ),
+                        )
+                        curr_node.children.append(node)
+                        curr_node = node
+
+                    for child in event.children:
+                        _df_traversal(child, curr_node)
+
+                for root in event_tree:
+                    _df_traversal(root)
+
+            LayerwiseProfileResults._build_module_tree = _build_module_tree_all_tids
+            log.debug(
+                "Patched LayerwiseProfileResults._build_module_tree"
+                " (removed start_tid==1 filter)"
+            )
+            _LAYERWISE_PROFILE_PATCHED = True
+        # ---- end monkeypatch ------------------------------------------------
 
         layer_barrier: InPlaceLayerBarrier | None = None
         if barrier_dir:
@@ -209,6 +283,11 @@ class Extension:
 
         measured_t0 = time.perf_counter()
         measured_wall_start = time.time()
+        # measured_wall_end is set inside the with-layerwise_profile block (see
+        # below) immediately after the last iteration, BEFORE the context-manager
+        # __exit__ post-processes Kineto data.  Initialise here so it is always
+        # defined even if an exception escapes the block.
+        measured_wall_end: float = measured_wall_start
         barrier_wait_sec = 0.0
         try:
             try:
@@ -220,21 +299,30 @@ class Extension:
                             )
                             if measured_out is None:
                                 self.model_runner.sample_tokens(None)
+                        # Capture the compute-window end BEFORE layerwise_profile
+                        # __exit__ runs.  The context-manager exit post-processes
+                        # the Kineto event tree (and, to a lesser extent, Python
+                        # overhead for batch reconstruction accumulates between
+                        # iterations), together adding ~0.3–0.7 s that is NOT GPU
+                        # compute time.  Placing this timestamp here clips power
+                        # integration to the actual measurement window so energy_j
+                        # is accurate to ~1-2% for the paper.
+                        measured_wall_end = time.time()
             finally:
                 if layer_barrier is not None:
                     barrier_wait_sec = layer_barrier.barrier_wait_sec
                     layer_barrier.remove()
         except ZeroDivisionError:
-            # vLLM's layerwise_profile.__exit__ raises ZeroDivisionError when
-            # its module_tree is empty — this happens when the forward pass
-            # runs on a non-main thread (start_tid != 1), which vLLM's profiler
-            # filters out. Observed at large MNBT (>=65536) on vLLM v1. Return
-            # empty samples so the per_sequence/dense phase degrades gracefully
-            # rather than aborting the whole profiling run.
+            # After the _build_module_tree monkeypatch above, an empty
+            # module_tree (and thus ZeroDivisionError in __exit__) should no
+            # longer occur for normal shots.  Keep this handler as a safety
+            # net: if it fires, something unexpected emptied the tree (e.g. a
+            # vLLM version whose _build_module_tree logic differs from what the
+            # patch replaced).
             log.warning(
-                "layerwise_profile captured no CUDA events (empty module_tree;"
-                " forward pass ran on a non-main thread). Returning empty"
-                " samples for kind=%s shot.",
+                "layerwise_profile captured no CUDA events (empty module_tree"
+                " despite start_tid patch). Returning empty samples for"
+                " kind=%s shot. Check vLLM version compatibility.",
                 kind,
             )
             return []
@@ -250,7 +338,10 @@ class Extension:
             gating_ms_per_call = None
             expert_ms_per_call = None
         measured_sec = time.perf_counter() - measured_t0
-        measured_wall_end = time.time()
+        # NOTE: measured_wall_end was set inside the with-layerwise_profile block
+        # (above).  measured_sec still includes profiler post-processing time
+        # (intentional: it measures the full worker-side latency); only
+        # measured_wall_end is advanced to the tight compute boundary.
         fire_total_sec = time.perf_counter() - fire_t0
         measured_exec_sec = max(0.0, measured_sec - barrier_wait_sec)
 
