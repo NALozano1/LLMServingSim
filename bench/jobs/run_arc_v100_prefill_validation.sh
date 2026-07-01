@@ -110,6 +110,13 @@ trap '_cleanup' EXIT
 
 gpu_freq_lock_force_restore "${FREQ_META_DIR}" 2>/dev/null || true
 
+# ── Preflight: ensure clock helper is usable if clock-locking is requested ────
+# Fail clean here rather than silently running uncapped or accumulating reapply failures.
+if [[ -n "${GPU_FREQ_MHZ:-}" ]] && ! sudo -n /usr/local/sbin/nvidia-smi-clocks --help >/dev/null 2>&1; then
+  echo "[dvfs] FATAL: nvidia-smi-clocks helper unavailable on $(hostname) — cannot lock ${GPU_FREQ_MHZ}MHz on this device" >&2
+  exit 2
+fi
+
 if [[ -n "${GPU_FREQ_MHZ}" ]]; then
   # Restrict hold poller to inference GPUs only (0..TP_SIZE-1) so idle GPUs
   # don't trigger false off-target reapplies and distort the under-load median.

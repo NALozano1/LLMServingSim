@@ -18,16 +18,53 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 ENGS_GLASS="/data/engs-glass/engs2950"
 JOBS_ROOT="${REPO_ROOT}/bench/jobs"
 DRY_RUN="${DRY_RUN:-0}"
-NODELIST="${NODELIST:-htc-g049}"
+
+# ── Device type ────────────────────────────────────────────────────────────────
+GPU_TYPE="${GPU_TYPE:-v100}"
+
+# Source ARC Slurm common helpers (provides arc_partition_for_gpu, arc_max_gpus_for_type, etc.)
+# shellcheck source=/dev/null
+source /data/engs-glass/engs2950/shared/gpu_address_tracing/jobs/launchers/arc_slurm_common.sh
+
+# NODELIST: empty by default so sbatch lets Slurm pick the node freely.
+# For clock-locked V100 runs pass NODELIST=htc-g038 (proven binding node; htc-g049 does NOT lock).
+NODELIST="${NODELIST:-}"
+NODELIST_ARG=""; [[ -n "${NODELIST}" ]] && NODELIST_ARG="--nodelist=${NODELIST}"
+
+# arc_partition_for_gpu returns 'interactive' for v100; we override to 'short' because
+# interactive V100 nodes do NOT clock-lock (only 'short' nodes honour the helper).
+_dvfs_partition_for_gpu() {
+  case "$1" in
+    v100) echo "short" ;;
+    *)    arc_partition_for_gpu "$1" ;;
+  esac
+}
+PARTITION="${PARTITION:-$(_dvfs_partition_for_gpu "${GPU_TYPE}")}"
+
+EXCLUSIVE="${EXCLUSIVE:-1}"            # 1=whole-node (clean measurement); 0=share node (throughput)
+EXCL_ARG=""; [ "${EXCLUSIVE}" = "1" ] && EXCL_ARG="--exclusive"
 MODELS="${MODELS:-qwen}"  # space-separated subset
 
-# Campaign dir — unique per submission date
+# Campaign dir — unique per submission date and GPU device
 CAMPAIGN_TAG="$(date +%Y%m%d)"
-CAMPAIGN_DIR="${CAMPAIGN_DIR:-${REPO_ROOT}/bench/campaigns/v100_prefill_valid_${CAMPAIGN_TAG}}"
+CAMPAIGN_DIR="${CAMPAIGN_DIR:-${REPO_ROOT}/bench/campaigns/${GPU_TYPE}_prefill_valid_${CAMPAIGN_TAG}}"
 
-# Clock sweep (MHz; empty string = uncapped)
-FREQ_LIST="${FREQ_LIST:- 700 900 1100 1300 1400}"  # leading space = uncapped slot
-FREQ_ARRAY=("" ${FREQ_LIST})                        # first element = uncapped
+# Runner script — can be overridden for non-V100 devices
+if [[ -z "${RUNNER_SCRIPT:-}" && "${GPU_TYPE}" != "v100" ]]; then
+  echo "WARN: RUNNER_SCRIPT unset for GPU_TYPE=${GPU_TYPE}; using the V100-named runner — confirm it is device-agnostic for ${GPU_TYPE}" >&2
+fi
+RUNNER_SCRIPT="${RUNNER_SCRIPT:-${JOBS_ROOT}/run_arc_v100_prefill_validation.sh}"
+
+# Clock sweep defaults per device (MHz; empty string = uncapped)
+case "${GPU_TYPE}" in
+  v100) _freq_default=" 700 900 1100 1300 1400" ;;
+  a100) _freq_default=" 765 1000 1200 1410"     ;;
+  h100) _freq_default=""                          ;;  # site clock-lock helper unsupported on H100; uncapped only
+  l40s) _freq_default=" 1000 1500 2000 2520"    ;;
+  *)    _freq_default=" 700 900 1100 1300 1400" ;;
+esac
+FREQ_LIST="${FREQ_LIST:-${_freq_default}}"
+FREQ_ARRAY=("" ${FREQ_LIST})                        # first element = uncapped; leading space in default = separator
 
 # Walltime per run (boot + inference).
 # Qwen3-30B tp4: ~30 min boot + ~10 min inference (OBSERVED timeout at 00:30:00).
@@ -42,7 +79,7 @@ QWEN30BTP2_TIME="${QWEN30BTP2_TIME:-01:00:00}"
 mkdir -p "${CAMPAIGN_DIR}/shared" "${JOBS_ROOT}/logs"
 
 MANIFEST="${CAMPAIGN_DIR}/manifest.tsv"
-[[ -f "${MANIFEST}" ]] || printf 'submitted_at\trun_id\tjob_id\tmodel_key\tclock_mhz\tstatus\n' > "${MANIFEST}"
+[[ -f "${MANIFEST}" ]] || printf 'submitted_at\trun_id\tjob_id\tmodel_key\tdevice\tclock_mhz\tstatus\n' > "${MANIFEST}"
 
 submit_one() {
   local model_key="$1" model="$2" tp="$3" clk="$4" walltime="$5" gpus="$6"
@@ -54,19 +91,25 @@ submit_one() {
     clk_label="${clk}mhz"
   fi
 
-  local run_id="${model_key}_tp${tp}_${clk_label}"
+  local run_id="${GPU_TYPE}_${model_key}_tp${tp}_${clk_label}"
   local out_dir="${CAMPAIGN_DIR}/runs/${run_id}"
   local log_prefix="${JOBS_ROOT}/logs/prefval_${run_id}"
 
-  local gres="gpu:v100:${gpus}"
+  local gres="gpu:${GPU_TYPE}:${gpus}"
 
-  echo "  ${run_id}: nodelist=${NODELIST} gres=${gres} time=${walltime}" >&2
+  echo "  ${run_id}: nodelist=${NODELIST:-<auto>} gres=${gres} partition=${PARTITION} time=${walltime}" >&2
 
   if [[ "${DRY_RUN}" == "1" ]]; then
-    printf '%s\t%s\t%s\t%s\t%s\t%s\n' \
-      "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "${run_id}" "dry" "${model_key}" "${clk:-uncapped}" "dry_run" \
+    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+      "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "${run_id}" "dry" "${model_key}" "${GPU_TYPE}" "${clk:-uncapped}" "dry_run" \
       >> "${MANIFEST}"
     echo "    [DRY_RUN] skipping submission" >&2
+    return 0
+  fi
+
+  # Idempotent re-submit: skip if this run_id already has a row in the manifest
+  if grep -q "	${run_id}	" "${MANIFEST}"; then
+    echo "  [SKIP] ${run_id} already submitted" >&2
     return 0
   fi
 
@@ -84,13 +127,13 @@ submit_one() {
   jid_raw=$(sbatch -M htc --parsable \
     --clusters=htc \
     --account=engs-glass \
-    --partition=interactive \
-    --nodelist="${NODELIST}" \
+    --partition="${PARTITION}" \
+    ${NODELIST_ARG} \
     --gres="${gres}" \
     --nodes=1 \
     --cpus-per-task=16 \
     --mem=64G \
-    --exclusive \
+    ${EXCL_ARG} \
     --time="${walltime}" \
     --job-name="prefval_${run_id}" \
     --mail-user="${MAIL_USER:-alex.lozano@eng.ox.ac.uk}" \
@@ -107,18 +150,18 @@ export ARM_LABEL='${clk_label}'
 ${freq_env:+export ${freq_env}}
 ${fix_input_env:+export ${fix_input_env}}
 ${extra_env:+${extra_env}}
-bash '${JOBS_ROOT}/run_arc_v100_prefill_validation.sh'")
+bash '${RUNNER_SCRIPT}'")
   jid="${jid_raw%%;*}"
 
-  printf '%s\t%s\t%s\t%s\t%s\t%s\n' \
-    "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "${run_id}" "${jid}" "${model_key}" "${clk:-uncapped}" "submitted" \
+  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+    "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "${run_id}" "${jid}" "${model_key}" "${GPU_TYPE}" "${clk:-uncapped}" "submitted" \
     >> "${MANIFEST}"
   echo "    submitted job ${jid}" >&2
 }
 
 echo "=== Prefill validation matrix ===" >&2
-echo "CAMPAIGN_DIR=${CAMPAIGN_DIR}" >&2
-echo "NODELIST=${NODELIST}  DRY_RUN=${DRY_RUN}" >&2
+echo "GPU_TYPE=${GPU_TYPE}  CAMPAIGN_DIR=${CAMPAIGN_DIR}" >&2
+echo "PARTITION=${PARTITION}  NODELIST=${NODELIST:-<auto>}  DRY_RUN=${DRY_RUN}" >&2
 echo "FREQ_ARRAY=(uncapped ${FREQ_LIST})" >&2
 echo "" >&2
 
@@ -164,7 +207,7 @@ export MAX_NUM_BATCHED_TOKENS=2048"
       ;;
     *)
       echo "Unknown model_key: ${model_key}" >&2
-      continue
+      exit 1
       ;;
   esac
   echo "  model=${model_key} (${model})  tp=${tp}  gpus=${gpus}" >&2
