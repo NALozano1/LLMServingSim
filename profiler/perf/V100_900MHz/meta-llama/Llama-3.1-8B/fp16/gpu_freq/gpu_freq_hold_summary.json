@@ -1,0 +1,16 @@
+{
+  "target_mhz": 900,
+  "tolerance_mhz": 15,
+  "util_threshold_pct": 50.0,
+  "ticks": 3283,
+  "reapplies": 0,
+  "under_load_samples": 217,
+  "under_load_median_mhz": 900,
+  "under_load_min_mhz": 900,
+  "under_load_max_mhz": 900,
+  "on_target_frac": 1.0,
+  "min_ontarget_frac": 0.8,
+  "min_under_load_samples": 5,
+  "verdict_ok": true,
+  "finished_at": "2026-07-01T15:50:14.974262Z"
+}
