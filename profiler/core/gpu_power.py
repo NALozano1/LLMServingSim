@@ -87,7 +87,7 @@ class GpuPowerSampler:
             self._thread.join(timeout=10.0)
 
     def _loop(self) -> None:
-        with self.out_path.open("a", encoding="utf-8") as fh:
+        with self.out_path.open("w", encoding="utf-8") as fh:
             while not self._stop.is_set():
                 rec = {
                     "wall_ts": time.time(),
@@ -96,6 +96,78 @@ class GpuPowerSampler:
                 fh.write(json.dumps(rec) + "\n")
                 fh.flush()
                 self._stop.wait(_poll_interval_sec())
+
+
+def compute_achieved_mhz(
+    samples: list[dict[str, Any]],
+    busy_threshold: float = 10.0,
+) -> float | None:
+    """Median graphics clock over under-load (busy) samples.
+
+    Filters to samples where any GPU has util_gpu_pct >= busy_threshold,
+    then returns the median graphics_mhz across all GPUs in those samples.
+    Returns None if no busy samples exist.
+    """
+    clocks: list[float] = []
+    for rec in samples:
+        gpus = rec.get("gpus") or []
+        row_busy = any(
+            float(g.get("util_gpu_pct") or 0.0) >= busy_threshold for g in gpus
+        )
+        if not row_busy:
+            continue
+        for g in gpus:
+            mhz = g.get("graphics_mhz")
+            if mhz is not None:
+                clocks.append(float(mhz))
+    if not clocks:
+        return None
+    clocks_sorted = sorted(clocks)
+    n = len(clocks_sorted)
+    mid = n // 2
+    if n % 2 == 1:
+        return clocks_sorted[mid]
+    return 0.5 * (clocks_sorted[mid - 1] + clocks_sorted[mid])
+
+
+def compute_idle_power_w(
+    samples: list[dict[str, Any]],
+    busy_threshold: float = 10.0,
+) -> float | None:
+    """Mean total GPU power during idle (low-util) samples.
+
+    A sample is idle when ALL GPUs have util_gpu_pct < busy_threshold.
+    Returns None if no idle samples exist.
+    """
+    total_power: list[float] = []
+    for rec in samples:
+        gpus = rec.get("gpus") or []
+        if not gpus:
+            continue
+        row_busy = any(
+            float(g.get("util_gpu_pct") or 0.0) >= busy_threshold for g in gpus
+        )
+        if row_busy:
+            continue
+        vals = [float(g["power_w"]) for g in gpus if "power_w" in g]
+        if vals:
+            total_power.append(sum(vals))
+    if not total_power:
+        return None
+    return round(sum(total_power) / len(total_power), 3)
+
+
+def compute_power_hz(samples: list[dict[str, Any]]) -> float | None:
+    """Effective power sampling rate in Hz."""
+    if len(samples) < 2:
+        return None
+    ts = [float(s["wall_ts"]) for s in samples if "wall_ts" in s]
+    if len(ts) < 2:
+        return None
+    duration = ts[-1] - ts[0]
+    if duration <= 0:
+        return None
+    return round((len(ts) - 1) / duration, 3)
 
 
 def load_power_samples(path: Path) -> list[dict[str, Any]]:
@@ -129,8 +201,10 @@ def integrate_power_joules(
     """Trapezoidal integration of summed GPU power; optionally exclude intervals."""
     exclude = exclude_intervals or []
     if len(samples) < 2:
+        # Return None (not 0.0) so a 1- or 0-sample shot is not mistaken
+        # for a legitimate zero-energy measurement.
         return {
-            "energy_j": 0.0,
+            "energy_j": None,
             "energy_excl_pause_j": 0.0,
             "duration_sec": 0.0,
             "duration_excl_pause_sec": 0.0,

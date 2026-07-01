@@ -89,9 +89,19 @@ class DedupSink:
     # Input
     # ------------------------------------------------------------------
 
-    def coalesce(self, point: Point) -> None:
-        """Accept one Point; average on key collision."""
+    def coalesce(self, point: Point, extra_values: dict | None = None) -> None:
+        """Accept one Point; average on key collision.
+
+        ``extra_values`` is an optional dict of additional numeric fields
+        (e.g. ``{"achieved_mhz": 1100.0}``) that are merged with the
+        point's dataclass fields before processing.  They must be listed
+        in the sink's ``extra_value_fields`` to be accumulated; unknown
+        keys are silently ignored.  Existing callers that pass only a
+        Point continue to work unchanged.
+        """
         d = asdict(point)
+        if extra_values:
+            d.update(extra_values)
         if self._fieldnames is None:
             # Preserve dataclass field declaration order; put time_us
             # last regardless of where it appears in the dataclass.
@@ -211,7 +221,16 @@ class DedupSink:
     # ------------------------------------------------------------------
 
     def flush(self) -> None:
-        """Write the accumulated rows to ``out_path`` and clear state.
+        """Write all accumulated rows to ``out_path``.
+
+        The bucket is NOT cleared after writing so that mid-loop crash-recovery
+        flushes accumulate correctly across shots.  The runner calls flush()
+        after every individual shot (for crash recovery) and once more at the
+        end of the full sweep; without persistent bucket state each mid-loop
+        flush would overwrite the CSV with only the most recent shot's rows,
+        losing all previously-measured token sizes.
+
+        To truly reset state, create a new DedupSink instance.
 
         CSV conventions:
           * Rows sorted lexicographically by key fields (deterministic
@@ -262,7 +281,6 @@ class DedupSink:
             writer.writerows(rows)
 
         log.debug("wrote %d rows → %s", len(rows), self.out_path)
-        self._bucket.clear()
 
     # ------------------------------------------------------------------
     # Convenience: attach a human-friendly 'layer' prefix
@@ -308,9 +326,13 @@ _KEY_FIELDS_BY_CATEGORY: dict[str, list[str]] = {
 }
 
 # Extra numeric value columns to accumulate/average alongside microseconds.
-# Only categories that produce phase-split timings need entries here.
+# achieved_mhz is additive across all categories — it records the median
+# GPU graphics clock measured during the shot's power-sampling window.
 _EXTRA_VALUE_FIELDS_BY_CATEGORY: dict[str, list[str]] = {
-    "moe": ["gating_ms", "expert_ms"],
+    "moe": ["gating_ms", "expert_ms", "achieved_mhz"],
+    "dense": ["achieved_mhz"],
+    "per_sequence": ["achieved_mhz"],
+    "attention": ["achieved_mhz"],
 }
 
 

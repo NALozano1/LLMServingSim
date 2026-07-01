@@ -40,7 +40,19 @@ from profiler.core.exec_metrics import (
     build_shot_exec_record,
     write_run_exec_metrics,
 )
-from profiler.core.gpu_power import GpuPowerSampler, profiler_gpu_power_enabled
+from profiler.core.capture import (
+    append_capture_records,
+    build_capture_records,
+    target_mhz_from_hw_tag,
+    write_audit_json,
+    write_preliminary_audit_json,
+)
+from profiler.core.gpu_power import (
+    GpuPowerSampler,
+    compute_achieved_mhz,
+    load_power_samples,
+    profiler_gpu_power_enabled,
+)
 from profiler.core.hooks.timings import TimingSample
 from profiler.core.writer import (
     persist_meta,
@@ -214,6 +226,14 @@ def _fire_single_shot(
             exec_record.get("energy_excl_pause_j") or 0,
         )
 
+    # Compute achieved_mhz from the shot's power samples so it can be
+    # coalesced into the per-category CSV and embedded in the CaptureRecord.
+    achieved_mhz_val: float | None = None
+    if profiler_gpu_power_enabled() and power_path.is_file():
+        _ps = load_power_samples(power_path)
+        achieved_mhz_val = compute_achieved_mhz(_ps)
+    exec_record["achieved_mhz"] = achieved_mhz_val
+
     timings_dicts = raw[0]
     timings = [
         TimingSample(
@@ -224,9 +244,25 @@ def _fire_single_shot(
         )
         for d in timings_dicts
     ]
+    achieved_extra = {"achieved_mhz": achieved_mhz_val} if achieved_mhz_val is not None else {}
     if sink is not None:
         for point in category.extract_points(shot, timings, arch, tp):
-            sink.coalesce(point)
+            sink.coalesce(point, extra_values=achieved_extra or None)
+
+    # Emit one CaptureRecord per timing sample — latency and power bound together.
+    capture_recs = build_capture_records(
+        shot_key=shot_key,
+        category_name=category.name,
+        shot=shot,
+        timings=timings,
+        arch=arch,
+        tp=tp,
+        args=args,
+        exec_record=exec_record,
+        power_path=power_path if profiler_gpu_power_enabled() else None,
+    )
+    if capture_recs:
+        append_capture_records(out_dir, capture_recs)
 
     record: dict[str, Any] = {
         "shot_key": shot_key,
@@ -237,6 +273,7 @@ def _fire_single_shot(
         "measured_exec_sec": exec_record.get("measured_exec_sec"),
         "energy_j": exec_record.get("energy_j"),
         "energy_excl_pause_j": exec_record.get("energy_excl_pause_j"),
+        "achieved_mhz": achieved_mhz_val,
     }
     _append_shot_timing(out_dir, record)
     return record
@@ -314,6 +351,12 @@ def _fire_one_category(
             len(shots),
         )
 
+    # Write a preliminary audit.json BEFORE the shot loop so that a crash
+    # mid-category leaves verdict_ok=False rather than a stale prior pass.
+    # write_audit_json at the end of _fire_one_category overwrites this on
+    # clean completion.
+    write_preliminary_audit_json(out_dir)
+
     dvfs_pause = dvfs_layer_pause_enabled()
     freq_meta_dir = out_dir / "gpu_freq"
     markers_path = out_dir / "dvfs_markers.jsonl"
@@ -383,6 +426,22 @@ def _fire_one_category(
                 .get("reference_workload", {})
                 .get("output_tokens"),
             )
+
+    # Write run-level clock audit sidecar from captures accumulated above.
+    _target_mhz = target_mhz_from_hw_tag(args.hardware)
+    audit_result = write_audit_json(out_dir, target_mhz=_target_mhz)
+    if not audit_result.get("verdict_ok"):
+        log.warning(
+            "%s audit FAILED: %s",
+            category.label,
+            audit_result.get("verdict_reason"),
+        )
+    else:
+        log.info(
+            "%s audit ok: %s",
+            category.label,
+            audit_result.get("verdict_reason"),
+        )
 
     sink.flush()
     log.success("%s → %s", category.label, sink.path)
