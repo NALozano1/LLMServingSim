@@ -147,6 +147,7 @@ export TP_SIZE='${tp}'
 export OUT_DIR='${out_dir}'
 export CAMPAIGN_DIR='${CAMPAIGN_DIR}'
 export ARM_LABEL='${clk_label}'
+export GPU_TYPE='${GPU_TYPE}'
 ${freq_env:+export ${freq_env}}
 ${fix_input_env:+export ${fix_input_env}}
 ${extra_env:+${extra_env}}

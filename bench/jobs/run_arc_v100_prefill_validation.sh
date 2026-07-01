@@ -19,6 +19,7 @@
 #   MAX_NUM_BATCHED_TOKENS — vLLM batch token budget (default 8192)
 #   GPU_MEMORY_UTILIZATION — (default 0.92)
 #   ARM_LABEL      — friendly label for summary (auto-derived if empty)
+#   GPU_TYPE       — device type tag written to summary.json (e.g. v100, a100, h100)
 #
 set -euo pipefail
 
@@ -44,6 +45,7 @@ DTYPE="${DTYPE:-float16}"
 SEED="${SEED:-42}"
 SPS="${SPS:-100}"
 TICK_SECONDS="${TICK_SECONDS:-0.5}"
+GPU_TYPE="${GPU_TYPE:-}"          # device type tag written to summary.json
 
 if [[ -z "${ARM_LABEL:-}" ]]; then
   if [[ -n "${GPU_FREQ_MHZ}" ]]; then
@@ -261,36 +263,93 @@ ttft = {
 }
 latency = {"ttft": ttft}
 
-# ── Energy from gpu_power/bench.jsonl (GPU index 0 only = CUDA_VISIBLE_DEVICES=0) ──
-energy_j = None
-mean_power_w = None
+# ── Energy from gpu_power/bench.jsonl (sum across all TP GPUs) ────────────────
+# The sampler (profiler/core/gpu_power.py) writes one JSONL record per poll tick
+# with a "gpus" list containing every GPU visible via CUDA_VISIBLE_DEVICES.
+# Slurm's gres plugin sets CUDA_VISIBLE_DEVICES to exactly the job's allocated
+# GPUs and that env is inherited through Apptainer --nv, so summing all "gpus"
+# entries in each sample is safe and correct.
+#
+# CUDA_VISIBLE_DEVICES remapping note: on a multi-GPU node Slurm may assign
+# non-zero-based indices (e.g. GPUs 2-5 on an 8-GPU node).  We therefore sum
+# ALL entries from the samples rather than filtering to indices 0..TP_SIZE-1,
+# and report per-GPU values keyed by the actual system GPU index.
+#
+# Backward-compatible: at TP_SIZE=1 energy_j_total == the old energy_j (GPU-0 only).
+tp_size = int("${TP_SIZE}")
+energy_j_total   = None
+energy_j_gpu0    = None   # GPU index 0 specifically — legacy continuity field
+energy_j_per_gpu = []     # list ordered by sorted GPU index
+mean_power_w     = None
+
 if power_path.exists():
     samples = [json.loads(l) for l in power_path.read_text().splitlines() if l.strip()]
-    gpu_idx = int("${GPU_IDX:-0}")
-    powers_w, wall_ts = [], []
+
+    # Build per-GPU and summed total time-series for trapezoidal integration.
+    per_gpu_ts = {}  # {gpu_index: [(wall_ts, power_w), ...]}
+    total_ts   = []  # [(wall_ts, sum_of_all_gpu_powers), ...]
+
     for s in samples:
+        wt   = s.get("wall_ts")
         gpus = s.get("gpus", [])
-        match = next((g for g in gpus if g.get("index") == gpu_idx), None)
-        if match and match.get("power_w") is not None:
-            powers_w.append(match["power_w"])
-            wall_ts.append(s["wall_ts"])
-    if len(powers_w) > 1:
-        energy_j = sum(
-            (powers_w[i] + powers_w[i+1]) / 2.0 * (wall_ts[i+1] - wall_ts[i])
-            for i in range(len(powers_w)-1)
+        if wt is None:
+            continue
+        valid = [(g["index"], float(g["power_w"]))
+                 for g in gpus
+                 if g.get("index") is not None and g.get("power_w") is not None]
+        if not valid:
+            continue
+        total_ts.append((float(wt), sum(pw for _, pw in valid)))
+        for idx, pw in valid:
+            per_gpu_ts.setdefault(idx, []).append((float(wt), pw))
+
+    def _trapz(pairs):
+        """Trapezoidal integration of [(t, power_w), ...] pairs."""
+        if len(pairs) < 2:
+            return None
+        pairs = sorted(pairs)
+        return sum(
+            (pairs[i][1] + pairs[i+1][1]) / 2.0 * (pairs[i+1][0] - pairs[i][0])
+            for i in range(len(pairs) - 1)
+            if pairs[i+1][0] > pairs[i][0]
         )
-        mean_power_w = statistics.mean(powers_w)
+
+    # Total energy (sum of all visible GPUs).
+    total_e = _trapz(total_ts)
+    energy_j_total = round(total_e, 3) if total_e is not None else None
+
+    # Mean total power = total_energy / total_duration.
+    if energy_j_total is not None and len(total_ts) >= 2:
+        t_sorted = sorted(total_ts)
+        dur = t_sorted[-1][0] - t_sorted[0][0]
+        if dur > 0:
+            mean_power_w = round(energy_j_total / dur, 3)
+
+    # Per-GPU energies (sorted by actual GPU index).
+    sorted_idxs = sorted(per_gpu_ts)
+    per_gpu_energies = {}
+    for _idx in sorted_idxs:
+        _e = _trapz(per_gpu_ts[_idx])
+        per_gpu_energies[_idx] = round(_e, 3) if _e is not None else None
+    energy_j_per_gpu = [per_gpu_energies[i] for i in sorted_idxs]
+    energy_j_gpu0    = per_gpu_energies.get(0)  # legacy: GPU index 0 specifically
 
 energy = {
-    "energy_j": round(energy_j, 3) if energy_j else None,
-    "energy_excl_pause_j": round(energy_j, 3) if energy_j else None,
-    "mean_power_w": round(mean_power_w, 3) if mean_power_w else None,
-    "mean_power_excl_pause_w": round(mean_power_w, 3) if mean_power_w else None,
+    # energy_j = TOTAL across all TP GPUs (was GPU-index-0-only before this fix).
+    # At TP_SIZE=1 the value is identical to the old single-GPU result.
+    "energy_j":               energy_j_total,
+    "energy_j_total":         energy_j_total,
+    "energy_j_per_gpu":       energy_j_per_gpu,
+    "energy_j_gpu0":          energy_j_gpu0,    # legacy: GPU index 0 only
+    "energy_excl_pause_j":    energy_j_total,   # no pause-exclusion in validation runs
+    "mean_power_w":           mean_power_w,
+    "mean_power_excl_pause_w": mean_power_w,
 }
 
 summary = {
     "arm_label": "${ARM_LABEL}",
     "model": "${MODEL}",
+    "gpu_type": "${GPU_TYPE}" if "${GPU_TYPE}" else None,
     "gpu_freq_mhz_target": int("${GPU_FREQ_MHZ}") if "${GPU_FREQ_MHZ}" else None,
     "gpu_freq_mhz_achieved": freq_data.get("under_load_median_mhz"),
     "clock_verdict_ok": freq_data.get("verdict_ok"),
