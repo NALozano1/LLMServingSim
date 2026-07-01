@@ -1,4 +1,4 @@
-{"wall_ts": 1782770200.0165899, "gpus": [{"index": 0, "power_w": 81.19, "graphics_mhz": 705, "util_gpu_pct": 0.0}]}
-{"wall_ts": 1782770200.1636224, "gpus": [{"index": 0, "power_w": 52.69, "graphics_mhz": 705, "util_gpu_pct": 63.0}]}
-{"wall_ts": 1782770200.2873423, "gpus": [{"index": 0, "power_w": 48.79, "graphics_mhz": 705, "util_gpu_pct": 8.0}]}
-{"wall_ts": 1782770200.4109068, "gpus": [{"index": 0, "power_w": 48.76, "graphics_mhz": 705, "util_gpu_pct": 8.0}]}
+{"wall_ts": 1782807475.5729356, "gpus": [{"index": 0, "power_w": 67.81, "graphics_mhz": 705, "util_gpu_pct": 13.0}]}
+{"wall_ts": 1782807475.6986916, "gpus": [{"index": 0, "power_w": 31.92, "graphics_mhz": 705, "util_gpu_pct": 13.0}]}
+{"wall_ts": 1782807475.824203, "gpus": [{"index": 0, "power_w": 31.24, "graphics_mhz": 705, "util_gpu_pct": 50.0}]}
+{"wall_ts": 1782807475.9617198, "gpus": [{"index": 0, "power_w": 31.23, "graphics_mhz": 705, "util_gpu_pct": 0.0}]}

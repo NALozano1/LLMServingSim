@@ -2,15 +2,15 @@
   "target_mhz": 700,
   "tolerance_mhz": 15,
   "util_threshold_pct": 50.0,
-  "ticks": 3754,
-  "reapplies": 2,
-  "under_load_samples": 315,
+  "ticks": 2989,
+  "reapplies": 24,
+  "under_load_samples": 311,
   "under_load_median_mhz": 705,
   "under_load_min_mhz": 705,
   "under_load_max_mhz": 900,
-  "on_target_frac": 0.9937,
+  "on_target_frac": 0.9228,
   "min_ontarget_frac": 0.8,
   "min_under_load_samples": 5,
   "verdict_ok": true,
-  "finished_at": "2026-06-29T22:22:54.007166Z"
+  "finished_at": "2026-06-30T08:40:54.937113Z"
 }

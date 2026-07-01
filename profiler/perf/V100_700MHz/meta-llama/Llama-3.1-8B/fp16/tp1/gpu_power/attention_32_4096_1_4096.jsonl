@@ -1,4 +1,3 @@
-{"wall_ts": 1782765944.965974, "gpus": [{"index": 0, "power_w": 86.7, "graphics_mhz": 705, "util_gpu_pct": 8.0}]}
-{"wall_ts": 1782765945.1051304, "gpus": [{"index": 0, "power_w": 48.34, "graphics_mhz": 705, "util_gpu_pct": 8.0}]}
-{"wall_ts": 1782765945.2295687, "gpus": [{"index": 0, "power_w": 48.7, "graphics_mhz": 705, "util_gpu_pct": 9.0}]}
-{"wall_ts": 1782765945.3534577, "gpus": [{"index": 0, "power_w": 48.7, "graphics_mhz": 705, "util_gpu_pct": 0.0}]}
+{"wall_ts": 1782804287.8320978, "gpus": [{"index": 0, "power_w": 59.55, "graphics_mhz": 705, "util_gpu_pct": 3.0}]}
+{"wall_ts": 1782804287.962279, "gpus": [{"index": 0, "power_w": 31.34, "graphics_mhz": 705, "util_gpu_pct": 3.0}]}
+{"wall_ts": 1782804288.1019711, "gpus": [{"index": 0, "power_w": 31.34, "graphics_mhz": 705, "util_gpu_pct": 12.0}]}
