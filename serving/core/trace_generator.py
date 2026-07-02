@@ -136,6 +136,11 @@ class PowerAccumulator:
     pim_latencies_ns: list
     dram_weight_bytes: int
     link_data_bytes: int
+    # MoE-layer NPU latencies, tracked separately from npu_latencies_ns so the
+    # power model can bucket MoE active energy for the subtraction validation.
+    # Defaulted so the existing positional PowerAccumulator([], [], 0, 0)
+    # construction sites keep working with power modeling OFF unchanged.
+    moe_latencies_ns: list = field(default_factory=list)
 
     def flush(self, ctx, enable_attn_offloading=False):
         if ctx.power_model is None:
@@ -144,6 +149,8 @@ class PowerAccumulator:
         ctx.power_model.add_link_energy_consumption(ctx.node_id, self.link_data_bytes)
         for lat in self.npu_latencies_ns:
             ctx.power_model.add_npu_active_energy_consumption(ctx.hardware, ctx.node_id, lat, num_npus=ctx.tp_size)
+        for lat in self.moe_latencies_ns:
+            ctx.power_model.add_moe_active_energy_consumption(ctx.hardware, ctx.node_id, lat, num_npus=ctx.tp_size)
         if enable_attn_offloading:
             for lat in self.pim_latencies_ns:
                 ctx.power_model.add_pim_active_energy_consumption(ctx.node_id, lat)
@@ -1108,9 +1115,12 @@ def _emit_moe_block(ctx, bctx, lines, power_acc, layer_num, batch_id_str, batch_
             if power_acc is not None and wt_loc != 'LOCAL':
                 power_acc.dram_weight_bytes += rank_wt
 
-    # Power: all local GPUs are active for the duration of the slowest rank
+    # Power: all local GPUs are active for the duration of the slowest rank.
+    # Route into the MoE bucket so add_moe_active_energy_consumption tracks the
+    # MoE-only active energy (and MoE time) separately; aggregate NPU energy is
+    # unchanged because that method still adds to the shared NPU/CPU buckets.
     if power_acc is not None and max_rank_latency_ns > 0:
-        power_acc.npu_latencies_ns.append(max_rank_latency_ns)
+        power_acc.moe_latencies_ns.append(max_rank_latency_ns)
 
     lines.append(f"EXPERT END {combine_comm_type} {combine_comm_size}\n")
 

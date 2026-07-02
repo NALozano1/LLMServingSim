@@ -1152,6 +1152,20 @@ def main():
         print_markup(f"Total energy consumption (kJ):                                      {total_energy/1000:.2f}")
         # Each node results
         power_model.print_power_summary()
+        # MoE energy-by-subtraction breakdown: GPU-only (NPU) energy split into
+        # idle floor, MoE-layer active, and non-MoE active. Written next to the
+        # per-request CSV (--output) so the subtraction script can consume it.
+        breakdown = power_model.energy_breakdown()
+        print_markup(f"NPU total (GPU-only) energy (J):                                    {breakdown['npu_total_j']:.2f}")
+        print_markup(f"MoE active energy (J):                                              {breakdown['moe_active_energy_j']:.2f}")
+        print_markup(f"MoE layer time (s):                                                 {breakdown['moe_time_s']:.4f}")
+        if output_file:
+            _bd_path = os.path.join(os.path.dirname(os.path.abspath(output_file)), "energy_breakdown.json")
+        else:
+            _bd_path = os.path.abspath("energy_breakdown.json")
+        with open(_bd_path, "w") as _bd_f:
+            json.dump(breakdown, _bd_f, indent=2)
+        print_markup(f"Wrote energy breakdown JSON: {_bd_path}")
         print_markup(f"Power per {1/RATIO} sec (W): {power_model.power_time_series}")
         print_rule()
     # Each instacne results

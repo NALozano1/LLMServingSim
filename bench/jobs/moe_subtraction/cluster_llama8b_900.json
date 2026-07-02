@@ -1,0 +1,65 @@
+{
+  "_comment": "DENSE CONTROL arm for MoE power-by-subtraction, Llama-3.1-8B @ emulated 900MHz. Same TIMING-TAG vs POWER-VALUE split as the Qwen config: hardware tag 'V100' selects the 1400MHz profiler timing tables (only V100 tables exist for this model); power[npu]['V100'] carries the MEASURED 900MHz values (idle 50.03 / active 154.43 W); 900MHz timing emulated with --dvfs-scale 1.556. Llama-8B is dense (no MoE layers) so moe_active_energy_j == 0 and MoE_backed_out = measured - npu_total should be ~0 (control residual).",
+  "num_nodes": 1,
+  "link_bw": 16,
+  "link_latency": 20000,
+  "nodes": [
+    {
+      "num_instances": 1,
+      "cpu_mem": {
+        "mem_size": 512,
+        "mem_bw": 256,
+        "mem_latency": 0
+      },
+      "instances": [
+        {
+          "model_name": "meta-llama/Llama-3.1-8B",
+          "hardware": "V100",
+          "npu_mem": {
+            "mem_size": 32,
+            "mem_bw": 900,
+            "mem_latency": 0
+          },
+          "num_npus": 1,
+          "tp_size": 1,
+          "pd_type": null
+        }
+      ],
+      "power": {
+        "base_node_power": 60,
+        "npu": {
+          "V100": {
+            "idle_power": 50.03,
+            "standby_power": 75.05,
+            "active_power": 154.43,
+            "standby_duration": 18
+          }
+        },
+        "cpu": {
+          "idle_power": 10,
+          "active_power": 200,
+          "util": 0.15
+        },
+        "dram": {
+          "dimm_size": 32,
+          "idle_power": 2.0,
+          "energy_per_bit": 6.0,
+          "mem_size": 512
+        },
+        "link": {
+          "num_links": 1,
+          "idle_power": 5,
+          "energy_per_bit": 4.0
+        },
+        "nic": {
+          "num_nics": 1,
+          "idle_power": 20
+        },
+        "storage": {
+          "num_devices": 2,
+          "idle_power": 5
+        }
+      }
+    }
+  ]
+}

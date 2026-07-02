@@ -41,6 +41,14 @@ class PowerModel:
         self.total_system_energy = 0
         self.end_time_s = 0
 
+        # --- MoE energy-by-subtraction validation buckets ---
+        # Track the MoE-layer NPU active energy (and MoE layer time) separately
+        # from the aggregate NPU energy. These are parallel accumulators only;
+        # they do NOT feed self.net_energies, so npu_total is unchanged and
+        # power-OFF behaviour is identical (they simply stay 0.0).
+        self.moe_active_energy_j = 0.0
+        self.moe_time_s = 0.0
+
         self.logger = get_logger(self.__class__)
 
         # for logging
@@ -81,8 +89,18 @@ class PowerModel:
         energy_j = (self.power_configs[node_id]["cpu"]["active_power"] - self.power_configs[node_id]["cpu"]["idle_power"]) * cpu_active_util * latency_s        # J = W × s
         self.net_energies[node_id]["cpu"] += energy_j
         self.cpu_log += energy_j
-               
-    
+
+    # MoE-layer NPU active energy. Delegates to add_npu_active_energy_consumption
+    # so the aggregate NPU/CPU buckets (and therefore npu_total) are unchanged,
+    # while additionally recording the MoE-only active-energy slice and MoE layer
+    # time used by the "power by subtraction" validation.
+    def add_moe_active_energy_consumption(self, hardware, node_id, latency_ns, num_npus=1):
+        latency_s = latency_ns * 1e-9         # ns → s
+        npu_cfg = self.power_configs[node_id]["npu"][hardware]
+        self.moe_active_energy_j += (npu_cfg["active_power"] - npu_cfg["idle_power"]) * latency_s * num_npus  # J
+        self.moe_time_s += latency_s          # per-GPU MoE layer time (slowest EP rank per block)
+        self.add_npu_active_energy_consumption(hardware, node_id, latency_ns, num_npus=num_npus)
+
     # load/store of kv cache & loading weights
     def add_dram_energy_consumption(self, node_id, data_size_bytes):
         e_per_bit_pj = self.power_configs[node_id]["dram"]["energy_per_bit"]  # pJ/bit
@@ -128,7 +146,47 @@ class PowerModel:
         self.total_system_energy = sum(self.total_energies)
         self.end_time_s = end_time_s
         return self.total_system_energy
-    
+
+    def energy_breakdown(self):
+        """MoE energy-by-subtraction breakdown of the GPU-only ("NPU") energy.
+
+        Must be called after get_final_energy (needs self.end_time_s and the
+        finalised net_energies). ``npu_total_j`` here is exactly the per-node
+        "NPU energy consumption (J)" reported by print_power_summary summed
+        across nodes = idle_floor(idle_power * num_npus * time) + net NPU active.
+
+        Definitions:
+          npu_total_j          = idle_energy_j + (all NPU active energy)
+          idle_energy_j        = idle_power * num_npus * end_time_s (summed)
+          moe_active_energy_j  = (active-idle) * moe_time_s * num_npus (MoE layers only)
+          nonmoe_active_energy_j = npu_total_j - moe_active_energy_j - idle_energy_j
+        """
+        npu_total_j = 0.0
+        idle_energy_j = 0.0
+        for node_id, net in enumerate(self.net_energies):
+            idle_floor = self.base_powers[node_id]["npu"] * self.end_time_s
+            npu_total_j += net["npu"] + idle_floor
+            idle_energy_j += idle_floor
+        active_power_w = None
+        idle_power_w = None
+        for pc in self.power_configs:
+            for _hw, p in pc["npu"].items():
+                if p.get("num_npus", 0) > 0:
+                    active_power_w = p["active_power"]
+                    idle_power_w = p["idle_power"]
+                    break
+            if active_power_w is not None:
+                break
+        return {
+            "npu_total_j": round(npu_total_j, 3),
+            "moe_active_energy_j": round(self.moe_active_energy_j, 3),
+            "moe_time_s": round(self.moe_time_s, 6),
+            "nonmoe_active_energy_j": round(npu_total_j - self.moe_active_energy_j - idle_energy_j, 3),
+            "idle_energy_j": round(idle_energy_j, 3),
+            "active_power_w": active_power_w,
+            "idle_power_w": idle_power_w,
+        }
+
     def print_power_summary(self):
         for node_id, total_node_energy in enumerate(self.total_energies):
             print_rule()
