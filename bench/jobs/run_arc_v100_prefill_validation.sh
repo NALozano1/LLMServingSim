@@ -112,10 +112,12 @@ trap '_cleanup' EXIT
 
 gpu_freq_lock_force_restore "${FREQ_META_DIR}" 2>/dev/null || true
 
-# ── Preflight: ensure clock helper is usable if clock-locking is requested ────
-# Fail clean here rather than silently running uncapped or accumulating reapply failures.
-if [[ -n "${GPU_FREQ_MHZ:-}" ]] && ! sudo -n /usr/local/sbin/nvidia-smi-clocks --help >/dev/null 2>&1; then
-  echo "[dvfs] FATAL: nvidia-smi-clocks helper unavailable on $(hostname) — cannot lock ${GPU_FREQ_MHZ}MHz on this device" >&2
+# ── Preflight: ensure clock helper is PRESENT if clock-locking is requested ────
+# Fail clean on nodes lacking the helper (e.g. H100). Presence check only — the
+# helper rejects --help (exit 1), and a non-binding node is caught cleanly by the
+# strict post-flight audit, so do NOT probe by running it here.
+if [[ -n "${GPU_FREQ_MHZ:-}" ]] && [[ ! -e /usr/local/sbin/nvidia-smi-clocks ]]; then
+  echo "[dvfs] FATAL: nvidia-smi-clocks helper absent on $(hostname) — cannot lock ${GPU_FREQ_MHZ}MHz on this device" >&2
   exit 2
 fi
 
