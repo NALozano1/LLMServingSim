@@ -231,6 +231,7 @@ unset SLURM_JOB_ACCOUNT
   --env "HF_TOKEN=${HF_TOKEN:-}" \
   --env "PROFILER_GPU_POWER_INTERVAL_MS=${PROFILER_GPU_POWER_INTERVAL_MS:-100}" \
   --env "GPU_FREQ_MHZ=${GPU_FREQ_MHZ:-}" \
+  --env "PROFILER_MOE_FUSED=${PROFILER_MOE_FUSED:-0}" \
   "$VLLM_IMAGE" \
   bash -c 'pip install -q datasets matplotlib 2>/dev/null || true; exec ./profiler/profile_cli.sh \
     --model "'"${MODEL}"'" \

@@ -20,6 +20,7 @@ registering it in ``categories_for()``.
 
 from __future__ import annotations
 
+import os
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import ClassVar, Iterator
@@ -504,6 +505,17 @@ class ExpertCategory(Category):
         num_experts = limits.num_experts
         top_k = limits.top_k
 
+        # PROFILER_MOE_FUSED=1: also sweep ae=num_experts to capture the
+        # production-realistic regime where all experts may be activated
+        # with small per-expert batches (bandwidth-limited regime).
+        # When num_experts is not a power of 2 (e.g. 60 for Qwen1.5-MoE),
+        # the standard _power_of_two_grid never reaches it, causing the
+        # profiler to underestimate latency vs production by ~2×.
+        # The existing ExpertRoute.forge / force_moe_routing hook already
+        # handles ae=num_experts correctly; this flag just enables the
+        # extra grid point.
+        fused_mode = os.environ.get("PROFILER_MOE_FUSED", "0") == "1"
+
         for n_tokens in _power_of_two_grid(limits.max_num_batched_tokens):
             # Cheap guards: n_tokens must fit context (with sampler
             # +1 headroom) + cache.
@@ -511,7 +523,15 @@ class ExpertCategory(Category):
                 continue
             if ((n_tokens + _BLOCK_SIZE - 1) // _BLOCK_SIZE) * _BLOCK_SIZE > limits.num_cache_tokens:
                 continue
-            for activated in _power_of_two_grid(num_experts):
+
+            # Build activated-experts grid: powers of 2 always; plus
+            # num_experts itself when PROFILER_MOE_FUSED=1 and it is not
+            # already covered by the power-of-2 grid.
+            ae_candidates = list(_power_of_two_grid(num_experts))
+            if fused_mode and num_experts not in ae_candidates:
+                ae_candidates.append(num_experts)
+
+            for activated in ae_candidates:
                 # Minimum activations per call is top_k (every token
                 # votes for top_k experts).
                 if activated < top_k:
