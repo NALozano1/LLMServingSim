@@ -12,12 +12,31 @@ from typing import Any
 
 
 def profiler_gpu_power_enabled() -> bool:
+    """Energy/power capture is MANDATORY — the profiler must never run without it.
+
+    A latency table with blank ``mean_power_w`` is useless for the DVFS energy
+    model (it happened silently for L40S/H100 and forced a fallback to the
+    gap-free microbench). So this is now always on: the ``PROFILER_GPU_POWER``
+    env var is retained only to *reject* attempts to disable it — setting it to
+    0/false/off raises rather than silently turning capture off.
+    """
     raw = os.environ.get("PROFILER_GPU_POWER", "1").strip().lower()
-    return raw in ("1", "true", "yes", "on")
+    if raw in ("0", "false", "no", "off"):
+        raise RuntimeError(
+            "PROFILER_GPU_POWER is disabled but energy/power capture is MANDATORY. "
+            "Remove the override — the profiler cannot produce a table without power."
+        )
+    return True
 
 
 def _poll_interval_sec() -> float:
-    return max(0.02, float(os.environ.get("PROFILER_GPU_POWER_INTERVAL_MS", "100")) / 1000.0)
+    # Default 25 ms (40 Hz). The old 100 ms default was too coarse for fast GPUs
+    # (L40S/H100): a sustained-config kernel window there can be a few ms, so a
+    # 100 ms poll caught <2 samples and integrate_power_joules returned blank
+    # mean_power_w — the silent-blank-power incident. 25 ms is near the 20 ms
+    # floor and gives sustained configs enough samples on every device tested.
+    # Override with PROFILER_GPU_POWER_INTERVAL_MS for slower/faster hardware.
+    return max(0.02, float(os.environ.get("PROFILER_GPU_POWER_INTERVAL_MS", "25")) / 1000.0)
 
 
 def _query_gpus() -> list[dict[str, Any]]:

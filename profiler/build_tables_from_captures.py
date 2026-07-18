@@ -90,10 +90,33 @@ def _build_moe_csv(records: list[dict], out_dir: Path) -> Path:
             "gating_ms": _avg([r.get("gating_ms") for r in grp]),
             "expert_ms": _avg([r.get("expert_ms") for r in grp]),
             "achieved_mhz": _avg([r.get("achieved_mhz") for r in grp]),
+            "energy_j": _avg([r.get("energy_j") for r in grp]),
+            "mean_power_w": _avg([r.get("mean_power_w") for r in grp]),
+            "idle_power_w": _avg([r.get("idle_power_w") for r in grp]),
+            "power_hz": _avg([r.get("power_hz") for r in grp]),
         })
 
+    # MANDATORY energy capture (see gpu_power.profiler_gpu_power_enabled): a moe
+    # table MUST carry populated mean_power_w for its sustained configs
+    # (tokens >= 2048) — otherwise P_active is unrecoverable and the DVFS energy
+    # model is impossible. Blank sustained power means the capture silently failed
+    # (poll interval too coarse for the fast per-config kernel window — the
+    # L40S/H100 incident). HARD FAIL rather than ship a powerless table.
+    _sustained = [r for r in rows if int(r.get("tokens") or 0) >= 2048]
+    _sustained_pow = [r for r in _sustained if r.get("mean_power_w") is not None]
+    if _sustained and not _sustained_pow:
+        raise RuntimeError(
+            f"{out_dir}: energy capture is MANDATORY but ALL {len(_sustained)} "
+            f"sustained configs (tokens>=2048) have blank mean_power_w. The power "
+            f"poll interval is too coarse for the per-config kernel window on this "
+            f"device — lower PROFILER_GPU_POWER_INTERVAL_MS (e.g. 10) and/or raise "
+            f"the shot count so sustained configs get >=2 power samples. Refusing "
+            f"to write a powerless table."
+        )
+
     path = out_dir / "moe.csv"
-    _write_csv(path, ["tokens", "activated_experts", "time_us", "gating_ms", "expert_ms", "achieved_mhz"], rows)
+    _write_csv(path, ["tokens", "activated_experts", "time_us", "gating_ms", "expert_ms",
+                      "achieved_mhz", "energy_j", "mean_power_w", "idle_power_w", "power_hz"], rows)
     return path
 
 
@@ -113,10 +136,15 @@ def _build_dense_csv(records: list[dict], out_dir: Path) -> Path:
             "tokens": key[1],
             "time_us": _avg([r.get("latency_us") for r in grp]),
             "achieved_mhz": _avg([r.get("achieved_mhz") for r in grp]),
+            "energy_j": _avg([r.get("energy_j") for r in grp]),
+            "mean_power_w": _avg([r.get("mean_power_w") for r in grp]),
+            "idle_power_w": _avg([r.get("idle_power_w") for r in grp]),
+            "power_hz": _avg([r.get("power_hz") for r in grp]),
         })
 
     path = out_dir / "dense.csv"
-    _write_csv(path, ["layer", "tokens", "time_us", "achieved_mhz"], rows)
+    _write_csv(path, ["layer", "tokens", "time_us", "achieved_mhz",
+                      "energy_j", "mean_power_w", "idle_power_w", "power_hz"], rows)
     return path
 
 
@@ -143,10 +171,15 @@ def _build_attention_csv(records: list[dict], out_dir: Path) -> Path:
             "tokens": key[1],
             "time_us": _avg([r.get("latency_us") for r in grp]),
             "achieved_mhz": _avg([r.get("achieved_mhz") for r in grp]),
+            "energy_j": _avg([r.get("energy_j") for r in grp]),
+            "mean_power_w": _avg([r.get("mean_power_w") for r in grp]),
+            "idle_power_w": _avg([r.get("idle_power_w") for r in grp]),
+            "power_hz": _avg([r.get("power_hz") for r in grp]),
         })
 
     path = out_dir / "attention.csv"
-    _write_csv(path, ["layer", "tokens", "time_us", "achieved_mhz"], rows)
+    _write_csv(path, ["layer", "tokens", "time_us", "achieved_mhz",
+                      "energy_j", "mean_power_w", "idle_power_w", "power_hz"], rows)
     return path
 
 
@@ -166,10 +199,15 @@ def _build_per_sequence_csv(records: list[dict], out_dir: Path) -> Path:
             "sequences": key[1],
             "time_us": _avg([r.get("latency_us") for r in grp]),
             "achieved_mhz": _avg([r.get("achieved_mhz") for r in grp]),
+            "energy_j": _avg([r.get("energy_j") for r in grp]),
+            "mean_power_w": _avg([r.get("mean_power_w") for r in grp]),
+            "idle_power_w": _avg([r.get("idle_power_w") for r in grp]),
+            "power_hz": _avg([r.get("power_hz") for r in grp]),
         })
 
     path = out_dir / "per_sequence.csv"
-    _write_csv(path, ["layer", "sequences", "time_us", "achieved_mhz"], rows)
+    _write_csv(path, ["layer", "sequences", "time_us", "achieved_mhz",
+                      "energy_j", "mean_power_w", "idle_power_w", "power_hz"], rows)
     return path
 
 
