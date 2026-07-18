@@ -83,6 +83,90 @@ def _query_gpus() -> list[dict[str, Any]]:
     return rows
 
 
+def _nvml_poll_interval_sec() -> float:
+    # NVML reads are in-process C calls (~50-200us), so we can sample far finer
+    # than the ~14 Hz subprocess wall. Default 2 ms (500 Hz) so even a few-ms
+    # sustained-kernel exec window on a fast GPU (H100/L40S) contains many
+    # samples and integrate_power_joules over that window is well-defined.
+    return max(0.0005, float(os.environ.get("PROFILER_GPU_POWER_INTERVAL_MS", "2")) / 1000.0)
+
+
+class _NvmlSource:
+    """In-process NVML power/clock/util sampler — fast enough (~kHz) to resolve
+    the millisecond kernel exec windows on fast GPUs, unlike the ~14 Hz
+    nvidia-smi subprocess. Falls back to subprocess if NVML is unavailable.
+
+    Mirrors the subprocess row schema exactly:
+        {"index", "power_w", "graphics_mhz", "util_gpu_pct"}
+    and applies the same CUDA_VISIBLE_DEVICES filtering.
+    """
+
+    def __init__(self) -> None:
+        import pynvml  # raises if unavailable → caller falls back to subprocess
+
+        self._pynvml = pynvml
+        pynvml.nvmlInit()
+        count = pynvml.nvmlDeviceGetCount()
+
+        allowed: set[int] | None = None
+        cvd = os.environ.get("CUDA_VISIBLE_DEVICES", "").strip()
+        if cvd:
+            picked = {int(x.strip()) for x in cvd.split(",") if x.strip().isdigit()}
+            if picked:
+                allowed = picked
+
+        self._handles: list[tuple[int, Any]] = []
+        for i in range(count):
+            if allowed is not None and i not in allowed:
+                continue
+            self._handles.append((i, pynvml.nvmlDeviceGetHandleByIndex(i)))
+        if not self._handles:
+            # No visible device matched the filter — treat as unusable so the
+            # caller falls back rather than silently producing empty samples.
+            raise RuntimeError("NVML: no visible GPU after CUDA_VISIBLE_DEVICES filter")
+
+        # Instantaneous power field is preferable to the (moving-average)
+        # power.usage on GPUs/drivers that expose it; probe once.
+        self._instant_field = getattr(pynvml, "NVML_FI_DEV_POWER_INSTANT", None)
+
+    def _power_w(self, handle: Any) -> float:
+        pynvml = self._pynvml
+        if self._instant_field is not None:
+            try:
+                vals = pynvml.nvmlDeviceGetFieldValues(handle, [self._instant_field])
+                fv = vals[0]
+                if getattr(fv, "nvmlReturn", 1) == 0:
+                    return float(fv.value.uiVal) / 1000.0  # mW → W
+            except Exception:
+                pass
+        return float(pynvml.nvmlDeviceGetPowerUsage(handle)) / 1000.0  # mW → W
+
+    def query(self) -> list[dict[str, Any]]:
+        pynvml = self._pynvml
+        rows: list[dict[str, Any]] = []
+        for idx, handle in self._handles:
+            try:
+                power_w = self._power_w(handle)
+                graphics_mhz = int(pynvml.nvmlDeviceGetClockInfo(
+                    handle, pynvml.NVML_CLOCK_GRAPHICS))
+                util = float(pynvml.nvmlDeviceGetUtilizationRates(handle).gpu)
+            except Exception as exc:  # pragma: no cover
+                return [{"error": repr(exc)}]
+            rows.append({
+                "index": idx,
+                "power_w": power_w,
+                "graphics_mhz": graphics_mhz,
+                "util_gpu_pct": util,
+            })
+        return rows
+
+    def close(self) -> None:
+        try:
+            self._pynvml.nvmlShutdown()
+        except Exception:
+            pass
+
+
 class GpuPowerSampler:
     """Append JSONL power samples tagged with wall-clock epoch seconds."""
 
@@ -106,15 +190,35 @@ class GpuPowerSampler:
             self._thread.join(timeout=10.0)
 
     def _loop(self) -> None:
-        with self.out_path.open("w", encoding="utf-8") as fh:
-            while not self._stop.is_set():
-                rec = {
-                    "wall_ts": time.time(),
-                    "gpus": _query_gpus(),
-                }
-                fh.write(json.dumps(rec) + "\n")
-                fh.flush()
-                self._stop.wait(_poll_interval_sec())
+        # Prefer the in-process NVML sampler (kHz-capable, resolves ms kernel
+        # windows). Fall back to the nvidia-smi subprocess only if NVML can't
+        # initialise — but energy capture itself is never optional.
+        nvml: _NvmlSource | None = None
+        try:
+            nvml = _NvmlSource()
+        except Exception:
+            nvml = None
+
+        if nvml is not None:
+            interval = _nvml_poll_interval_sec()
+            query = nvml.query
+        else:
+            interval = _poll_interval_sec()
+            query = _query_gpus
+
+        try:
+            with self.out_path.open("w", encoding="utf-8") as fh:
+                while not self._stop.is_set():
+                    rec = {
+                        "wall_ts": time.time(),
+                        "gpus": query(),
+                    }
+                    fh.write(json.dumps(rec) + "\n")
+                    fh.flush()
+                    self._stop.wait(interval)
+        finally:
+            if nvml is not None:
+                nvml.close()
 
 
 def compute_achieved_mhz(
