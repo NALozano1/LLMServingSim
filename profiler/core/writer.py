@@ -328,11 +328,15 @@ _KEY_FIELDS_BY_CATEGORY: dict[str, list[str]] = {
 # Extra numeric value columns to accumulate/average alongside microseconds.
 # achieved_mhz is additive across all categories — it records the median
 # GPU graphics clock measured during the shot's power-sampling window.
+# energy_j/mean_power_w/idle_power_w/power_hz are additive across all categories:
+# they come from the same shot power-sampling window as achieved_mhz (passed by the
+# runner via extra_values). Co-locating them keeps latency AND energy in one CSV row.
+_POWER_VALUE_FIELDS = ["energy_j", "mean_power_w", "idle_power_w", "power_hz"]
 _EXTRA_VALUE_FIELDS_BY_CATEGORY: dict[str, list[str]] = {
-    "moe": ["gating_ms", "expert_ms", "achieved_mhz"],
-    "dense": ["achieved_mhz"],
-    "per_sequence": ["achieved_mhz"],
-    "attention": ["achieved_mhz"],
+    "moe": ["gating_ms", "expert_ms", "achieved_mhz"] + _POWER_VALUE_FIELDS,
+    "dense": ["achieved_mhz"] + _POWER_VALUE_FIELDS,
+    "per_sequence": ["achieved_mhz"] + _POWER_VALUE_FIELDS,
+    "attention": ["achieved_mhz"] + _POWER_VALUE_FIELDS,
 }
 
 

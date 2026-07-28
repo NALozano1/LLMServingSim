@@ -51,6 +51,8 @@ from profiler.core.capture import (
 from profiler.core.gpu_power import (
     GpuPowerSampler,
     compute_achieved_mhz,
+    compute_idle_power_w,
+    compute_power_hz,
     load_power_samples,
     profiler_gpu_power_enabled,
 )
@@ -230,9 +232,21 @@ def _fire_single_shot(
     # Compute achieved_mhz from the shot's power samples so it can be
     # coalesced into the per-category CSV and embedded in the CaptureRecord.
     achieved_mhz_val: float | None = None
+    # Power-derived scalars co-located with latency in the same CSV row so the
+    # live tables (moe/dense/attention/per_sequence) carry BOTH latency and energy.
+    power_extra: dict[str, float] = {}
     if profiler_gpu_power_enabled() and power_path.is_file():
         _ps = load_power_samples(power_path)
         achieved_mhz_val = compute_achieved_mhz(_ps)
+        _mean_power = ((exec_record.get("power") or {}).get("total") or {}).get("mean_power_w")
+        for _k, _v in (
+            ("energy_j", exec_record.get("energy_j")),
+            ("mean_power_w", _mean_power),
+            ("idle_power_w", compute_idle_power_w(_ps)),
+            ("power_hz", compute_power_hz(_ps)),
+        ):
+            if _v is not None:
+                power_extra[_k] = _v
     exec_record["achieved_mhz"] = achieved_mhz_val
 
     timings_dicts = raw[0]
@@ -245,7 +259,10 @@ def _fire_single_shot(
         )
         for d in timings_dicts
     ]
-    achieved_extra = {"achieved_mhz": achieved_mhz_val} if achieved_mhz_val is not None else {}
+    achieved_extra: dict[str, float] = {}
+    if achieved_mhz_val is not None:
+        achieved_extra["achieved_mhz"] = achieved_mhz_val
+    achieved_extra.update(power_extra)
     if sink is not None:
         for point in category.extract_points(shot, timings, arch, tp):
             sink.coalesce(point, extra_values=achieved_extra or None)

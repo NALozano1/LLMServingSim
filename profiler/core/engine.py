@@ -18,6 +18,7 @@ from __future__ import annotations
 import copy
 import gc
 import json
+import os
 import shutil
 import tempfile
 from dataclasses import dataclass
@@ -152,6 +153,11 @@ def fuse_engine_kwargs(args: ProfileArgs, tp: int) -> dict[str, Any]:
     # 2. Single-GPU emulation. Actual model= path is set by spin_up.
     kwargs["tensor_parallel_size"] = 1
 
+    # 2b. Allow models that ship custom modeling code (e.g. deepseek-moe-16b,
+    # which trips vLLM's ModelConfig validation without this). Harmless for
+    # models that don't need it.
+    kwargs["trust_remote_code"] = True
+
     # 3. Compose hf_overrides:
     #       defaults (num_hidden_layers=1) → CLI → sharded.
     hf_overrides: dict[str, Any] = dict(
@@ -170,58 +176,106 @@ def fuse_engine_kwargs(args: ProfileArgs, tp: int) -> dict[str, Any]:
             "config.read_model_config(path) in the CLI layer."
         )
 
-    sharded_overrides: dict[str, Any] = {}
-    for field_name in SHARD_FIELDS:
-        if field_name not in args.model_config:
-            log.debug(
-                "shard field %r not in model config; skipping",
-                field_name,
-            )
-            continue
-        val = args.model_config[field_name]
-        if not isinstance(val, int):
-            raise TypeError(
-                f"shard field {field_name!r} must be an int; got "
-                f"{type(val).__name__}"
-            )
-        if val % tp != 0:
-            raise ValueError(
-                f"model config field {field_name!r}={val} is not "
-                f"divisible by tp={tp}; cannot TP-shard for profiling"
-            )
-        sharded_overrides[field_name] = val // tp
+    # PROFILER_EP_DECOUPLE=1 enables EP-only sharding: attention fields are
+    # NOT divided by tp (so high EP degrees like 32/128 don't hit the
+    # num_key_value_heads divisibility wall), while expert fields ARE divided
+    # as usual. This is correct for moe.csv capture because the fused_moe
+    # kernel only depends on the expert-side shapes — attention geometry is
+    # irrelevant to it. In this mode `tp` is interpreted purely as the EP
+    # degree. See profiler/EP_RANK_PROFILING.md for motivation.
+    ep_decouple = os.environ.get("PROFILER_EP_DECOUPLE", "0").strip() == "1"
 
-    # EP sharding for MoE: when tp > 1 (= EP size in vLLM), profile the
-    # per-rank kernel by dividing num_experts by tp. The token's top_k
-    # selected experts are spread across the tp ranks, so a given rank sees
-    # on the order of top_k/tp of them — its per-rank effective top_k (and
-    # hence the minimum distinct active experts) is top_k // tp, not a flat 1.
-    # That flat-1 floor only coincides with the correct value at tp == top_k
-    # (e.g. tp=8, top_k=8); for intermediate tp it understates the per-rank
-    # active-expert count. See profiler/EP_RANK_PROFILING.md.
-    if tp > 1:
+    sharded_overrides: dict[str, Any] = {}
+
+    if ep_decouple:
+        # --- EP-decouple path: experts only, attention un-sharded ----------
+        # Attention runs at its full tp=1 shape. The single-GPU emulation is
+        # not affected: tensor_parallel_size remains 1 (set above).
+        log.info(
+            "EP-decouple: attention un-sharded (tp=1); experts divided by EP=%d",
+            tp,
+        )
+        # Divide expert count. Non-divisibility is a hard error here — the
+        # caller explicitly asked for this EP degree and supplied it.
         for field_name in MOE_NUM_EXPERTS_KEYS:
             if field_name in args.model_config:
                 val = args.model_config[field_name]
-                if isinstance(val, int) and val % tp == 0:
-                    sharded_overrides[field_name] = val // tp
-                elif isinstance(val, int):
-                    log.warning(
-                        "num_experts=%d not divisible by tp=%d; "
-                        "skipping MoE EP sharding",
-                        val, tp,
+                if not isinstance(val, int):
+                    raise TypeError(
+                        f"EP-decouple: num_experts field {field_name!r} "
+                        f"must be an int; got {type(val).__name__}"
                     )
+                if val % tp != 0:
+                    raise ValueError(
+                        f"EP-decouple: num_experts field {field_name!r}={val} "
+                        f"is not divisible by EP={tp}; choose an EP degree "
+                        f"that divides num_experts evenly"
+                    )
+                sharded_overrides[field_name] = val // tp
                 break
+        # Per-rank top_k: each token's top_k global choices are spread across
+        # the tp ranks, so a given rank sees ~top_k/tp of them. Floor at 1.
         for field_name in MOE_TOP_K_KEYS:
             if field_name in args.model_config:
                 topk_val = args.model_config[field_name]
                 if isinstance(topk_val, int):
-                    # per-rank effective top_k = top_k / tp (the token's top_k
-                    # experts are spread across the tp ranks); floor at 1.
                     sharded_overrides[field_name] = max(1, topk_val // tp)
                 else:
                     sharded_overrides[field_name] = 1
                 break
+    else:
+        # --- Standard path: divide ALL SHARD_FIELDS by tp -----------------
+        for field_name in SHARD_FIELDS:
+            if field_name not in args.model_config:
+                log.debug(
+                    "shard field %r not in model config; skipping",
+                    field_name,
+                )
+                continue
+            val = args.model_config[field_name]
+            if not isinstance(val, int):
+                raise TypeError(
+                    f"shard field {field_name!r} must be an int; got "
+                    f"{type(val).__name__}"
+                )
+            if val % tp != 0:
+                raise ValueError(
+                    f"model config field {field_name!r}={val} is not "
+                    f"divisible by tp={tp}; cannot TP-shard for profiling"
+                )
+            sharded_overrides[field_name] = val // tp
+
+        # EP sharding for MoE: when tp > 1 (= EP size in vLLM), profile the
+        # per-rank kernel by dividing num_experts by tp. The token's top_k
+        # selected experts are spread across the tp ranks, so a given rank sees
+        # on the order of top_k/tp of them — its per-rank effective top_k (and
+        # hence the minimum distinct active experts) is top_k // tp, not a flat 1.
+        # That flat-1 floor only coincides with the correct value at tp == top_k
+        # (e.g. tp=8, top_k=8); for intermediate tp it understates the per-rank
+        # active-expert count. See profiler/EP_RANK_PROFILING.md.
+        if tp > 1:
+            for field_name in MOE_NUM_EXPERTS_KEYS:
+                if field_name in args.model_config:
+                    val = args.model_config[field_name]
+                    if isinstance(val, int) and val % tp == 0:
+                        sharded_overrides[field_name] = val // tp
+                    elif isinstance(val, int):
+                        log.warning(
+                            "num_experts=%d not divisible by tp=%d; "
+                            "skipping MoE EP sharding",
+                            val, tp,
+                        )
+                    break
+            for field_name in MOE_TOP_K_KEYS:
+                if field_name in args.model_config:
+                    topk_val = args.model_config[field_name]
+                    if isinstance(topk_val, int):
+                        # per-rank effective top_k = top_k / tp (the token's top_k
+                        # experts are spread across the tp ranks); floor at 1.
+                        sharded_overrides[field_name] = max(1, topk_val // tp)
+                    else:
+                        sharded_overrides[field_name] = 1
+                    break
 
     # 5. Sharding wins.
     kwargs["hf_overrides"] = _deep_merge(hf_overrides, sharded_overrides)
@@ -267,7 +321,54 @@ def spin_up(
     )
     tmpdir = Path(tempfile.mkdtemp(prefix="profiler_model_"))
     config_path = tmpdir / "config.json"
-    config_path.write_text(json.dumps(args.model_config, indent=2))
+    _cfg = dict(args.model_config)
+    auto_map = _cfg.get("auto_map") or {}
+    # Custom-code models (e.g. model_type ``deepseek``) trip vLLM's ModelConfig
+    # validation: the container's Transformers cannot PARSE an unrecognized
+    # model_type before vLLM's architecture registry (DeepseekForCausalLM ->
+    # deepseek_v2) ever runs. Fix: KEEP ``auto_map`` and materialize the
+    # referenced configuration_*/modeling_*.py next to config.json so
+    # trust_remote_code resolves them offline (the .py are already in the HF
+    # cache). vLLM still computes with its native registry impl — the custom
+    # code is only needed so Transformers can build the config object.
+    materialized = False
+    if auto_map:
+        try:
+            from huggingface_hub import hf_hub_download
+            modules = sorted({
+                v.split(".")[0]
+                for v in auto_map.values()
+                if isinstance(v, str) and "." in v
+            })
+            for mod in modules:
+                src = hf_hub_download(
+                    repo_id=args.model, filename=f"{mod}.py",
+                    token=os.environ.get("HF_TOKEN"),
+                )
+                shutil.copyfile(src, tmpdir / f"{mod}.py")
+            materialized = bool(modules)
+            log.debug("materialized custom modules %s into %s", modules, tmpdir)
+        except Exception as e:  # pragma: no cover - offline/cache edge cases
+            log.warning(
+                "could not materialize custom modeling code for %s (%s); "
+                "falling back to dropping auto_map (native vLLM registry)",
+                args.model, e,
+            )
+    if auto_map and not materialized:
+        # Fallback: original behaviour — drop auto_map, rely on vLLM's native
+        # architecture registry (works when Transformers knows the model_type).
+        _cfg = {k: v for k, v in _cfg.items() if k != "auto_map"}
+    # MoE profiling shrinks the model to num_hidden_layers=1. Models that place
+    # leading DENSE layers (``first_k_dense_replace`` > 0, e.g. the DeepSeek MoE
+    # family) would then expose only that dense layer -> vLLM builds zero
+    # FusedMoE layers and the moe hook raises "Expected at least one FusedMoE
+    # layer, got 0". Force the first layer to be MoE so the shrunk model has a
+    # MoE block to profile. Only touches models that carry the field (harmless
+    # elsewhere); correct for the --only-moe table capture.
+    if int(_cfg.get("first_k_dense_replace", 0) or 0) > 0:
+        _cfg["first_k_dense_replace"] = 0
+        log.debug("forced first_k_dense_replace=0 so the shrunk model is MoE")
+    config_path.write_text(json.dumps(_cfg, indent=2))
     log.debug("model config written to %s", config_path)
 
     kwargs["model"] = str(tmpdir)

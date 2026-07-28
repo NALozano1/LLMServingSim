@@ -466,6 +466,19 @@ def main(argv: list[str] | None = None) -> int:
         model_config=model_config,
     )
 
+    # 4b. Hard gate: EP-decouple must not write into full-MoE trees
+    # (2026-07-17: pollution of profiler/perf → bogus ~43% H100 MAE).
+    if os.environ.get("PROFILER_EP_DECOUPLE", "0").strip() == "1":
+        from profiler.tools.table_integrity import (  # noqa: WPS433
+            TableIntegrityError,
+            assert_ep_decouple_out_root_ok,
+        )
+        try:
+            assert_ep_decouple_out_root_ok(Path(ns.out_root))
+        except TableIntegrityError as exc:
+            log.error("%s", exc)
+            return 2
+
     # 5. Dispatch.
     if ns.cmd == "profile":
         run_full(arch_path, profile_args, ns.out_root)
